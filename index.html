@@ -4,9 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Household Expense Tracker</title>
-    <!-- External Libraries for CSV and Photo OCR -->
+    <!-- Libraries for CSV, Receipt OCR, and PDF Parsing -->
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         :root {
             --primary: #2563eb;
@@ -15,7 +16,6 @@
             --text: #1e293b;
             --border: #e2e8f0;
             --danger: #ef4444;
-            --success: #10b981;
         }
 
         body {
@@ -27,7 +27,7 @@
         }
 
         .container {
-            max-width: 850px;
+            max-width: 900px;
             margin: 0 auto;
         }
 
@@ -60,14 +60,10 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
 
-        .grid-2 {
+        .grid-3 {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 15px;
-        }
-
-        @media (max-width: 600px) {
-            .grid-2 { grid-template-columns: 1fr; }
         }
 
         form {
@@ -100,6 +96,7 @@
             border-radius: 8px;
             background: #f1f5f9;
             cursor: pointer;
+            font-size: 0.85rem;
         }
 
         .drop-zone input { display: none; }
@@ -117,6 +114,14 @@
         }
 
         th { background-color: #f1f5f9; }
+
+        .tag {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #e2e8f0;
+        }
 
         .delete-btn {
             background: none;
@@ -139,7 +144,7 @@
         }
 
         .status {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: #64748b;
             margin-top: 5px;
         }
@@ -150,32 +155,42 @@
 <div class="container">
     <h1>🏠 Household Expense Tracker</h1>
 
-    <!-- Total -->
+    <!-- Summary Box -->
     <div class="summary-card">
         <span>Total Expenses</span>
         <h2 id="total-amount">¥0</h2>
     </div>
 
-    <!-- Quick Import Tools -->
-    <div class="grid-2">
-        <!-- Credit Card CSV Import -->
+    <!-- Multi-Import Header -->
+    <div class="grid-3">
+        <!-- PDF Statement Upload -->
         <div class="card">
-            <h3>💳 Import Credit Card CSV</h3>
-            <div class="drop-zone" onclick="document.getElementById('csv-file').click()">
-                <span>Click to Upload CSV Statement</span>
-                <input type="file" id="csv-file" accept=".csv" onchange="handleCSVUpload(event)">
+            <h3>📄 Import PDF Statement</h3>
+            <div class="drop-zone" onclick="document.getElementById('pdf-file').click()">
+                <span>Upload Card PDF Statement</span>
+                <input type="file" id="pdf-file" accept=".pdf" onchange="handlePDFUpload(event)">
             </div>
-            <div class="status" id="csv-status">Supports standard bank statements.</div>
+            <div class="status" id="pdf-status">Auto-extracts and categorizes lines.</div>
         </div>
 
-        <!-- Receipt Photo Scanner -->
+        <!-- CSV Statement Upload -->
+        <div class="card">
+            <h3>💳 Import CSV File</h3>
+            <div class="drop-zone" onclick="document.getElementById('csv-file').click()">
+                <span>Upload Credit Card CSV</span>
+                <input type="file" id="csv-file" accept=".csv" onchange="handleCSVUpload(event)">
+            </div>
+            <div class="status" id="csv-status">Parses transaction spreadsheets.</div>
+        </div>
+
+        <!-- Receipt Image Upload -->
         <div class="card">
             <h3>📷 Scan Receipt Photo</h3>
             <div class="drop-zone" onclick="document.getElementById('receipt-file').click()">
-                <span>Click to Upload Receipt Image</span>
+                <span>Upload Receipt Photo</span>
                 <input type="file" id="receipt-file" accept="image/*" onchange="handleReceiptUpload(event)">
             </div>
-            <div class="status" id="ocr-status">Extracts totals directly on your device.</div>
+            <div class="status" id="ocr-status">Scans total amount off receipts.</div>
         </div>
     </div>
 
@@ -187,9 +202,10 @@
             <input type="text" id="description" placeholder="Description" required>
             <select id="category" required>
                 <option value="Food & Groceries">Food & Groceries</option>
-                <option value="Utilities">Utilities</option>
-                <option value="Housing / Rent">Housing / Rent</option>
-                <option value="Education / Activities">Education / Activities</option>
+                <option value="Car & Transport">Car & Transport</option>
+                <option value="Shopping">Shopping</option>
+                <option value="Household & Utilities">Household & Utilities</option>
+                <option value="Education & Activities">Education & Activities</option>
                 <option value="Travel & Leisure">Travel & Leisure</option>
                 <option value="Other">Other</option>
             </select>
@@ -198,7 +214,7 @@
         </form>
     </div>
 
-    <!-- Expense Log -->
+    <!-- Expense Table -->
     <div class="card">
         <h3>Expense Log</h3>
         <table>
@@ -222,8 +238,37 @@
 </div>
 
 <script>
+    // Initialize PDF.js worker
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
     document.getElementById('date').valueAsDate = new Date();
     let expenses = JSON.parse(localStorage.getItem('household_expenses')) || [];
+
+    // Automatic Categorization Engine
+    function categorize(description) {
+        const desc = description.toLowerCase();
+        
+        if (/(supermarket|grocery|mart|food|market|bakery|restaurant|cafe|coffee|mcdonald|7-eleven|family mart|lawson|dining|eat)/i.test(desc)) {
+            return "Food & Groceries";
+        }
+        if (/(gas|petrol|fuel|car|parking|toll|taxi|uber|train|transit|suica|pasmo|auto|repair)/i.test(desc)) {
+            return "Car & Transport";
+        }
+        if (/(amazon|shopping|clothing|store|uniqlo|zara|mall|retail|fashion|electronics)/i.test(desc)) {
+            return "Shopping";
+        }
+        if (/(electric|water|gas bill|utility|rent|house|internet|wifi|mobile|phone|maintenance|ikea)/i.test(desc)) {
+            return "Household & Utilities";
+        }
+        if (/(school|tuition|swim|lesson|book|sports|gym|activity|education|class)/i.test(desc)) {
+            return "Education & Activities";
+        }
+        if (/(hotel|flight|airline|travel|resort|vacation|ski|park|ticket)/i.test(desc)) {
+            return "Travel & Leisure";
+        }
+        
+        return "Other";
+    }
 
     function renderExpenses() {
         const list = document.getElementById('expense-list');
@@ -239,7 +284,7 @@
             row.innerHTML = `
                 <td>${expense.date}</td>
                 <td>${expense.description}</td>
-                <td><strong>${expense.category}</strong></td>
+                <td><span class="tag">${expense.category}</span></td>
                 <td>¥${Number(expense.amount).toLocaleString()}</td>
                 <td><button class="delete-btn" onclick="deleteExpense(${index})">✕</button></td>
             `;
@@ -250,7 +295,7 @@
         localStorage.setItem('household_expenses', JSON.stringify(expenses));
     }
 
-    // Add Manual Expense
+    // Manual Entry
     document.getElementById('expense-form').addEventListener('submit', (e) => {
         e.preventDefault();
         expenses.push({
@@ -263,6 +308,60 @@
         document.getElementById('description').value = '';
         document.getElementById('amount').value = '';
     });
+
+    // Handle PDF Import
+    async function handlePDFUpload(event) {
+        const file = event.target.files[0];
+        const status = document.getElementById('pdf-status');
+        if (!file) return;
+
+        status.textContent = "Parsing PDF statement...";
+
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let fullText = "";
+
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join(" ");
+                fullText += pageText + "\n";
+            }
+
+            // Regular expression to match typical date + merchant + amount patterns
+            // Matches dates like 2026/04/12 or 04/12/2026 or 2026-04-12
+            const lineRegex = /(\d{4}[\/\.-]\d{1,2}[\/\.-]\d{1,2}|\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4})\s+([A-Za-z0-9\s\-\.\*]+?)\s+[¥\$]?\s*([\d,]+\.?\d*)/g;
+            
+            let match;
+            let count = 0;
+
+            while ((match = lineRegex.exec(fullText)) !== null) {
+                const rawDate = match[1].replace(/\./g, '-').replace(/\//g, '-');
+                const desc = match[2].trim();
+                let amount = parseFloat(match[3].replace(/,/g, ''));
+
+                if (desc.length > 2 && !isNaN(amount) && amount > 0) {
+                    expenses.push({
+                        date: rawDate,
+                        description: desc,
+                        category: categorize(desc),
+                        amount: amount
+                    });
+                    count++;
+                }
+            }
+
+            renderExpenses();
+            if (count > 0) {
+                status.textContent = `Successfully extracted ${count} categorized transactions!`;
+            } else {
+                status.textContent = "Extracted text, but couldn't detect statement pattern automatically. Try CSV format.";
+            }
+        } catch (err) {
+            status.textContent = "Failed to parse PDF file.";
+        }
+    }
 
     // Handle CSV Import
     function handleCSVUpload(event) {
@@ -278,12 +377,10 @@
             complete: function(results) {
                 let count = 0;
                 results.data.forEach(row => {
-                    // Smart detection of CSV columns across typical bank exports
                     const date = row.Date || row.date || row['Transaction Date'] || new Date().toISOString().split('T')[0];
                     const desc = row.Description || row.description || row.Payee || row.Name || 'Credit Card Charge';
                     let amount = row.Amount || row.amount || row.Price || 0;
                     
-                    // Clean numeric amount (remove currency symbols/commas)
                     amount = String(amount).replace(/[^0-9.-]+/g, "");
                     amount = Math.abs(parseFloat(amount));
 
@@ -291,17 +388,17 @@
                         expenses.push({
                             date: date,
                             description: desc,
-                            category: 'Other',
+                            category: categorize(desc),
                             amount: amount
                         });
                         count++;
                     }
                 });
                 renderExpenses();
-                status.textContent = `Successfully imported ${count} transactions!`;
+                status.textContent = `Imported & categorized ${count} transactions!`;
             },
             error: function() {
-                status.textContent = "Error parsing CSV file.";
+                status.textContent = "Error reading CSV.";
             }
         });
     }
@@ -312,7 +409,7 @@
         const status = document.getElementById('ocr-status');
         if (!file) return;
 
-        status.textContent = "Scanning receipt image (takes a few seconds)...";
+        status.textContent = "Scanning image...";
 
         try {
             const worker = await Tesseract.createWorker('eng');
@@ -320,24 +417,21 @@
             await worker.terminate();
 
             const text = ret.data.text;
-
-            // Extract numeric values from text to estimate Total
             const numbers = text.match(/\d+[\.,]?\d*/g)
-                .map(n => parseFloat(n.replace(',', '')))
-                .filter(n => !isNaN(n) && n > 0);
+                ?.map(n => parseFloat(n.replace(',', '')))
+                .filter(n => !isNaN(n) && n > 0) || [];
 
             if (numbers.length > 0) {
-                // Assume largest number found on receipt is the total
                 const detectedTotal = Math.max(...numbers);
-
                 document.getElementById('amount').value = detectedTotal;
                 document.getElementById('description').value = "Scanned Receipt";
-                status.textContent = `Extracted ¥${detectedTotal.toLocaleString()}! Verify and click 'Add Entry'.`;
+                document.getElementById('category').value = "Food & Groceries";
+                status.textContent = `Extracted ¥${detectedTotal.toLocaleString()}! Confirm and click 'Add Entry'.`;
             } else {
-                status.textContent = "Could not find clear amounts. Please enter manually.";
+                status.textContent = "Could not find totals on receipt.";
             }
         } catch (err) {
-            status.textContent = "Failed to scan image. Please try again.";
+            status.textContent = "Error scanning image.";
         }
     }
 
