@@ -74,14 +74,8 @@
 
         .chart-container {
             position: relative;
-            height: 280px;
+            height: 320px;
             width: 100%;
-        }
-
-        form {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 12px;
         }
 
         input, select, button {
@@ -106,6 +100,21 @@
             border: none;
             cursor: pointer;
             font-weight: 600;
+        }
+
+        .btn-toggle {
+            background: #e2e8f0;
+            color: #334155;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 6px;
+        }
+
+        .btn-toggle.active {
+            background: var(--primary);
+            color: white;
         }
 
         .drop-zone {
@@ -147,8 +156,8 @@
             background: var(--card-bg);
             padding: 24px;
             border-radius: var(--radius);
-            width: 90%;
-            max-width: 700px;
+            width: 92%;
+            max-width: 850px;
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
         }
 
@@ -156,7 +165,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
 
         .close-btn {
@@ -165,13 +174,31 @@
             font-size: 1.5rem;
             cursor: pointer;
         }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .metric-card {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .metric-card span { font-size: 0.8rem; color: var(--text-secondary); }
+        .metric-card div { font-size: 1.2rem; font-weight: bold; margin-top: 4px; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="app-header">
-        <h1>🏠 Household Expense & Energy Tracker</h1>
+        <h1>🏠 Household Expense & Solar Energy Tracker</h1>
     </div>
 
     <!-- Summary Box -->
@@ -182,7 +209,6 @@
 
     <!-- Imports Grid -->
     <div class="grid-4">
-        <!-- PDF Upload -->
         <div class="card">
             <h3>📄 Statement PDF</h3>
             <div class="drop-zone" onclick="document.getElementById('pdf-file').click()">
@@ -192,7 +218,6 @@
             <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top:5px;" id="pdf-status">PDF Card Statements</div>
         </div>
 
-        <!-- CSV Upload -->
         <div class="card">
             <h3>💳 Expense CSV</h3>
             <div class="drop-zone" onclick="document.getElementById('csv-file').click()">
@@ -202,17 +227,16 @@
             <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top:5px;" id="csv-status">Card/Bank CSVs</div>
         </div>
 
-        <!-- Solar Data CSV -->
+        <!-- Solar CSV Dropzone -->
         <div class="card">
             <h3>☀️ Solar Data CSV</h3>
             <div class="drop-zone" onclick="document.getElementById('solar-file').click()">
                 <span>Upload Solar CSV</span>
                 <input type="file" id="solar-file" accept=".csv" onchange="handleSolarCSVUpload(event)">
             </div>
-            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top:5px;" id="solar-status">Solar / Grid kWh Data</div>
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top:5px;" id="solar-status">Daily/Monthly CSV format</div>
         </div>
 
-        <!-- Receipt Scan -->
         <div class="card">
             <h3>📷 Receipt Image</h3>
             <div class="drop-zone" onclick="document.getElementById('receipt-file').click()">
@@ -228,7 +252,7 @@
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
             <h3 style="margin:0;">📊 Analytics & Breakdown</h3>
             <div>
-                <button class="btn-solar" onclick="openSolarModal()" style="margin-right:10px;">⚡ View Solar Analysis</button>
+                <button class="btn-solar" onclick="openSolarModal()" style="margin-right:10px;">☀️ Solar Energy Modal</button>
                 <label for="filter-month" style="font-size: 0.9rem; font-weight: 600;">Month: </label>
                 <select id="filter-month" onchange="renderExpenses()"></select>
             </div>
@@ -269,11 +293,35 @@
 <div class="modal-overlay" id="solarModal">
     <div class="modal-content">
         <div class="modal-header">
-            <h2 style="margin:0;">☀️ Solar vs. Purchased Electricity</h2>
+            <h2 style="margin:0;">☀️ Solar Electricity Monitor</h2>
             <button class="close-btn" onclick="closeSolarModal()">&times;</button>
         </div>
-        <div id="solar-metrics" style="margin-bottom: 15px; font-weight: 600; color: var(--text-secondary);"></div>
-        <div class="chart-container" style="height:320px;">
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <div>
+                <button id="btnViewDaily" class="btn-toggle active" onclick="setSolarViewMode('daily')">Daily View</button>
+                <button id="btnViewMonthly" class="btn-toggle" onclick="setSolarViewMode('monthly')">Monthly View</button>
+            </div>
+            <span id="solar-period-title" style="font-weight: 600; color: var(--text-secondary);"></span>
+        </div>
+
+        <!-- Metrics Cards -->
+        <div class="metrics-grid">
+            <div class="metric-card" style="border-top: 4px solid #f59e0b;">
+                <span>Electricity Generated</span>
+                <div id="m-generated" style="color: #d97706;">0.0 kWh</div>
+            </div>
+            <div class="metric-card" style="border-top: 4px solid #10b981;">
+                <span>Electricity Consumed</span>
+                <div id="m-consumed" style="color: #059669;">0.0 kWh</div>
+            </div>
+            <div class="metric-card" style="border-top: 4px solid #ef4444;">
+                <span>Electricity Purchased</span>
+                <div id="m-purchased" style="color: #dc2626;">0.0 kWh</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
             <canvas id="solarChart"></canvas>
         </div>
     </div>
@@ -283,9 +331,10 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
     let expenses = JSON.parse(localStorage.getItem('household_expenses')) || [];
-    let solarData = JSON.parse(localStorage.getItem('solar_consumption_data')) || [];
-    let customCategories = ["Food & Groceries", "Car & Transport", "Shopping", "Household & Utilities", "Education & Activities", "Travel & Leisure", "Subscriptions & Streaming", "Health & Medical", "Insurance & Finance", "Other"];
+    let solarDailyData = JSON.parse(localStorage.getItem('solar_daily_data')) || [];
+    let solarMonthlyData = JSON.parse(localStorage.getItem('solar_monthly_data')) || [];
     
+    let currentSolarViewMode = 'daily';
     let pieChartInstance, barChartInstance, solarChartInstance;
 
     function sanitizeDate(rawDateStr) {
@@ -301,7 +350,7 @@
         return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     }
 
-    // Handle Solar CSV Upload
+    // Solar CSV Parser Supporting Japanese Column Names
     function handleSolarCSVUpload(event) {
         const file = event.target.files[0];
         const status = document.getElementById('solar-status');
@@ -311,20 +360,44 @@
             header: true,
             skipEmptyLines: true,
             complete: function(results) {
-                let count = 0;
-                results.data.forEach(row => {
-                    let rawDate = row.Date || row.date || row['日付'] || '';
-                    let cleanDate = sanitizeDate(rawDate);
-                    let solarKwh = parseFloat(row.Solar || row.solar_kwh || row['自家消費'] || row['Solar kWh'] || 0);
-                    let gridKwh = parseFloat(row.Grid || row.grid_kwh || row['買電'] || row['Grid Purchased kWh'] || 0);
+                let dailyCount = 0;
+                let monthlyCount = 0;
 
-                    if (cleanDate && (!isNaN(solarKwh) || !isNaN(gridKwh))) {
-                        solarData.push({ date: cleanDate, solar: solarKwh, grid: gridKwh });
-                        count++;
+                results.data.forEach(row => {
+                    // Check if row is Daily Format
+                    let rawDate = row['年月日'] || row['Date'] || row['日付'] || '';
+                    let gen = parseFloat(row['発電電力量[kWh]'] || row['Generated'] || 0);
+                    let con = parseFloat(row['消費電力量[kWh]'] || row['Consumed'] || 0);
+                    let pur = parseFloat(row['買電電力量[kWh]'] || row['Purchased'] || 0);
+
+                    let cleanDate = sanitizeDate(rawDate);
+
+                    if (cleanDate && (!isNaN(gen) || !isNaN(con) || !isNaN(pur))) {
+                        solarDailyData.push({
+                            date: cleanDate,
+                            generated: isNaN(gen) ? 0 : gen,
+                            consumed: isNaN(con) ? 0 : con,
+                            purchased: isNaN(pur) ? 0 : pur
+                        });
+                        dailyCount++;
+                    } else {
+                        // Check if row is Monthly Format
+                        let rawMonth = row['年月'] || row['Month'] || '';
+                        let val = parseFloat(row['電力量[kWh]'] || row['Value'] || 0);
+                        if (rawMonth && !isNaN(val)) {
+                            let formattedMonth = rawMonth.replace('/', '-');
+                            solarMonthlyData.push({ month: formattedMonth, value: val });
+                            monthlyCount++;
+                        }
                     }
                 });
-                localStorage.setItem('solar_consumption_data', JSON.stringify(solarData));
-                status.textContent = `Imported ${count} solar records!`;
+
+                localStorage.setItem('solar_daily_data', JSON.stringify(solarDailyData));
+                localStorage.setItem('solar_monthly_data', JSON.stringify(solarMonthlyData));
+
+                if (dailyCount > 0) status.textContent = `Imported ${dailyCount} daily records!`;
+                else if (monthlyCount > 0) status.textContent = `Imported ${monthlyCount} monthly records!`;
+                else status.textContent = `Imported data successfully.`;
             }
         });
     }
@@ -338,42 +411,64 @@
         document.getElementById('solarModal').style.display = 'none';
     }
 
+    function setSolarViewMode(mode) {
+        currentSolarViewMode = mode;
+        document.getElementById('btnViewDaily').classList.toggle('active', mode === 'daily');
+        document.getElementById('btnViewMonthly').classList.toggle('active', mode === 'monthly');
+        renderSolarChart();
+    }
+
     function renderSolarChart() {
         const selectedMonth = document.getElementById('filter-month').value || 'ALL';
-        const monthlySolarMap = {};
+        document.getElementById('solar-period-title').textContent = `Scope: ${selectedMonth}`;
 
-        solarData.forEach(d => {
-            if (d.date && d.date.length >= 7) {
-                const monthKey = d.date.substring(0, 7);
-                if (!monthlySolarMap[monthKey]) monthlySolarMap[monthKey] = { solar: 0, grid: 0 };
-                monthlySolarMap[monthKey].solar += d.solar;
-                monthlySolarMap[monthKey].grid += d.grid;
-            }
-        });
+        let labels = [], dataGenerated = [], dataConsumed = [], dataPurchased = [];
+        let totalGen = 0, totalCon = 0, totalPur = 0;
 
-        const sortedMonths = Object.keys(monthlySolarMap).sort();
-        const solarValues = sortedMonths.map(m => monthlySolarMap[m].solar);
-        const gridValues = sortedMonths.map(m => monthlySolarMap[m].grid);
+        if (currentSolarViewMode === 'daily') {
+            const filteredDaily = solarDailyData.filter(d => selectedMonth === 'ALL' || d.date.startsWith(selectedMonth));
+            filteredDaily.sort((a,b) => a.date.localeCompare(b.date));
 
-        // Calculate Self-Sufficiency for Selected Month
-        let currentSolar = 0, currentGrid = 0;
-        if (selectedMonth !== 'ALL' && monthlySolarMap[selectedMonth]) {
-            currentSolar = monthlySolarMap[selectedMonth].solar;
-            currentGrid = monthlySolarMap[selectedMonth].grid;
+            filteredDaily.forEach(d => {
+                labels.push(d.date);
+                dataGenerated.push(d.generated);
+                dataConsumed.push(d.consumed);
+                dataPurchased.push(d.purchased);
+
+                totalGen += d.generated;
+                totalCon += d.consumed;
+                totalPur += d.purchased;
+            });
         } else {
-            currentSolar = solarValues.reduce((a, b) => a + b, 0);
-            currentGrid = gridValues.reduce((a, b) => a + b, 0);
+            // Aggregate Daily records into Months
+            const monthlyAgg = {};
+            solarDailyData.forEach(d => {
+                const mKey = d.date.substring(0, 7);
+                if (!monthlyAgg[mKey]) monthlyAgg[mKey] = { generated: 0, consumed: 0, purchased: 0 };
+                monthlyAgg[mKey].generated += d.generated;
+                monthlyAgg[mKey].consumed += d.consumed;
+                monthlyAgg[mKey].purchased += d.purchased;
+            });
+
+            const sortedMonths = Object.keys(monthlyAgg).sort();
+            sortedMonths.forEach(m => {
+                if (selectedMonth === 'ALL' || m === selectedMonth) {
+                    labels.push(m);
+                    dataGenerated.push(monthlyAgg[m].generated);
+                    dataConsumed.push(monthlyAgg[m].consumed);
+                    dataPurchased.push(monthlyAgg[m].purchased);
+
+                    totalGen += monthlyAgg[m].generated;
+                    totalCon += monthlyAgg[m].consumed;
+                    totalPur += monthlyAgg[m].purchased;
+                }
+            });
         }
 
-        const totalEnergy = currentSolar + currentGrid;
-        const solarPercentage = totalEnergy > 0 ? ((currentSolar / totalEnergy) * 100).toFixed(1) : 0;
-
-        document.getElementById('solar-metrics').innerHTML = `
-            Selected Period: <strong>${selectedMonth}</strong> | 
-            ☀️ Solar: <strong>${currentSolar.toFixed(1)} kWh</strong> | 
-            🔌 Grid: <strong>${currentGrid.toFixed(1)} kWh</strong> | 
-            🌱 Solar Coverage: <strong>${solarPercentage}%</strong>
-        `;
+        // Update Summary Cards
+        document.getElementById('m-generated').textContent = `${totalGen.toFixed(1)} kWh`;
+        document.getElementById('m-consumed').textContent = `${totalCon.toFixed(1)} kWh`;
+        document.getElementById('m-purchased').textContent = `${totalPur.toFixed(1)} kWh`;
 
         if (solarChartInstance) solarChartInstance.destroy();
 
@@ -381,16 +476,19 @@
         solarChartInstance = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: sortedMonths.length > 0 ? sortedMonths : ['No Solar Data'],
+                labels: labels.length > 0 ? labels : ['No Data'],
                 datasets: [
-                    { label: 'Solar Generated (kWh)', data: solarValues, backgroundColor: '#f59e0b', borderRadius: 4 },
-                    { label: 'Grid Purchased (kWh)', data: gridValues, backgroundColor: '#3b82f6', borderRadius: 4 }
+                    { label: 'Electricity Generated (kWh)', data: dataGenerated, backgroundColor: '#f59e0b', borderRadius: 4 },
+                    { label: 'Electricity Consumed (kWh)', data: dataConsumed, backgroundColor: '#10b981', borderRadius: 4 },
+                    { label: 'Electricity Purchased (kWh)', data: dataPurchased, backgroundColor: '#ef4444', borderRadius: 4 }
                 ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                scales: { y: { beginAtZero: true, title: { display: true, text: 'kWh' } } }
+                scales: {
+                    y: { beginAtZero: true, title: { display: true, text: 'kWh' } }
+                }
             }
         });
     }
@@ -402,7 +500,7 @@
 
         const months = new Set();
         expenses.forEach(e => { if (e.date) months.add(e.date.substring(0, 7)); });
-        solarData.forEach(s => { if (s.date) months.add(s.date.substring(0, 7)); });
+        solarDailyData.forEach(s => { if (s.date) months.add(s.date.substring(0, 7)); });
 
         const sortedMonths = Array.from(months).sort().reverse();
         sortedMonths.forEach(m => {
