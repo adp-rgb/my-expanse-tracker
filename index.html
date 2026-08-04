@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Household Expense & Energy Tracker</title>
+    <title>Household Expense & Solar Energy Tracker</title>
     <!-- External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
@@ -31,165 +31,46 @@
             padding: 24px 12px;
         }
 
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-
-        .app-header {
-            text-align: center;
-            margin-bottom: 24px;
-        }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .app-header { text-align: center; margin-bottom: 24px; }
 
         .summary-card {
             background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-            color: white;
-            padding: 24px;
-            border-radius: var(--radius);
-            text-align: center;
-            margin-bottom: 24px;
+            color: white; padding: 24px; border-radius: var(--radius);
+            text-align: center; margin-bottom: 24px;
             box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.25);
         }
 
         .card {
-            background: var(--card-bg);
-            padding: 20px;
-            border-radius: var(--radius);
-            border: 1px solid var(--border);
-            margin-bottom: 24px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            background: var(--card-bg); padding: 20px;
+            border-radius: var(--radius); border: 1px solid var(--border);
+            margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
 
-        .grid-4 {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-        }
+        .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+        .grid-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+        .chart-container { position: relative; height: 320px; width: 100%; }
 
-        .grid-charts {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 20px;
-        }
+        input, select, button { padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; outline: none; }
+        .btn-primary { background: var(--primary); color: white; border: none; cursor: pointer; font-weight: 600; }
+        .btn-solar { background: var(--solar); color: white; border: none; cursor: pointer; font-weight: 600; }
 
-        .chart-container {
-            position: relative;
-            height: 320px;
-            width: 100%;
-        }
+        .btn-toggle { background: #e2e8f0; color: #334155; border: none; cursor: pointer; font-weight: 600; padding: 6px 12px; border-radius: 6px; }
+        .btn-toggle.active { background: var(--primary); color: white; }
 
-        input, select, button {
-            padding: 10px 14px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-size: 0.9rem;
-            outline: none;
-        }
-
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-weight: 600;
-        }
-
-        .btn-solar {
-            background: var(--solar);
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-weight: 600;
-        }
-
-        .btn-toggle {
-            background: #e2e8f0;
-            color: #334155;
-            border: none;
-            cursor: pointer;
-            font-weight: 600;
-            padding: 6px 12px;
-            border-radius: 6px;
-        }
-
-        .btn-toggle.active {
-            background: var(--primary);
-            color: white;
-        }
-
-        .drop-zone {
-            border: 2px dashed #cbd5e1;
-            padding: 15px 10px;
-            text-align: center;
-            border-radius: 8px;
-            background: #f8fafc;
-            cursor: pointer;
-        }
-
+        .drop-zone { border: 2px dashed #cbd5e1; padding: 15px 10px; text-align: center; border-radius: 8px; background: #f8fafc; cursor: pointer; }
         .drop-zone input { display: none; }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
 
-        th, td {
-            text-align: left;
-            padding: 12px 10px;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.9rem;
-        }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: var(--card-bg); padding: 24px; border-radius: var(--radius); width: 92%; max-width: 850px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .close-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; }
 
-        /* Modal Styling */
-        .modal-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-
-        .modal-content {
-            background: var(--card-bg);
-            padding: 24px;
-            border-radius: var(--radius);
-            width: 92%;
-            max-width: 850px;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
-        .close-btn {
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-        }
-
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-
-        .metric-card {
-            background: #f8fafc;
-            border: 1px solid var(--border);
-            padding: 12px;
-            border-radius: 8px;
-            text-align: center;
-        }
-
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
+        .metric-card { background: #f8fafc; border: 1px solid var(--border); padding: 12px; border-radius: 8px; text-align: center; }
         .metric-card span { font-size: 0.8rem; color: var(--text-secondary); }
         .metric-card div { font-size: 1.2rem; font-weight: bold; margin-top: 4px; }
     </style>
@@ -227,14 +108,14 @@
             <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top:5px;" id="csv-status">Card/Bank CSVs</div>
         </div>
 
-        <!-- Solar CSV Dropzone -->
+        <!-- Solar CSV Upload -->
         <div class="card">
             <h3>☀️ Solar Data CSV</h3>
             <div class="drop-zone" onclick="document.getElementById('solar-file').click()">
                 <span>Upload Solar CSV</span>
                 <input type="file" id="solar-file" accept=".csv" onchange="handleSolarCSVUpload(event)">
             </div>
-            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top:5px;" id="solar-status">Daily/Monthly CSV format</div>
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top:5px;" id="solar-status">Supports Daily & Monthly CSVs</div>
         </div>
 
         <div class="card">
@@ -350,54 +231,99 @@
         return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     }
 
-    // Solar CSV Parser Supporting Japanese Column Names
+    // Cleaning helper: Strips BOM characters, spaces, and quotes from header strings
+    function cleanHeader(hdr) {
+        return hdr ? hdr.replace(/^\uFEFF/, '').replace(/["']/g, '').trim() : '';
+    }
+
+    function parseNum(val) {
+        if (val === undefined || val === null || val === '') return 0;
+        let num = parseFloat(String(val).replace(/,/g, ''));
+        return isNaN(num) ? 0 : num;
+    }
+
+    // Solar CSV Parser with BOM Strip & Header Detection
     function handleSolarCSVUpload(event) {
         const file = event.target.files[0];
         const status = document.getElementById('solar-status');
         if (!file) return;
 
         Papa.parse(file, {
-            header: true,
+            header: false, // Parse raw matrix first to safely locate valid header row
             skipEmptyLines: true,
             complete: function(results) {
+                let rows = results.data;
+                if (!rows || rows.length === 0) {
+                    status.textContent = "CSV file is empty.";
+                    return;
+                }
+
+                // Locate header row containing valid date column keywords
+                let headerIndex = -1;
+                for (let i = 0; i < rows.length; i++) {
+                    let cleanedRow = rows[i].map(cleanHeader);
+                    if (cleanedRow.some(col => col === '年月日' || col === '年月' || col === 'Date' || col === 'Month')) {
+                        headerIndex = i;
+                        break;
+                    }
+                }
+
+                if (headerIndex === -1) {
+                    status.textContent = "Could not locate valid header columns.";
+                    return;
+                }
+
+                let headers = rows[headerIndex].map(cleanHeader);
                 let dailyCount = 0;
                 let monthlyCount = 0;
 
-                results.data.forEach(row => {
-                    // Check if row is Daily Format
+                for (let i = headerIndex + 1; i < rows.length; i++) {
+                    let rowArr = rows[i];
+                    let row = {};
+                    headers.forEach((h, idx) => {
+                        row[h] = rowArr[idx] !== undefined ? String(rowArr[idx]).replace(/["']/g, '').trim() : '';
+                    });
+
+                    // Check for Daily Data Row
                     let rawDate = row['年月日'] || row['Date'] || row['日付'] || '';
-                    let gen = parseFloat(row['発電電力量[kWh]'] || row['Generated'] || 0);
-                    let con = parseFloat(row['消費電力量[kWh]'] || row['Consumed'] || 0);
-                    let pur = parseFloat(row['買電電力量[kWh]'] || row['Purchased'] || 0);
+                    if (rawDate) {
+                        let cleanDate = sanitizeDate(rawDate);
+                        if (cleanDate) {
+                            let gen = parseNum(row['発電電力量[kWh]'] || row['Generated']);
+                            let con = parseNum(row['消費電力量[kWh]'] || row['Consumed']);
+                            let pur = parseNum(row['買電電力量[kWh]'] || row['Purchased']);
 
-                    let cleanDate = sanitizeDate(rawDate);
-
-                    if (cleanDate && (!isNaN(gen) || !isNaN(con) || !isNaN(pur))) {
-                        solarDailyData.push({
-                            date: cleanDate,
-                            generated: isNaN(gen) ? 0 : gen,
-                            consumed: isNaN(con) ? 0 : con,
-                            purchased: isNaN(pur) ? 0 : pur
-                        });
-                        dailyCount++;
+                            // Exclude completely empty rows
+                            if (gen > 0 || con > 0 || pur > 0) {
+                                solarDailyData.push({
+                                    date: cleanDate,
+                                    generated: gen,
+                                    consumed: con,
+                                    purchased: pur
+                                });
+                                dailyCount++;
+                            }
+                        }
                     } else {
-                        // Check if row is Monthly Format
+                        // Check for Monthly Data Row
                         let rawMonth = row['年月'] || row['Month'] || '';
-                        let val = parseFloat(row['電力量[kWh]'] || row['Value'] || 0);
-                        if (rawMonth && !isNaN(val)) {
+                        if (rawMonth) {
                             let formattedMonth = rawMonth.replace('/', '-');
+                            let val = parseNum(row['電力量[kWh]'] || row['Value']);
                             solarMonthlyData.push({ month: formattedMonth, value: val });
                             monthlyCount++;
                         }
                     }
-                });
+                }
 
                 localStorage.setItem('solar_daily_data', JSON.stringify(solarDailyData));
                 localStorage.setItem('solar_monthly_data', JSON.stringify(solarMonthlyData));
 
                 if (dailyCount > 0) status.textContent = `Imported ${dailyCount} daily records!`;
                 else if (monthlyCount > 0) status.textContent = `Imported ${monthlyCount} monthly records!`;
-                else status.textContent = `Imported data successfully.`;
+                else status.textContent = `Imported solar records successfully!`;
+
+                renderExpenses();
             }
         });
     }
@@ -465,7 +391,7 @@
             });
         }
 
-        // Update Summary Cards
+        // Update Summary Display
         document.getElementById('m-generated').textContent = `${totalGen.toFixed(1)} kWh`;
         document.getElementById('m-consumed').textContent = `${totalCon.toFixed(1)} kWh`;
         document.getElementById('m-purchased').textContent = `${totalPur.toFixed(1)} kWh`;
@@ -476,7 +402,7 @@
         solarChartInstance = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: labels.length > 0 ? labels : ['No Data'],
+                labels: labels.length > 0 ? labels : ['No Data Available'],
                 datasets: [
                     { label: 'Electricity Generated (kWh)', data: dataGenerated, backgroundColor: '#f59e0b', borderRadius: 4 },
                     { label: 'Electricity Consumed (kWh)', data: dataConsumed, backgroundColor: '#10b981', borderRadius: 4 },
