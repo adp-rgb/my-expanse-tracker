@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Household Expense Tracker</title>
-    <!-- Libraries for CSV, Receipt OCR, and PDF Parsing -->
+    <!-- External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -121,6 +121,7 @@
             font-size: 0.75rem;
             font-weight: 600;
             background: #e2e8f0;
+            display: inline-block;
         }
 
         .delete-btn {
@@ -161,36 +162,36 @@
         <h2 id="total-amount">¥0</h2>
     </div>
 
-    <!-- Multi-Import Header -->
+    <!-- Multi-Import Section -->
     <div class="grid-3">
-        <!-- PDF Statement Upload -->
+        <!-- PDF Upload -->
         <div class="card">
             <h3>📄 Import PDF Statement</h3>
             <div class="drop-zone" onclick="document.getElementById('pdf-file').click()">
-                <span>Upload Card PDF Statement</span>
+                <span>Upload Card PDF</span>
                 <input type="file" id="pdf-file" accept=".pdf" onchange="handlePDFUpload(event)">
             </div>
-            <div class="status" id="pdf-status">Auto-extracts and categorizes lines.</div>
+            <div class="status" id="pdf-status">Extracts lines & creates new categories.</div>
         </div>
 
-        <!-- CSV Statement Upload -->
+        <!-- CSV Upload -->
         <div class="card">
             <h3>💳 Import CSV File</h3>
             <div class="drop-zone" onclick="document.getElementById('csv-file').click()">
-                <span>Upload Credit Card CSV</span>
+                <span>Upload Statement CSV</span>
                 <input type="file" id="csv-file" accept=".csv" onchange="handleCSVUpload(event)">
             </div>
-            <div class="status" id="csv-status">Parses transaction spreadsheets.</div>
+            <div class="status" id="csv-status">Parses & auto-registers categories.</div>
         </div>
 
-        <!-- Receipt Image Upload -->
+        <!-- Receipt Scan -->
         <div class="card">
             <h3>📷 Scan Receipt Photo</h3>
             <div class="drop-zone" onclick="document.getElementById('receipt-file').click()">
                 <span>Upload Receipt Photo</span>
                 <input type="file" id="receipt-file" accept="image/*" onchange="handleReceiptUpload(event)">
             </div>
-            <div class="status" id="ocr-status">Scans total amount off receipts.</div>
+            <div class="status" id="ocr-status">Scans total amount off receipt.</div>
         </div>
     </div>
 
@@ -201,13 +202,7 @@
             <input type="date" id="date" required>
             <input type="text" id="description" placeholder="Description" required>
             <select id="category" required>
-                <option value="Food & Groceries">Food & Groceries</option>
-                <option value="Car & Transport">Car & Transport</option>
-                <option value="Shopping">Shopping</option>
-                <option value="Household & Utilities">Household & Utilities</option>
-                <option value="Education & Activities">Education & Activities</option>
-                <option value="Travel & Leisure">Travel & Leisure</option>
-                <option value="Other">Other</option>
+                <!-- Populated Dynamically -->
             </select>
             <input type="number" id="amount" placeholder="Amount" step="any" required>
             <button type="submit" class="btn-primary">Add Entry</button>
@@ -238,35 +233,59 @@
 </div>
 
 <script>
-    // Initialize PDF.js worker
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
     document.getElementById('date').valueAsDate = new Date();
-    let expenses = JSON.parse(localStorage.getItem('household_expenses')) || [];
 
-    // Automatic Categorization Engine
-    function categorize(description) {
+    // Default categories
+    const defaultCategories = [
+        "Food & Groceries",
+        "Car & Transport",
+        "Shopping",
+        "Household & Utilities",
+        "Education & Activities",
+        "Travel & Leisure",
+        "Other"
+    ];
+
+    let expenses = JSON.parse(localStorage.getItem('household_expenses')) || [];
+    let customCategories = JSON.parse(localStorage.getItem('household_categories')) || defaultCategories;
+
+    // Save and Sync Categories Across UI
+    function registerCategory(newCat) {
+        if (!newCat) return "Other";
+        
+        // Clean formatting (capitalize first letter of each word)
+        const formatted = newCat.trim().toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+
+        if (!customCategories.includes(formatted)) {
+            customCategories.push(formatted);
+            localStorage.setItem('household_categories', JSON.stringify(customCategories));
+        }
+        updateCategorySelect();
+        return formatted;
+    }
+
+    function updateCategorySelect() {
+        const select = document.getElementById('category');
+        select.innerHTML = '';
+        customCategories.forEach(cat => {
+            const opt = document.createElement('option');
+            opt.value = cat;
+            opt.textContent = cat;
+            select.appendChild(opt);
+        });
+    }
+
+    // Keyword Fallback Categorizer
+    function categorizeByKeyword(description) {
         const desc = description.toLowerCase();
-        
-        if (/(supermarket|grocery|mart|food|market|bakery|restaurant|cafe|coffee|mcdonald|7-eleven|family mart|lawson|dining|eat)/i.test(desc)) {
-            return "Food & Groceries";
-        }
-        if (/(gas|petrol|fuel|car|parking|toll|taxi|uber|train|transit|suica|pasmo|auto|repair)/i.test(desc)) {
-            return "Car & Transport";
-        }
-        if (/(amazon|shopping|clothing|store|uniqlo|zara|mall|retail|fashion|electronics)/i.test(desc)) {
-            return "Shopping";
-        }
-        if (/(electric|water|gas bill|utility|rent|house|internet|wifi|mobile|phone|maintenance|ikea)/i.test(desc)) {
-            return "Household & Utilities";
-        }
-        if (/(school|tuition|swim|lesson|book|sports|gym|activity|education|class)/i.test(desc)) {
-            return "Education & Activities";
-        }
-        if (/(hotel|flight|airline|travel|resort|vacation|ski|park|ticket)/i.test(desc)) {
-            return "Travel & Leisure";
-        }
-        
+        if (/(supermarket|grocery|mart|food|market|bakery|restaurant|cafe|coffee|mcdonald|7-eleven|family mart|lawson|dining)/i.test(desc)) return "Food & Groceries";
+        if (/(gas|petrol|fuel|car|parking|toll|taxi|uber|train|transit|suica|pasmo|auto)/i.test(desc)) return "Car & Transport";
+        if (/(amazon|shopping|clothing|store|uniqlo|zara|mall|retail|fashion|electronics)/i.test(desc)) return "Shopping";
+        if (/(electric|water|gas bill|utility|rent|house|internet|wifi|mobile|phone|ikea)/i.test(desc)) return "Household & Utilities";
+        if (/(school|tuition|swim|lesson|book|sports|gym|activity|education)/i.test(desc)) return "Education & Activities";
+        if (/(hotel|flight|airline|travel|resort|vacation|ski|park|ticket)/i.test(desc)) return "Travel & Leisure";
         return "Other";
     }
 
@@ -309,7 +328,58 @@
         document.getElementById('amount').value = '';
     });
 
-    // Handle PDF Import
+    // Handle CSV Upload (Scans for Category Columns or Keywords)
+    function handleCSVUpload(event) {
+        const file = event.target.files[0];
+        const status = document.getElementById('csv-status');
+        if (!file) return;
+
+        status.textContent = "Processing CSV...";
+
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                let count = 0;
+                results.data.forEach(row => {
+                    const date = row.Date || row.date || row['Transaction Date'] || new Date().toISOString().split('T')[0];
+                    const desc = row.Description || row.description || row.Payee || row.Name || 'Credit Card Charge';
+                    let amount = row.Amount || row.amount || row.Price || 0;
+                    
+                    // Check if CSV explicitly has a Category column
+                    const csvCat = row.Category || row.category || row.Type || row.type;
+                    
+                    let finalCat;
+                    if (csvCat && csvCat.trim() !== '') {
+                        finalCat = registerCategory(csvCat);
+                    } else {
+                        finalCat = categorizeByKeyword(desc);
+                        registerCategory(finalCat);
+                    }
+
+                    amount = String(amount).replace(/[^0-9.-]+/g, "");
+                    amount = Math.abs(parseFloat(amount));
+
+                    if (!isNaN(amount) && amount > 0) {
+                        expenses.push({
+                            date: date,
+                            description: desc,
+                            category: finalCat,
+                            amount: amount
+                        });
+                        count++;
+                    }
+                });
+                renderExpenses();
+                status.textContent = `Imported ${count} transactions & updated categories!`;
+            },
+            error: function() {
+                status.textContent = "Error reading CSV.";
+            }
+        });
+    }
+
+    // Handle PDF Upload (Extracts text and auto-registers detected categories)
     async function handlePDFUpload(event) {
         const file = event.target.files[0];
         const status = document.getElementById('pdf-status');
@@ -329,8 +399,6 @@
                 fullText += pageText + "\n";
             }
 
-            // Regular expression to match typical date + merchant + amount patterns
-            // Matches dates like 2026/04/12 or 04/12/2026 or 2026-04-12
             const lineRegex = /(\d{4}[\/\.-]\d{1,2}[\/\.-]\d{1,2}|\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4})\s+([A-Za-z0-9\s\-\.\*]+?)\s+[¥\$]?\s*([\d,]+\.?\d*)/g;
             
             let match;
@@ -342,10 +410,13 @@
                 let amount = parseFloat(match[3].replace(/,/g, ''));
 
                 if (desc.length > 2 && !isNaN(amount) && amount > 0) {
+                    const assignedCategory = categorizeByKeyword(desc);
+                    registerCategory(assignedCategory);
+
                     expenses.push({
                         date: rawDate,
                         description: desc,
-                        category: categorize(desc),
+                        category: assignedCategory,
                         amount: amount
                     });
                     count++;
@@ -354,56 +425,16 @@
 
             renderExpenses();
             if (count > 0) {
-                status.textContent = `Successfully extracted ${count} categorized transactions!`;
+                status.textContent = `Extracted ${count} transactions and updated categories!`;
             } else {
-                status.textContent = "Extracted text, but couldn't detect statement pattern automatically. Try CSV format.";
+                status.textContent = "Could not parse statement layout automatically.";
             }
         } catch (err) {
             status.textContent = "Failed to parse PDF file.";
         }
     }
 
-    // Handle CSV Import
-    function handleCSVUpload(event) {
-        const file = event.target.files[0];
-        const status = document.getElementById('csv-status');
-        if (!file) return;
-
-        status.textContent = "Processing CSV...";
-
-        Papa.parse(file, {
-            header: true,
-            skipEmptyLines: true,
-            complete: function(results) {
-                let count = 0;
-                results.data.forEach(row => {
-                    const date = row.Date || row.date || row['Transaction Date'] || new Date().toISOString().split('T')[0];
-                    const desc = row.Description || row.description || row.Payee || row.Name || 'Credit Card Charge';
-                    let amount = row.Amount || row.amount || row.Price || 0;
-                    
-                    amount = String(amount).replace(/[^0-9.-]+/g, "");
-                    amount = Math.abs(parseFloat(amount));
-
-                    if (!isNaN(amount) && amount > 0) {
-                        expenses.push({
-                            date: date,
-                            description: desc,
-                            category: categorize(desc),
-                            amount: amount
-                        });
-                        count++;
-                    }
-                });
-                renderExpenses();
-                status.textContent = `Imported & categorized ${count} transactions!`;
-            },
-            error: function() {
-                status.textContent = "Error reading CSV.";
-            }
-        });
-    }
-
-    // Handle Receipt Image OCR
+    // Receipt OCR Upload
     async function handleReceiptUpload(event) {
         const file = event.target.files[0];
         const status = document.getElementById('ocr-status');
@@ -425,8 +456,7 @@
                 const detectedTotal = Math.max(...numbers);
                 document.getElementById('amount').value = detectedTotal;
                 document.getElementById('description').value = "Scanned Receipt";
-                document.getElementById('category').value = "Food & Groceries";
-                status.textContent = `Extracted ¥${detectedTotal.toLocaleString()}! Confirm and click 'Add Entry'.`;
+                status.textContent = `Extracted ¥${detectedTotal.toLocaleString()}! Confirm category & click 'Add Entry'.`;
             } else {
                 status.textContent = "Could not find totals on receipt.";
             }
@@ -441,8 +471,11 @@
     }
 
     function clearAll() {
-        if (confirm("Are you sure you want to clear all data?")) {
+        if (confirm("Are you sure you want to clear all data and reset categories?")) {
             expenses = [];
+            customCategories = [...defaultCategories];
+            localStorage.removeItem('household_categories');
+            updateCategorySelect();
             renderExpenses();
         }
     }
@@ -462,6 +495,8 @@
         document.body.removeChild(link);
     }
 
+    // Initial setup on page load
+    updateCategorySelect();
     renderExpenses();
 </script>
 
