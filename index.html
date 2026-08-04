@@ -3,168 +3,328 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Expense Tracker & Statement Parser</title>
-    <!-- PDF.js Library for reading PDF statements -->
+    <title>Household Expense & Solar Energy Tracker</title>
+    <!-- External Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script>
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --bg: #f1f5f9;
+            --card-bg: #ffffff;
+            --text: #0f172a;
+            --text-secondary: #64748b;
+            --border: #e2e8f0;
+            --danger: #ef4444;
+            --solar: #f59e0b;
+            --radius: 12px;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            margin: 20px;
-            background-color: #f8f9fa;
-            color: #333;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 24px 12px;
         }
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            background: #fff;
-            padding: 24px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+
+        .container { max-width: 1000px; margin: 0 auto; }
+        .app-header { text-align: center; margin-bottom: 24px; }
+
+        .summary-card {
+            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+            color: white; padding: 24px; border-radius: var(--radius);
+            text-align: center; margin-bottom: 24px;
+            box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.25);
         }
-        h1 { margin-top: 0; }
-        .file-input-section {
-            padding: 20px;
-            border: 2px dashed #ccc;
-            border-radius: 6px;
-            text-align: center;
-            background-color: #fafafa;
-            margin-bottom: 20px;
-        }
-        .btn-clear {
-            background-color: #dc3545;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-        .btn-clear:hover { background-color: #c82333; }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 10px;
-            text-align: left;
-        }
-        th { background-color: #f1f3f5; }
-        tr:nth-child(even) { background-color: #f9f9f9; }
-        .summary-box {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
+
         .card {
-            flex: 1;
-            padding: 15px;
-            background: #e9ecef;
-            border-radius: 6px;
+            background: var(--card-bg); padding: 20px;
+            border-radius: var(--radius); border: 1px solid var(--border);
+            margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
-        .card h3 { margin: 0 0 5px 0; font-size: 14px; color: #6c757d; }
-        .card p { margin: 0; font-size: 20px; font-weight: bold; }
+
+        .batch-drop-zone {
+            border: 2px dashed #93c5fd;
+            padding: 25px 15px;
+            text-align: center;
+            border-radius: 12px;
+            background: #eff6ff;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .batch-drop-zone:hover {
+            border-color: #2563eb;
+            background: #dbeafe;
+        }
+
+        .batch-drop-zone input { display: none; }
+
+        .grid-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+        .chart-container { position: relative; height: 320px; width: 100%; }
+
+        input, select, button { padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; outline: none; }
+        .btn-primary { background: var(--primary); color: white; border: none; cursor: pointer; font-weight: 600; }
+        .btn-solar { background: var(--solar); color: white; border: none; cursor: pointer; font-weight: 600; }
+        .btn-purge { background: #64748b; color: white; border: none; cursor: pointer; font-weight: 600; }
+        .btn-danger { background: var(--danger); color: white; border: none; cursor: pointer; font-weight: 600; }
+
+        .btn-toggle-group { display: flex; gap: 6px; flex-wrap: wrap; }
+        .btn-toggle { background: #e2e8f0; color: #334155; border: none; cursor: pointer; font-weight: 600; padding: 6px 12px; border-radius: 6px; }
+        .btn-toggle.active { background: var(--primary); color: white; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: var(--card-bg); padding: 24px; border-radius: var(--radius); width: 92%; max-width: 850px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .close-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; }
+
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
+        .metric-card { background: #f8fafc; border: 1px solid var(--border); padding: 12px; border-radius: 8px; text-align: center; }
+        .metric-card span { font-size: 0.8rem; color: var(--text-secondary); }
+        .metric-card div { font-size: 1.2rem; font-weight: bold; margin-top: 4px; }
+        
+        .progress-bar {
+            height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin-top: 10px; display: none;
+        }
+        .progress-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.2s; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>Expense Tracker</h1>
-    
-    <div class="file-input-section">
-        <label for="fileUpload" style="font-weight: bold; cursor: pointer;">
-            Upload Statement Files (CSV or PDF):
-        </label><br><br>
-        <input type="file" id="fileUpload" multiple accept=".csv, .pdf" onchange="handleBatchUpload(event)">
-        <br><br>
-        <button class="btn-clear" onclick="resetAllData()">Clear All Loaded Data</button>
+    <div class="app-header">
+        <h1>🏠 Household Expense & Solar Energy Tracker</h1>
     </div>
 
-    <div class="summary-box">
-        <div class="card">
-            <h3>Total Records</h3>
-            <p id="totalRecords">0</p>
+    <!-- Summary Box -->
+    <div class="summary-card">
+        <span id="summary-label">Total Monthly Expenses</span>
+        <h2 id="total-amount">¥0</h2>
+    </div>
+
+    <!-- Batch Upload Section -->
+    <div class="card">
+        <h3>📁 Batch Import Files (Up to 50 CSV / PDF Statements)</h3>
+        <div class="batch-drop-zone" onclick="document.getElementById('batch-files').click()">
+            <span style="font-size: 1.1rem; font-weight: 600; color: #1e40af;">Click or Drag & Drop CSV / PDF files here</span>
+            <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 6px;">
+                Supports Solar CSVs, Expense CSVs, and SMBC/Credit Card PDF Statements.
+            </div>
+            <input type="file" id="batch-files" accept=".csv, .pdf" multiple onchange="handleBatchUpload(event)">
         </div>
-        <div class="card">
-            <h3>Total Amount</h3>
-            <p id="totalAmount">¥0</p>
+        <div class="progress-bar" id="p-bar"><div class="progress-fill" id="p-fill"></div></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+            <div style="font-size: 0.85rem; color: var(--text-secondary);" id="batch-status">Ready for batch input.</div>
+            <button class="btn-danger" style="padding: 4px 10px; font-size: 0.8rem;" onclick="resetAllStoredData()">Reset All Data</button>
         </div>
     </div>
 
-    <h2>Transactions</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th>Description</th>
-                <th>Category</th>
-                <th>Source</th>
-                <th>Amount (JPY)</th>
-            </tr>
-        </thead>
-        <tbody id="expenseTableBody">
-            <tr>
-                <td colspan="5" style="text-align:center; color:#888;">No data loaded yet. Upload files above.</td>
-            </tr>
-        </tbody>
-    </table>
+    <!-- Analytics Section -->
+    <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap: wrap; gap: 10px;">
+            <h3 style="margin:0;">📊 Analytics & Breakdown</h3>
+            <div>
+                <button class="btn-purge" onclick="consolidateAndDeduplicateData()" style="margin-right:8px;">🧹 Deduplicate Data</button>
+                <button class="btn-solar" onclick="openSolarModal()" style="margin-right:10px;">☀️ Solar Energy Modal</button>
+                <label for="filter-month" style="font-size: 0.9rem; font-weight: 600;">Month: </label>
+                <select id="filter-month" onchange="renderExpenses()"></select>
+            </div>
+        </div>
+        
+        <div class="grid-charts">
+            <div>
+                <h4 style="text-align: center; color: var(--text-secondary);">Monthly Category Share</h4>
+                <div class="chart-container"><canvas id="pieChart"></canvas></div>
+            </div>
+            <div>
+                <h4 style="text-align: center; color: var(--text-secondary);">Monthly Expense Trend</h4>
+                <div class="chart-container"><canvas id="barChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Expense Table -->
+    <div class="card">
+        <h3>Expense Log</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th>Category</th>
+                    <th>Source</th>
+                    <th>Amount</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="expense-list"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Solar Analysis Modal -->
+<div class="modal-overlay" id="solarModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 style="margin:0;">☀️ Solar Electricity Monitor</h2>
+            <button class="close-btn" onclick="closeSolarModal()">&times;</button>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+            <div class="btn-toggle-group">
+                <button id="btnViewOverall" class="btn-toggle" onclick="setSolarViewMode('overall')">1. Overall View</button>
+                <button id="btnViewYearly" class="btn-toggle" onclick="setSolarViewMode('yearly')">2. Yearly Consolidated</button>
+                <button id="btnViewMonthly" class="btn-toggle" onclick="setSolarViewMode('monthly')">3. Monthly View</button>
+                <button id="btnViewDaily" class="btn-toggle active" onclick="setSolarViewMode('daily')">4. Daily View</button>
+            </div>
+            <span id="solar-period-title" style="font-weight: 600; color: var(--text-secondary);"></span>
+        </div>
+
+        <!-- Metrics Cards -->
+        <div class="metrics-grid">
+            <div class="metric-card" style="border-top: 4px solid #f59e0b;">
+                <span>Electricity Generated</span>
+                <div id="m-generated" style="color: #d97706;">0.0 kWh</div>
+            </div>
+            <div class="metric-card" style="border-top: 4px solid #10b981;">
+                <span>Electricity Consumed</span>
+                <div id="m-consumed" style="color: #059669;">0.0 kWh</div>
+            </div>
+            <div class="metric-card" style="border-top: 4px solid #ef4444;">
+                <span>Electricity Purchased</span>
+                <div id="m-purchased" style="color: #dc2626;">0.0 kWh</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="solarChart"></canvas>
+        </div>
+    </div>
 </div>
 
 <script>
-    let expenses = [];
-    let processedFiles = new Set();
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    let expenses = JSON.parse(localStorage.getItem('household_expenses')) || [];
+    let solarDailyData = JSON.parse(localStorage.getItem('solar_daily_data')) || [];
+
+    let currentSolarViewMode = 'daily';
+    let pieChartInstance, barChartInstance, solarChartInstance;
+
+    function sanitizeDate(rawDateStr) {
+        if (!rawDateStr) return null;
+        let clean = rawDateStr.replace(/\./g, '-').replace(/\//g, '-').trim();
+        let parts = clean.split('-');
+        if (parts.length < 3) return null;
+        let year = parseInt(parts[0], 10);
+        let month = parseInt(parts[1], 10);
+        let day = parseInt(parts[2], 10);
+        if (isNaN(year) || isNaN(month) || isNaN(day) || month < 1 || month > 12) return null;
+        if (year < 100) year += 2000;
+        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+
+    function cleanHeader(hdr) {
+        return hdr ? hdr.replace(/^\uFEFF/, '').replace(/["']/g, '').trim() : '';
+    }
+
+    function parseNum(val) {
+        if (val === undefined || val === null || val === '') return 0;
+        let num = parseFloat(String(val).replace(/,/g, ''));
+        return isNaN(num) ? 0 : num;
+    }
 
     async function handleBatchUpload(event) {
         const files = Array.from(event.target.files);
-        if (!files.length) return;
+        const status = document.getElementById('batch-status');
+        const pBar = document.getElementById('p-bar');
+        const pFill = document.getElementById('p-fill');
+
+        if (files.length === 0) return;
+
+        pBar.style.display = 'block';
+        let completed = 0;
 
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
-            
-            // Allow force re-reading even if filename was uploaded before
+            status.textContent = `Processing (${i + 1}/${files.length}): ${file.name}...`;
+
             if (file.name.endsWith('.csv')) {
                 await processCSVFile(file);
-                processedFiles.add(file.name);
             } else if (file.name.endsWith('.pdf')) {
                 await processPDFFile(file);
-                processedFiles.add(file.name);
             }
+
+            completed++;
+            pFill.style.width = `${Math.round((completed / files.length) * 100)}%`;
         }
-        
-        // Reset file input value so selecting the same file again triggers onchange
+
+        // Reset input value so selecting same file triggers event next time
         event.target.value = '';
         consolidateAndDeduplicateData();
+
+        status.textContent = `Completed processing ${files.length} file(s).`;
+        setTimeout(() => { pBar.style.display = 'none'; pFill.style.width = '0%'; }, 2000);
     }
 
-    async function processCSVFile(file) {
-        const text = await file.text();
-        const lines = text.split(/\r?\n/);
+    function processCSVFile(file) {
+        return new Promise((resolve) => {
+            Papa.parse(file, {
+                header: false,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    let rows = results.data;
+                    if (!rows || rows.length === 0) return resolve();
 
-        for (let line of lines) {
-            const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-            if (cols.length < 3) continue;
+                    let headerIndex = -1;
+                    for (let i = 0; i < rows.length; i++) {
+                        let cleanedRow = rows[i].map(cleanHeader);
+                        if (cleanedRow.some(col => ['年月日', '年月', 'Date', 'Month', '金額', 'Amount'].includes(col))) {
+                            headerIndex = i;
+                            break;
+                        }
+                    }
 
-            let rawDate = cols[0];
-            let desc = cols[1];
-            let amount = parseFloat(cols[2].replace(/,/g, ''));
+                    if (headerIndex === -1) return resolve();
+                    let headers = rows[headerIndex].map(cleanHeader);
 
-            if (!isNaN(amount) && rawDate) {
-                let cleanDate = sanitizeDate(rawDate);
-                if (cleanDate) {
-                    expenses.push({
-                        date: cleanDate,
-                        description: desc,
-                        category: 'CSV Import',
-                        source: file.name,
-                        amount: amount
-                    });
+                    for (let i = headerIndex + 1; i < rows.length; i++) {
+                        let rowArr = rows[i];
+                        let row = {};
+                        headers.forEach((h, idx) => {
+                            row[h] = rowArr[idx] !== undefined ? String(rowArr[idx]).replace(/["']/g, '').trim() : '';
+                        });
+
+                        let rawDate = row['年月日'] || row['Date'] || row['日付'] || '';
+                        let cleanDate = sanitizeDate(rawDate);
+
+                        if (cleanDate && (row['発電電力量[kWh]'] !== undefined || row['Generated'] !== undefined)) {
+                            solarDailyData.push({
+                                date: cleanDate,
+                                generated: parseNum(row['発電電力量[kWh]'] || row['Generated']),
+                                consumed: parseNum(row['消費電力量[kWh]'] || row['Consumed']),
+                                purchased: parseNum(row['買電電力量[kWh]'] || row['Purchased'])
+                            });
+                        } else if (cleanDate && (row['金額'] || row['Amount'])) {
+                            expenses.push({
+                                date: cleanDate,
+                                description: row['利用店名・商品名'] || row['Description'] || 'CSV Item',
+                                category: row['カテゴリ'] || row['Category'] || 'General',
+                                source: file.name,
+                                amount: parseNum(row['金額'] || row['Amount'])
+                            });
+                        }
+                    }
+                    resolve();
                 }
-            }
-        }
+            });
+        });
     }
 
     async function processPDFFile(file) {
@@ -179,7 +339,7 @@
             fullText += pageText + "\n";
         }
 
-        // Regex for SMBC format statements: YY/MM/DD Description Amount
+        // Regex for Japanese SMBC statements (e.g. 25/04/07 ETC首都高 760)
         const regex = /(\d{2}\/\d{2}\/\d{2})\s+([^\d]+?)\s+([\d,]+)/g;
         let match;
 
@@ -204,71 +364,227 @@
         }
     }
 
-    function sanitizeDate(dateStr) {
-        let parts = dateStr.split(/[\/\-]/);
-        if (parts.length === 3) {
-            let year = parts[0];
-            if (year.length === 2) year = '20' + year;
-            let month = parts[1].padStart(2, '0');
-            let day = parts[2].padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        }
-        return null;
-    }
-
     function consolidateAndDeduplicateData() {
-        const uniqueMap = new Map();
-        
-        for (let exp of expenses) {
-            // Deduplicate including source filename & index to prevent identical valid charges from being omitted
-            const key = `${exp.source}_${exp.date}_${exp.description}_${exp.amount}`;
-            if (!uniqueMap.has(key)) {
-                uniqueMap.set(key, exp);
+        const solarMap = new Map();
+        solarDailyData.forEach(item => { if (item.date) solarMap.set(item.date, item); });
+        solarDailyData = Array.from(solarMap.values());
+
+        const expenseMap = new Map();
+        expenses.forEach(item => {
+            if (item.date && item.amount) {
+                // Key contains source file to prevent duplicate errors across different statement files
+                expenseMap.set(`${item.source}_${item.date}_${item.description}_${item.amount}`, item);
             }
-        }
+        });
+        expenses = Array.from(expenseMap.values());
 
-        expenses = Array.from(uniqueMap.values());
-        expenses.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-        renderUI();
+        localStorage.setItem('solar_daily_data', JSON.stringify(solarDailyData));
+        localStorage.setItem('household_expenses', JSON.stringify(expenses));
+        renderExpenses();
     }
 
-    function resetAllData() {
-        expenses = [];
-        processedFiles.clear();
-        document.getElementById('fileUpload').value = '';
-        renderUI();
+    function resetAllStoredData() {
+        if (confirm("Are you sure you want to clear all stored expense and solar data?")) {
+            localStorage.removeItem('household_expenses');
+            localStorage.removeItem('solar_daily_data');
+            expenses = [];
+            solarDailyData = [];
+            renderExpenses();
+        }
     }
 
-    function renderUI() {
-        const tbody = document.getElementById('expenseTableBody');
-        tbody.innerHTML = '';
+    function openSolarModal() {
+        document.getElementById('solarModal').style.display = 'flex';
+        renderSolarChart();
+    }
 
-        if (expenses.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">No valid transaction records found.</td></tr>';
-            document.getElementById('totalRecords').innerText = '0';
-            document.getElementById('totalAmount').innerText = '¥0';
-            return;
+    function closeSolarModal() {
+        document.getElementById('solarModal').style.display = 'none';
+    }
+
+    function setSolarViewMode(mode) {
+        currentSolarViewMode = mode;
+        document.getElementById('btnViewOverall').classList.toggle('active', mode === 'overall');
+        document.getElementById('btnViewYearly').classList.toggle('active', mode === 'yearly');
+        document.getElementById('btnViewMonthly').classList.toggle('active', mode === 'monthly');
+        document.getElementById('btnViewDaily').classList.toggle('active', mode === 'daily');
+        renderSolarChart();
+    }
+
+    function renderSolarChart() {
+        const selectedMonth = document.getElementById('filter-month').value || 'ALL';
+        let title = '';
+
+        let labels = [], dataGenerated = [], dataConsumed = [], dataPurchased = [];
+        let totalGen = 0, totalCon = 0, totalPur = 0;
+
+        if (currentSolarViewMode === 'daily') {
+            title = `Scope: Daily (${selectedMonth})`;
+            const filtered = solarDailyData.filter(d => selectedMonth === 'ALL' || d.date.startsWith(selectedMonth));
+            filtered.sort((a,b) => a.date.localeCompare(b.date));
+
+            filtered.forEach(d => {
+                labels.push(d.date);
+                dataGenerated.push(d.generated);
+                dataConsumed.push(d.consumed);
+                dataPurchased.push(d.purchased);
+                totalGen += d.generated; totalCon += d.consumed; totalPur += d.purchased;
+            });
+        } else if (currentSolarViewMode === 'monthly') {
+            title = `Scope: Monthly View`;
+            const monthlyAgg = {};
+            solarDailyData.forEach(d => {
+                const mKey = d.date.substring(0, 7);
+                if (!monthlyAgg[mKey]) monthlyAgg[mKey] = { generated: 0, consumed: 0, purchased: 0 };
+                monthlyAgg[mKey].generated += d.generated;
+                monthlyAgg[mKey].consumed += d.consumed;
+                monthlyAgg[mKey].purchased += d.purchased;
+            });
+
+            Object.keys(monthlyAgg).sort().forEach(m => {
+                if (selectedMonth === 'ALL' || m === selectedMonth) {
+                    labels.push(m);
+                    dataGenerated.push(monthlyAgg[m].generated);
+                    dataConsumed.push(monthlyAgg[m].consumed);
+                    dataPurchased.push(monthlyAgg[m].purchased);
+                    totalGen += monthlyAgg[m].generated; totalCon += monthlyAgg[m].consumed; totalPur += monthlyAgg[m].purchased;
+                }
+            });
+        } else if (currentSolarViewMode === 'yearly') {
+            title = `Scope: Yearly Consolidated View`;
+            const yearlyAgg = {};
+            solarDailyData.forEach(d => {
+                const yKey = d.date.substring(0, 4);
+                if (!yearlyAgg[yKey]) yearlyAgg[yKey] = { generated: 0, consumed: 0, purchased: 0 };
+                yearlyAgg[yKey].generated += d.generated;
+                yearlyAgg[yKey].consumed += d.consumed;
+                yearlyAgg[yKey].purchased += d.purchased;
+            });
+
+            Object.keys(yearlyAgg).sort().forEach(y => {
+                labels.push(y);
+                dataGenerated.push(yearlyAgg[y].generated);
+                dataConsumed.push(yearlyAgg[y].consumed);
+                dataPurchased.push(yearlyAgg[y].purchased);
+                totalGen += yearlyAgg[y].generated; totalCon += yearlyAgg[y].consumed; totalPur += yearlyAgg[y].purchased;
+            });
+        } else if (currentSolarViewMode === 'overall') {
+            title = `Scope: Overall All-Time Summary`;
+            solarDailyData.forEach(d => {
+                totalGen += d.generated;
+                totalCon += d.consumed;
+                totalPur += d.purchased;
+            });
+
+            labels = ['Overall All-Time Total'];
+            dataGenerated = [totalGen];
+            dataConsumed = [totalCon];
+            dataPurchased = [totalPur];
         }
 
-        let total = 0;
-        expenses.forEach(exp => {
-            total += exp.amount;
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${exp.date}</td>
-                <td>${exp.description}</td>
-                <td>${exp.category}</td>
-                <td>${exp.source}</td>
-                <td>¥${exp.amount.toLocaleString()}</td>
-            `;
-            tbody.appendChild(tr);
+        document.getElementById('solar-period-title').textContent = title;
+        document.getElementById('m-generated').textContent = `${totalGen.toFixed(1)} kWh`;
+        document.getElementById('m-consumed').textContent = `${totalCon.toFixed(1)} kWh`;
+        document.getElementById('m-purchased').textContent = `${totalPur.toFixed(1)} kWh`;
+
+        if (solarChartInstance) solarChartInstance.destroy();
+
+        const ctx = document.getElementById('solarChart').getContext('2d');
+        solarChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels.length > 0 ? labels : ['No Data'],
+                datasets: [
+                    { label: 'Electricity Generated (kWh)', data: dataGenerated, backgroundColor: '#f59e0b', borderRadius: 4 },
+                    { label: 'Electricity Consumed (kWh)', data: dataConsumed, backgroundColor: '#10b981', borderRadius: 4 },
+                    { label: 'Electricity Purchased (kWh)', data: dataPurchased, backgroundColor: '#ef4444', borderRadius: 4 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true, title: { display: true, text: 'kWh' } } }
+            }
+        });
+    }
+
+    function populateMonthDropdown() {
+        const monthSelect = document.getElementById('filter-month');
+        const currentValue = monthSelect.value;
+        monthSelect.innerHTML = '<option value="ALL">All Months</option>';
+
+        const months = new Set();
+        expenses.forEach(e => { if (e.date) months.add(e.date.substring(0, 7)); });
+        solarDailyData.forEach(s => { if (s.date) months.add(s.date.substring(0, 7)); });
+
+        const sortedMonths = Array.from(months).sort().reverse();
+        sortedMonths.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m; opt.textContent = m;
+            monthSelect.appendChild(opt);
         });
 
-        document.getElementById('totalRecords').innerText = expenses.length;
-        document.getElementById('totalAmount').innerText = `¥${total.toLocaleString()}`;
+        if (currentValue && sortedMonths.includes(currentValue)) monthSelect.value = currentValue;
     }
-</script>
 
+    function deleteExpense(index) {
+        expenses.splice(index, 1);
+        localStorage.setItem('household_expenses', JSON.stringify(expenses));
+        renderExpenses();
+    }
+
+    function renderExpenses() {
+        populateMonthDropdown();
+        const selectedMonth = document.getElementById('filter-month').value || 'ALL';
+        const list = document.getElementById('expense-list');
+        list.innerHTML = '';
+        let total = 0;
+
+        const filtered = expenses.filter(e => selectedMonth === 'ALL' || (e.date && e.date.startsWith(selectedMonth)));
+        filtered.sort((a,b) => b.date.localeCompare(a.date));
+
+        filtered.forEach((expense) => {
+            total += parseFloat(expense.amount);
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${expense.date}</td>
+                <td>${expense.description}</td>
+                <td>${expense.category}</td>
+                <td>${expense.source || 'Manual'}</td>
+                <td>¥${Number(expense.amount).toLocaleString()}</td>
+                <td><button class="btn-danger" style="padding:4px 8px;" onclick="deleteExpense(${expenses.indexOf(expense)})">✕</button></td>
+            `;
+            list.appendChild(row);
+        });
+
+        document.getElementById('total-amount').textContent = `¥${Math.round(total).toLocaleString()}`;
+        updateExpenseCharts(selectedMonth);
+    }
+
+    function updateExpenseCharts(selectedMonth) {
+        const filtered = expenses.filter(e => selectedMonth === 'ALL' || (e.date && e.date.startsWith(selectedMonth)));
+        const categoryMap = {};
+        filtered.forEach(e => { categoryMap[e.category] = (categoryMap[e.category] || 0) + parseFloat(e.amount); });
+
+        if (pieChartInstance) pieChartInstance.destroy();
+        pieChartInstance = new Chart(document.getElementById('pieChart').getContext('2d'), {
+            type: 'pie',
+            data: { labels: Object.keys(categoryMap), datasets: [{ data: Object.values(categoryMap), backgroundColor: ['#2563eb', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'] }] },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+
+        const monthlyMap = {};
+        expenses.forEach(e => { if (e.date) monthlyMap[e.date.substring(0, 7)] = (monthlyMap[e.date.substring(0, 7)] || 0) + parseFloat(e.amount); });
+        
+        if (barChartInstance) barChartInstance.destroy();
+        barChartInstance = new Chart(document.getElementById('barChart').getContext('2d'), {
+            type: 'bar',
+            data: { labels: Object.keys(monthlyMap).sort(), datasets: [{ label: 'Total Expenses (¥)', data: Object.values(monthlyMap), backgroundColor: '#60a5fa' }] },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    }
+
+    renderExpenses();
+</script>
 </body>
 </html>
