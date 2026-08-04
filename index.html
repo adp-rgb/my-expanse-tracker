@@ -171,7 +171,7 @@
                 <span>Upload Card PDF</span>
                 <input type="file" id="pdf-file" accept=".pdf" onchange="handlePDFUpload(event)">
             </div>
-            <div class="status" id="pdf-status">Extracts lines & creates new categories.</div>
+            <div class="status" id="pdf-status">Auto-detects statements & formats.</div>
         </div>
 
         <!-- CSV Upload -->
@@ -237,7 +237,6 @@
 
     document.getElementById('date').valueAsDate = new Date();
 
-    // Default categories
     const defaultCategories = [
         "Food & Groceries",
         "Car & Transport",
@@ -251,13 +250,9 @@
     let expenses = JSON.parse(localStorage.getItem('household_expenses')) || [];
     let customCategories = JSON.parse(localStorage.getItem('household_categories')) || defaultCategories;
 
-    // Save and Sync Categories Across UI
     function registerCategory(newCat) {
         if (!newCat) return "Other";
-        
-        // Clean formatting (capitalize first letter of each word)
         const formatted = newCat.trim().toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
-
         if (!customCategories.includes(formatted)) {
             customCategories.push(formatted);
             localStorage.setItem('household_categories', JSON.stringify(customCategories));
@@ -277,7 +272,6 @@
         });
     }
 
-    // Keyword Fallback Categorizer
     function categorizeByKeyword(description) {
         const desc = description.toLowerCase();
         if (/(supermarket|grocery|mart|food|market|bakery|restaurant|cafe|coffee|mcdonald|7-eleven|family mart|lawson|dining)/i.test(desc)) return "Food & Groceries";
@@ -328,7 +322,93 @@
         document.getElementById('amount').value = '';
     });
 
-    // Handle CSV Upload (Scans for Category Columns or Keywords)
+    // Flexible Multi-Pattern PDF Parsing Engine
+    async function handlePDFUpload(event) {
+        const file = event.target.files[0];
+        const status = document.getElementById('pdf-status');
+        if (!file) return;
+
+        status.textContent = "Parsing PDF statement...";
+
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let lines = [];
+
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                
+                // Group text items by line height to preserve row structure
+                let lastY = null;
+                let pageLines = [];
+                let currentLine = "";
+
+                textContent.items.forEach(item => {
+                    if (lastY !== null && Math.abs(item.transform[5] - lastY) > 4) {
+                        if (currentLine.trim()) pageLines.push(currentLine.trim());
+                        currentLine = "";
+                    }
+                    currentLine += " " + item.str;
+                    lastY = item.transform[5];
+                });
+                if (currentLine.trim()) pageLines.push(currentLine.trim());
+                lines = lines.concat(pageLines);
+            }
+
+            // Patterns covering various bank statement layouts:
+            // 1. Date First (YYYY/MM/DD or MM/DD/YYYY or DD/MM/YYYY or YYYY.MM.DD) -> Description -> Amount
+            const patternDateFirst = /^(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{2,4})\s+(.+?)\s+[¥\$]?\s*([\d,]+\.?\d*)\s*$/i;
+            // 2. Short Date (MM/DD or DD/MM) -> Description -> Amount
+            const patternShortDate = /^(\d{1,2}[\/\.-]\d{1,2})\s+(.+?)\s+[¥\$]?\s*([\d,]+\.?\d*)\s*$/i;
+            // 3. Compact line: Date -> Description + Amount mixed
+            const patternFlex = /(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{2,4}|\d{1,2}[\/\.-]\d{1,2})\s+(.+?)\s+([¥\$]?\s*[\d,]+(?:\.\d{1,2})?)/i;
+
+            let count = 0;
+            const currentYear = new Date().getFullYear();
+
+            lines.forEach(line => {
+                let match = line.match(patternDateFirst) || line.match(patternShortDate) || line.match(patternFlex);
+
+                if (match) {
+                    let rawDate = match[1].replace(/\./g, '-').replace(/\//g, '-');
+                    let desc = match[2].trim();
+                    let rawAmount = match[3].replace(/[¥\$,\s]/g, '');
+                    let amount = parseFloat(rawAmount);
+
+                    // Add current year if date only has MM-DD
+                    if (rawDate.split('-').length === 2) {
+                        rawDate = `${currentYear}-${rawDate}`;
+                    }
+
+                    // Exclude headers, balance totals, and non-expense lines
+                    if (desc.length >= 2 && !isNaN(amount) && amount > 0 && !/total|balance|payment|summary|previous/i.test(desc)) {
+                        const assignedCategory = categorizeByKeyword(desc);
+                        registerCategory(assignedCategory);
+
+                        expenses.push({
+                            date: rawDate,
+                            description: desc,
+                            category: assignedCategory,
+                            amount: amount
+                        });
+                        count++;
+                    }
+                }
+            });
+
+            renderExpenses();
+            if (count > 0) {
+                status.textContent = `Successfully extracted ${count} transactions!`;
+            } else {
+                status.textContent = "Could not parse statement structure automatically. Try exporting as CSV.";
+            }
+        } catch (err) {
+            status.textContent = "Failed to parse PDF file.";
+        }
+    }
+
+    // Handle CSV Upload
     function handleCSVUpload(event) {
         const file = event.target.files[0];
         const status = document.getElementById('csv-status');
@@ -345,8 +425,6 @@
                     const date = row.Date || row.date || row['Transaction Date'] || new Date().toISOString().split('T')[0];
                     const desc = row.Description || row.description || row.Payee || row.Name || 'Credit Card Charge';
                     let amount = row.Amount || row.amount || row.Price || 0;
-                    
-                    // Check if CSV explicitly has a Category column
                     const csvCat = row.Category || row.category || row.Type || row.type;
                     
                     let finalCat;
@@ -377,61 +455,6 @@
                 status.textContent = "Error reading CSV.";
             }
         });
-    }
-
-    // Handle PDF Upload (Extracts text and auto-registers detected categories)
-    async function handlePDFUpload(event) {
-        const file = event.target.files[0];
-        const status = document.getElementById('pdf-status');
-        if (!file) return;
-
-        status.textContent = "Parsing PDF statement...";
-
-        try {
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-            let fullText = "";
-
-            for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const textContent = await page.getTextContent();
-                const pageText = textContent.items.map(item => item.str).join(" ");
-                fullText += pageText + "\n";
-            }
-
-            const lineRegex = /(\d{4}[\/\.-]\d{1,2}[\/\.-]\d{1,2}|\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4})\s+([A-Za-z0-9\s\-\.\*]+?)\s+[¥\$]?\s*([\d,]+\.?\d*)/g;
-            
-            let match;
-            let count = 0;
-
-            while ((match = lineRegex.exec(fullText)) !== null) {
-                const rawDate = match[1].replace(/\./g, '-').replace(/\//g, '-');
-                const desc = match[2].trim();
-                let amount = parseFloat(match[3].replace(/,/g, ''));
-
-                if (desc.length > 2 && !isNaN(amount) && amount > 0) {
-                    const assignedCategory = categorizeByKeyword(desc);
-                    registerCategory(assignedCategory);
-
-                    expenses.push({
-                        date: rawDate,
-                        description: desc,
-                        category: assignedCategory,
-                        amount: amount
-                    });
-                    count++;
-                }
-            }
-
-            renderExpenses();
-            if (count > 0) {
-                status.textContent = `Extracted ${count} transactions and updated categories!`;
-            } else {
-                status.textContent = "Could not parse statement layout automatically.";
-            }
-        } catch (err) {
-            status.textContent = "Failed to parse PDF file.";
-        }
     }
 
     // Receipt OCR Upload
@@ -495,7 +518,6 @@
         document.body.removeChild(link);
     }
 
-    // Initial setup on page load
     updateCategorySelect();
     renderExpenses();
 </script>
