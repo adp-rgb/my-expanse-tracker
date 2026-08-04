@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Household Expense Tracker</title>
+    <!-- External Libraries for CSV and Photo OCR -->
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --border: #e2e8f0;
+            --danger: #ef4444;
+            --success: #10b981;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 850px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #0f172a;
+        }
+
+        .summary-card {
+            background: var(--primary);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .summary-card h2 {
+            margin: 0;
+            font-size: 2.2rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        @media (max-width: 600px) {
+            .grid-2 { grid-template-columns: 1fr; }
+        }
+
+        form {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+        }
+
+        input, select, button {
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .btn-primary:hover { background: #1d4ed8; }
+
+        .drop-zone {
+            border: 2px dashed var(--border);
+            padding: 15px;
+            text-align: center;
+            border-radius: 8px;
+            background: #f1f5f9;
+            cursor: pointer;
+        }
+
+        .drop-zone input { display: none; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th { background-color: #f1f5f9; }
+
+        .delete-btn {
+            background: none;
+            border: none;
+            color: var(--danger);
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            cursor: pointer;
+        }
+
+        .status {
+            font-size: 0.85rem;
+            color: #64748b;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🏠 Household Expense Tracker</h1>
+
+    <!-- Total -->
+    <div class="summary-card">
+        <span>Total Expenses</span>
+        <h2 id="total-amount">¥0</h2>
+    </div>
+
+    <!-- Quick Import Tools -->
+    <div class="grid-2">
+        <!-- Credit Card CSV Import -->
+        <div class="card">
+            <h3>💳 Import Credit Card CSV</h3>
+            <div class="drop-zone" onclick="document.getElementById('csv-file').click()">
+                <span>Click to Upload CSV Statement</span>
+                <input type="file" id="csv-file" accept=".csv" onchange="handleCSVUpload(event)">
+            </div>
+            <div class="status" id="csv-status">Supports standard bank statements.</div>
+        </div>
+
+        <!-- Receipt Photo Scanner -->
+        <div class="card">
+            <h3>📷 Scan Receipt Photo</h3>
+            <div class="drop-zone" onclick="document.getElementById('receipt-file').click()">
+                <span>Click to Upload Receipt Image</span>
+                <input type="file" id="receipt-file" accept="image/*" onchange="handleReceiptUpload(event)">
+            </div>
+            <div class="status" id="ocr-status">Extracts totals directly on your device.</div>
+        </div>
+    </div>
+
+    <!-- Manual Entry Form -->
+    <div class="card">
+        <h3>Add Manual Expense</h3>
+        <form id="expense-form">
+            <input type="date" id="date" required>
+            <input type="text" id="description" placeholder="Description" required>
+            <select id="category" required>
+                <option value="Food & Groceries">Food & Groceries</option>
+                <option value="Utilities">Utilities</option>
+                <option value="Housing / Rent">Housing / Rent</option>
+                <option value="Education / Activities">Education / Activities</option>
+                <option value="Travel & Leisure">Travel & Leisure</option>
+                <option value="Other">Other</option>
+            </select>
+            <input type="number" id="amount" placeholder="Amount" step="any" required>
+            <button type="submit" class="btn-primary">Add Entry</button>
+        </form>
+    </div>
+
+    <!-- Expense Log -->
+    <div class="card">
+        <h3>Expense Log</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th>Category</th>
+                    <th>Amount</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="expense-list"></tbody>
+        </table>
+
+        <div class="actions">
+            <button class="btn-outline" onclick="exportCSV()">📥 Export Backup (CSV)</button>
+            <button class="btn-outline" style="color: var(--danger);" onclick="clearAll()">Clear All Data</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('date').valueAsDate = new Date();
+    let expenses = JSON.parse(localStorage.getItem('household_expenses')) || [];
+
+    function renderExpenses() {
+        const list = document.getElementById('expense-list');
+        const totalEl = document.getElementById('total-amount');
+        list.innerHTML = '';
+        let total = 0;
+
+        expenses.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        expenses.forEach((expense, index) => {
+            total += parseFloat(expense.amount);
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${expense.date}</td>
+                <td>${expense.description}</td>
+                <td><strong>${expense.category}</strong></td>
+                <td>¥${Number(expense.amount).toLocaleString()}</td>
+                <td><button class="delete-btn" onclick="deleteExpense(${index})">✕</button></td>
+            `;
+            list.appendChild(row);
+        });
+
+        totalEl.textContent = `¥${Math.round(total).toLocaleString()}`;
+        localStorage.setItem('household_expenses', JSON.stringify(expenses));
+    }
+
+    // Add Manual Expense
+    document.getElementById('expense-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        expenses.push({
+            date: document.getElementById('date').value,
+            description: document.getElementById('description').value,
+            category: document.getElementById('category').value,
+            amount: document.getElementById('amount').value
+        });
+        renderExpenses();
+        document.getElementById('description').value = '';
+        document.getElementById('amount').value = '';
+    });
+
+    // Handle CSV Import
+    function handleCSVUpload(event) {
+        const file = event.target.files[0];
+        const status = document.getElementById('csv-status');
+        if (!file) return;
+
+        status.textContent = "Processing CSV...";
+
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                let count = 0;
+                results.data.forEach(row => {
+                    // Smart detection of CSV columns across typical bank exports
+                    const date = row.Date || row.date || row['Transaction Date'] || new Date().toISOString().split('T')[0];
+                    const desc = row.Description || row.description || row.Payee || row.Name || 'Credit Card Charge';
+                    let amount = row.Amount || row.amount || row.Price || 0;
+                    
+                    // Clean numeric amount (remove currency symbols/commas)
+                    amount = String(amount).replace(/[^0-9.-]+/g, "");
+                    amount = Math.abs(parseFloat(amount));
+
+                    if (!isNaN(amount) && amount > 0) {
+                        expenses.push({
+                            date: date,
+                            description: desc,
+                            category: 'Other',
+                            amount: amount
+                        });
+                        count++;
+                    }
+                });
+                renderExpenses();
+                status.textContent = `Successfully imported ${count} transactions!`;
+            },
+            error: function() {
+                status.textContent = "Error parsing CSV file.";
+            }
+        });
+    }
+
+    // Handle Receipt Image OCR
+    async function handleReceiptUpload(event) {
+        const file = event.target.files[0];
+        const status = document.getElementById('ocr-status');
+        if (!file) return;
+
+        status.textContent = "Scanning receipt image (takes a few seconds)...";
+
+        try {
+            const worker = await Tesseract.createWorker('eng');
+            const ret = await worker.recognize(file);
+            await worker.terminate();
+
+            const text = ret.data.text;
+
+            // Extract numeric values from text to estimate Total
+            const numbers = text.match(/\d+[\.,]?\d*/g)
+                .map(n => parseFloat(n.replace(',', '')))
+                .filter(n => !isNaN(n) && n > 0);
+
+            if (numbers.length > 0) {
+                // Assume largest number found on receipt is the total
+                const detectedTotal = Math.max(...numbers);
+
+                document.getElementById('amount').value = detectedTotal;
+                document.getElementById('description').value = "Scanned Receipt";
+                status.textContent = `Extracted ¥${detectedTotal.toLocaleString()}! Verify and click 'Add Entry'.`;
+            } else {
+                status.textContent = "Could not find clear amounts. Please enter manually.";
+            }
+        } catch (err) {
+            status.textContent = "Failed to scan image. Please try again.";
+        }
+    }
+
+    function deleteExpense(index) {
+        expenses.splice(index, 1);
+        renderExpenses();
+    }
+
+    function clearAll() {
+        if (confirm("Are you sure you want to clear all data?")) {
+            expenses = [];
+            renderExpenses();
+        }
+    }
+
+    function exportCSV() {
+        if (expenses.length === 0) return alert("No expenses to export.");
+        let csvContent = "data:text/csv;charset=utf-8,Date,Description,Category,Amount\n";
+        expenses.forEach(e => {
+            csvContent += `${e.date},"${e.description}",${e.category},${e.amount}\n`;
+        });
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "household_expenses.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    renderExpenses();
+</script>
+
+</body>
+</html>
