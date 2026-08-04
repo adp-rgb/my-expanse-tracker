@@ -219,6 +219,19 @@
             border-bottom: 1px solid var(--border);
             padding-bottom: 10px;
         }
+
+        .ai-banner {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
     </style>
 </head>
 <body>
@@ -309,6 +322,11 @@
 
     <!-- Expense Table -->
     <div class="card">
+        <div class="ai-banner">
+            <span>🤖 <strong>Adaptive Rules Engine:</strong> Manual corrections automatically teach the engine to categorize future imports correctly.</span>
+            <span id="rules-count" style="font-weight: bold;">0 Learned Rules</span>
+        </div>
+
         <h3 style="margin-top: 0;">Expense Log</h3>
         <table>
             <thead>
@@ -325,7 +343,7 @@
         </table>
 
         <div class="actions">
-            <button class="btn-primary" onclick="reCategorizeAll()">⚡ Re-Categorize All Data</button>
+            <button class="btn-primary" onclick="reCategorizeAll()">⚡ Re-apply Learned Rules & Fix Dates</button>
             <button class="btn-outline" onclick="exportCSV()">📥 Export Backup (CSV)</button>
             <button class="btn-outline" style="color: var(--danger);" onclick="clearAll()">Clear All Data</button>
         </div>
@@ -352,9 +370,15 @@
 
     let expenses = JSON.parse(localStorage.getItem('household_expenses')) || [];
     let customCategories = JSON.parse(localStorage.getItem('household_categories')) || defaultCategories;
+    let learnedRules = JSON.parse(localStorage.getItem('user_keyword_rules')) || {};
 
     let pieChartInstance = null;
     let barChartInstance = null;
+
+    function updateRulesDisplay() {
+        const count = Object.keys(learnedRules).length;
+        document.getElementById('rules-count').textContent = `${count} Learned Rules`;
+    }
 
     function registerCategory(newCat) {
         if (!newCat) return "Other";
@@ -378,81 +402,120 @@
         });
     }
 
-    // Advanced Normalization & Multi-Keyword Japanese Rules
+    // Adaptive Matching Algorithm (Learned Memory First, Fallback to Preset Regex)
     function categorizeByKeyword(rawDescription) {
         if (!rawDescription) return "Other";
         
-        // 1. Convert Full-width to Half-width and lowercase
-        let desc = rawDescription.normalize('NFKC').toLowerCase();
-        
-        // 2. Remove all spaces (full-width \u3000 and half-width)
-        desc = desc.replace(/[\s\u3000]+/g, '');
+        let normalizedDesc = rawDescription.normalize('NFKC').toLowerCase().replace(/[\s\u3000]+/g, '');
 
-        // 3. Subscriptions & Digital Services
-        if (/(ネットフリックス|netflix|spotify|apple|google|youtube|ユーチューブ|adobe|microsoft|アマゾンプライム|prime|hulu|disney|chatgpt|openai)/i.test(desc)) {
+        // 1. Check user-taught learned rules first
+        for (let ruleKey in learnedRules) {
+            if (normalizedDesc.includes(ruleKey)) {
+                return learnedRules[ruleKey];
+            }
+        }
+
+        // 2. Pre-defined Rules
+        if (/(ネットフリックス|netflix|spotify|apple|google|youtube|ユーチューブ|adobe|microsoft|アマゾンプライム|prime|hulu|disney|chatgpt|openai)/i.test(normalizedDesc)) {
             return "Subscriptions & Streaming";
         }
 
-        // 4. Household, Utilities, Telecom, Newspapers
-        if (/(東京電力|電気|電力|料金等|関電|中部電力|ガス|水道|新聞|yc新聞|購読|nuro|nuro光|光ご利用|ワイアレスゲート|ソフトバンク|softbank|docomo|au|楽天モバイル|internet|wifi|utility)/i.test(desc)) {
+        if (/(東京電力|電気|電力|料金等|関電|中部電力|ガス|水道|新聞|yc新聞|購読|nuro|nuro光|光ご利用|ワイアレスゲート|ソフトバンク|softbank|docomo|au|楽天モバイル|internet|wifi|utility)/i.test(normalizedDesc)) {
             return "Household & Utilities";
         }
 
-        // 5. Electronics & Retail Shopping
-        if (/(ノジマ|nojima|amazon|アマゾン|amazon\.co\.jp|ビックカメラ|ヨドバシ|ヤマダデンキ|イオン|aeon|ユニクロ|uniqlo|zara|shopping|ストア|rakuten|楽天)/i.test(desc)) {
+        if (/(ノジマ|nojima|amazon|アマゾン|amazon\.co\.jp|ビックカメラ|ヨドバシ|ヤマダデンキ|イオン|aeon|ユニクロ|uniqlo|zara|shopping|ストア|rakuten|楽天)/i.test(normalizedDesc)) {
             return "Shopping";
         }
 
-        // 6. Transport, Fuel, ETC, Highway & Tolls
-        if (/(etc|首都高|関東支社|高速|道路|eneos|エネオス|出光|コスモ|石油|ガソリン|parking|タイムズ|toll|suica|pasmo|スイカ|パスモ|モバイルsuica|jr|電車|バス|タクシー|交通)/i.test(desc)) {
+        if (/(etc|首都高|関東支社|高速|道路|eneos|エネオス|出光|コスモ|石油|ガソリン|parking|タイムズ|toll|suica|pasmo|スイカ|パスモ|モバイルsuica|jr|電車|バス|タクシー|交通)/i.test(normalizedDesc)) {
             return "Car & Transport";
         }
 
-        // 7. Health & Medical
-        if (/(クリニック|メディカル|病院|医院|歯科|薬局|ドラッグ|マツモトキヨシ|ウェルシア|サンドラッグ|スギ薬局|調剤|hospital|clinic|pharmacy)/i.test(desc)) {
+        if (/(クリニック|メディカル|病院|医院|歯科|薬局|ドラッグ|マツモトキヨシ|ウェルシア|サンドラッグ|スギ薬局|調剤|hospital|clinic|pharmacy)/i.test(normalizedDesc)) {
             return "Health & Medical";
         }
 
-        // 8. Education & Activities
-        if (/(スイミング|スイミングスクール|水泳|塾|スクール|レッスン|学費|授業料|スポーツ|ジム|ゼミ|kumon|公文|プール)/i.test(desc)) {
+        if (/(スイミング|スイミングスクール|水泳|塾|スクール|レッスン|学費|授業料|スポーツ|ジム|ゼミ|kumon|公文|プール)/i.test(normalizedDesc)) {
             return "Education & Activities";
         }
 
-        // 9. Food & Groceries
-        if (/(スーパー|ライフ|ヤオコー|マルエツ|イトーヨーカドー|セブン|ファミリーマート|ローソン|コンビニ|マクドナルド|スターバックス|カフェ|レストラン|食堂|food|grocery)/i.test(desc)) {
+        if (/(スーパー|ライフ|ヤオコー|マルエツ|イトーヨーカドー|セブン|ファミリーマート|ローソン|コンビニ|マクドナルド|スターバックス|カフェ|レストラン|食堂|food|grocery)/i.test(normalizedDesc)) {
             return "Food & Groceries";
         }
 
-        // 10. Travel & Leisure
-        if (/(ホテル|jtb|airbnb|expedia|じゃらん|楽天トラベル|航空|飛行機|jr東日本|スキー|リゾート|hotel|flight)/i.test(desc)) {
+        if (/(ホテル|jtb|airbnb|expedia|じゃらん|楽天トラベル|航空|飛行機|jr東日本|スキー|リゾート|hotel|flight)/i.test(normalizedDesc)) {
             return "Travel & Leisure";
         }
 
-        // 11. Insurance & Finance
-        if (/(保険|生命保険|損保|税金|手数料|bank|insurance)/i.test(desc)) {
+        if (/(保険|生命保険|損保|税金|手数料|bank|insurance)/i.test(normalizedDesc)) {
             return "Insurance & Finance";
         }
 
         return "Other";
     }
 
+    // Interactive Learning Callback
+    function updateExpenseCategory(index, newCategory) {
+        const item = expenses[index];
+        item.category = newCategory;
+
+        // Extract pattern key and store into Adaptive Knowledge Base
+        const cleanKey = item.description.normalize('NFKC').toLowerCase().replace(/[\s\u3000]+/g, '');
+        if (cleanKey.length >= 2) {
+            learnedRules[cleanKey] = newCategory;
+            localStorage.setItem('user_keyword_rules', JSON.stringify(learnedRules));
+            updateRulesDisplay();
+        }
+
+        localStorage.setItem('household_expenses', JSON.stringify(expenses));
+        renderExpenses();
+    }
+
+    // Strict Date Formatter (Normalizes corrupted YY-MM-DD / YYYY-MM-DD dates)
+    function sanitizeDate(rawDateStr) {
+        if (!rawDateStr) return null;
+
+        // Clean characters
+        let clean = rawDateStr.replace(/\./g, '-').replace(/\//g, '-').trim();
+        let parts = clean.split('-');
+
+        if (parts.length < 3) return null;
+
+        let year = parseInt(parts[0], 10);
+        let month = parseInt(parts[1], 10);
+        let day = parseInt(parts[2], 10);
+
+        // Filter out malformed strings (e.g., THB / 2026-52-89)
+        if (isNaN(year) || isNaN(month) || isNaN(day) || month < 1 || month > 12 || day < 1 || day > 31) {
+            return null;
+        }
+
+        if (year < 100) year += 2000;
+
+        const m = String(month).padStart(2, '0');
+        const d = String(day).padStart(2, '0');
+
+        return `${year}-${m}-${d}`;
+    }
+
     function reCategorizeAll() {
         let count = 0;
+        let validExpenses = [];
+
         expenses.forEach(e => {
-            const newCat = categorizeByKeyword(e.description);
-            if (newCat !== "Other" || e.category === "Other") {
-                e.category = newCat;
+            const cleanDate = sanitizeDate(e.date);
+            if (cleanDate) {
+                e.date = cleanDate;
+                e.category = categorizeByKeyword(e.description);
+                validExpenses.push(e);
                 count++;
             }
         });
-        renderExpenses();
-        alert(`Successfully re-categorized ${count} entries based on updated rules!`);
-    }
 
-    function updateExpenseCategory(index, newCategory) {
-        expenses[index].category = newCategory;
-        localStorage.setItem('household_expenses', JSON.stringify(expenses));
+        expenses = validExpenses;
         renderExpenses();
+        alert(`Cleaned up dates and re-categorized ${count} entries based on learned rules!`);
     }
 
     function autoSuggestCategory(text) {
@@ -463,16 +526,6 @@
         }
     }
 
-    function formatJapaneseDate(yearShort, month, day) {
-        let fullYear = parseInt(yearShort, 10);
-        if (fullYear < 100) {
-            fullYear += 2000;
-        }
-        const m = String(month).padStart(2, '0');
-        const d = String(day).padStart(2, '0');
-        return `${fullYear}-${m}-${d}`;
-    }
-
     function populateMonthDropdown() {
         const monthSelect = document.getElementById('filter-month');
         const currentValue = monthSelect.value;
@@ -481,7 +534,7 @@
         const months = new Set();
         expenses.forEach(e => {
             if (e.date && e.date.length >= 7) {
-                months.add(e.date.substring(0, 7)); // YYYY-MM
+                months.add(e.date.substring(0, 7)); // Clean YYYY-MM
             }
         });
 
@@ -502,6 +555,7 @@
 
     function renderExpenses() {
         populateMonthDropdown();
+        updateRulesDisplay();
         const selectedMonth = document.getElementById('filter-month').value || 'ALL';
 
         const list = document.getElementById('expense-list');
@@ -521,7 +575,6 @@
             const originalIndex = expenses.indexOf(expense);
             total += parseFloat(expense.amount);
             
-            // Generate inline Category Dropdown
             let optionsHtml = '';
             customCategories.forEach(cat => {
                 optionsHtml += `<option value="${cat}" ${cat === expense.category ? 'selected' : ''}>${cat}</option>`;
@@ -556,6 +609,7 @@
             return e.date && e.date.startsWith(selectedMonth);
         });
 
+        // 1. Pie Chart
         const categoryMap = {};
         filteredExpenses.forEach(e => {
             const cat = e.category || 'Other';
@@ -592,6 +646,7 @@
             }
         });
 
+        // 2. Bar Chart
         const monthlyMap = {};
         expenses.forEach(e => {
             if (e.date && e.date.length >= 7) {
@@ -635,14 +690,25 @@
         e.preventDefault();
         const desc = document.getElementById('description').value;
         const selectedCat = document.getElementById('category').value;
+        const inputDate = document.getElementById('date').value;
+
+        const cleanDate = sanitizeDate(inputDate) || new Date().toISOString().split('T')[0];
 
         expenses.push({
-            date: document.getElementById('date').value,
+            date: cleanDate,
             description: desc,
             category: selectedCat,
             source: 'Manual',
             amount: parseFloat(document.getElementById('amount').value)
         });
+
+        // Learn rule on manual creation if customized
+        const cleanKey = desc.normalize('NFKC').toLowerCase().replace(/[\s\u3000]+/g, '');
+        if (cleanKey.length >= 2) {
+            learnedRules[cleanKey] = selectedCat;
+            localStorage.setItem('user_keyword_rules', JSON.stringify(learnedRules));
+        }
+
         renderExpenses();
         document.getElementById('description').value = '';
         document.getElementById('amount').value = '';
@@ -690,22 +756,19 @@
                 let match = line.match(patternDateFirst) || line.match(patternFlex);
 
                 if (match) {
-                    let dateStr = match[1].replace(/\./g, '-').replace(/\//g, '-');
+                    let rawDate = match[1];
                     let desc = match[2].trim();
                     let rawAmount = match[3].replace(/[¥\$,\s]/g, '');
                     let amount = parseFloat(rawAmount);
 
-                    const dateParts = dateStr.split('-');
-                    if (dateParts.length === 3) {
-                        dateStr = formatJapaneseDate(dateParts[0], dateParts[1], dateParts[2]);
-                    }
+                    let cleanDate = sanitizeDate(rawDate);
 
-                    if (desc.length >= 2 && !isNaN(amount) && amount > 0 && !/total|balance|payment|summary|previous|ご請求額/i.test(desc)) {
+                    if (cleanDate && desc.length >= 2 && !isNaN(amount) && amount > 0 && !/total|balance|payment|summary|previous|ご請求額/i.test(desc)) {
                         const assignedCategory = categorizeByKeyword(desc);
                         registerCategory(assignedCategory);
 
                         expenses.push({
-                            date: dateStr,
+                            date: cleanDate,
                             description: desc,
                             category: assignedCategory,
                             source: 'PDF',
@@ -741,15 +804,12 @@
             complete: function(results) {
                 let count = 0;
                 results.data.forEach(row => {
-                    let date = row.Date || row.date || row['Transaction Date'] || row['利用日'] || new Date().toISOString().split('T')[0];
+                    let rawDate = row.Date || row.date || row['Transaction Date'] || row['利用日'] || '';
                     const desc = row.Description || row.description || row.Payee || row.Name || row['利用店名・商品名'] || 'Card Purchase';
                     let amount = row.Amount || row.amount || row.Price || row['利用金額'] || 0;
                     const csvCat = row.Category || row.category;
                     
-                    const dateParts = date.replace(/\./g, '-').replace(/\//g, '-').split('-');
-                    if (dateParts.length === 3) {
-                        date = formatJapaneseDate(dateParts[0], dateParts[1], dateParts[2]);
-                    }
+                    let cleanDate = sanitizeDate(rawDate) || new Date().toISOString().split('T')[0];
 
                     let finalCat;
                     if (csvCat && csvCat.trim() !== '') {
@@ -764,7 +824,7 @@
 
                     if (!isNaN(amount) && amount > 0) {
                         expenses.push({
-                            date: date,
+                            date: cleanDate,
                             description: desc,
                             category: finalCat,
                             source: 'CSV',
@@ -819,10 +879,12 @@
     }
 
     function clearAll() {
-        if (confirm("Are you sure you want to clear all data and reset categories?")) {
+        if (confirm("Are you sure you want to clear all data, reset categories, and purge learned rules?")) {
             expenses = [];
             customCategories = [...defaultCategories];
+            learnedRules = {};
             localStorage.removeItem('household_categories');
+            localStorage.removeItem('user_keyword_rules');
             updateCategorySelect();
             renderExpenses();
         }
