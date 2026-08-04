@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Household Expense Tracker</title>
+    <title>Household Expense & Energy Tracker</title>
     <!-- External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
@@ -19,6 +19,7 @@
             --text-secondary: #64748b;
             --border: #e2e8f0;
             --danger: #ef4444;
+            --solar: #f59e0b;
             --radius: 12px;
         }
 
@@ -40,12 +41,6 @@
             margin-bottom: 24px;
         }
 
-        .app-header h1 {
-            margin: 0;
-            font-size: 1.8rem;
-            color: var(--text);
-        }
-
         .summary-card {
             background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
             color: white;
@@ -54,19 +49,6 @@
             text-align: center;
             margin-bottom: 24px;
             box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.25);
-        }
-
-        .summary-card span {
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            opacity: 0.9;
-        }
-
-        .summary-card h2 {
-            margin: 8px 0 0 0;
-            font-size: 2.5rem;
-            font-weight: 700;
         }
 
         .card {
@@ -78,9 +60,9 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
 
-        .grid-3 {
+        .grid-4 {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 16px;
         }
 
@@ -108,23 +90,6 @@
             border-radius: 8px;
             font-size: 0.9rem;
             outline: none;
-            transition: all 0.2s;
-        }
-
-        input:focus, select:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
-        }
-
-        .category-select-inline {
-            padding: 4px 8px;
-            font-size: 0.8rem;
-            border-radius: 6px;
-            background: #f8fafc;
-            border: 1px solid #cbd5e1;
-            font-weight: 600;
-            color: #334155;
-            cursor: pointer;
         }
 
         .btn-primary {
@@ -135,19 +100,22 @@
             font-weight: 600;
         }
 
-        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-solar {
+            background: var(--solar);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+        }
 
         .drop-zone {
             border: 2px dashed #cbd5e1;
-            padding: 20px 15px;
+            padding: 15px 10px;
             text-align: center;
             border-radius: 8px;
             background: #f8fafc;
             cursor: pointer;
-            transition: border-color 0.2s;
         }
-
-        .drop-zone:hover { border-color: var(--primary); background: #eff6ff; }
 
         .drop-zone input { display: none; }
 
@@ -164,73 +132,38 @@
             font-size: 0.9rem;
         }
 
-        th {
-            background-color: #f8fafc;
-            color: var(--text-secondary);
-            font-weight: 600;
+        /* Modal Styling */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
         }
 
-        .source-tag {
-            padding: 2px 8px;
-            border-radius: 6px;
-            font-size: 0.7rem;
-            color: #475569;
-            background: #f1f5f9;
-            border: 1px solid #cbd5e1;
+        .modal-content {
+            background: var(--card-bg);
+            padding: 24px;
+            border-radius: var(--radius);
+            width: 90%;
+            max-width: 700px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
         }
 
-        .delete-btn {
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .close-btn {
             background: none;
             border: none;
-            color: var(--danger);
+            font-size: 1.5rem;
             cursor: pointer;
-            font-weight: bold;
-            font-size: 1.1rem;
-        }
-
-        .actions {
-            display: flex;
-            gap: 10px;
-            justify-content: space-between;
-            margin-top: 20px;
-            flex-wrap: wrap;
-        }
-
-        .btn-outline {
-            background: transparent;
-            border: 1px solid var(--border);
-            cursor: pointer;
-            font-weight: 500;
-        }
-
-        .btn-outline:hover { background: #f8fafc; }
-
-        .status {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            margin-top: 8px;
-        }
-
-        .month-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 15px;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 10px;
-        }
-
-        .ai-banner {
-            background: #eff6ff;
-            border: 1px solid #bfdbfe;
-            color: #1e40af;
-            padding: 10px 14px;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
         }
     </style>
 </head>
@@ -238,7 +171,7 @@
 
 <div class="container">
     <div class="app-header">
-        <h1>🏠 Household Expense Tracker</h1>
+        <h1>🏠 Household Expense & Energy Tracker</h1>
     </div>
 
     <!-- Summary Box -->
@@ -247,93 +180,81 @@
         <h2 id="total-amount">¥0</h2>
     </div>
 
-    <!-- Multi-Import Section -->
-    <div class="grid-3">
+    <!-- Imports Grid -->
+    <div class="grid-4">
         <!-- PDF Upload -->
         <div class="card">
-            <h3 style="margin-top: 0;">📄 Import PDF Statement</h3>
+            <h3>📄 Statement PDF</h3>
             <div class="drop-zone" onclick="document.getElementById('pdf-file').click()">
-                <span>Upload Statement PDF</span>
+                <span>Upload PDF</span>
                 <input type="file" id="pdf-file" accept=".pdf" onchange="handlePDFUpload(event)">
             </div>
-            <div class="status" id="pdf-status">Supports Japanese & Global Credit Cards.</div>
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top:5px;" id="pdf-status">PDF Card Statements</div>
         </div>
 
         <!-- CSV Upload -->
         <div class="card">
-            <h3 style="margin-top: 0;">💳 Import CSV File</h3>
+            <h3>💳 Expense CSV</h3>
             <div class="drop-zone" onclick="document.getElementById('csv-file').click()">
-                <span>Upload Statement CSV</span>
+                <span>Upload CSV</span>
                 <input type="file" id="csv-file" accept=".csv" onchange="handleCSVUpload(event)">
             </div>
-            <div class="status" id="csv-status">Parses & auto-categorizes entries.</div>
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top:5px;" id="csv-status">Card/Bank CSVs</div>
+        </div>
+
+        <!-- Solar Data CSV -->
+        <div class="card">
+            <h3>☀️ Solar Data CSV</h3>
+            <div class="drop-zone" onclick="document.getElementById('solar-file').click()">
+                <span>Upload Solar CSV</span>
+                <input type="file" id="solar-file" accept=".csv" onchange="handleSolarCSVUpload(event)">
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top:5px;" id="solar-status">Solar / Grid kWh Data</div>
         </div>
 
         <!-- Receipt Scan -->
         <div class="card">
-            <h3 style="margin-top: 0;">📷 Scan Receipt Photo</h3>
+            <h3>📷 Receipt Image</h3>
             <div class="drop-zone" onclick="document.getElementById('receipt-file').click()">
-                <span>Upload Receipt Photo</span>
+                <span>Upload Photo</span>
                 <input type="file" id="receipt-file" accept="image/*" onchange="handleReceiptUpload(event)">
             </div>
-            <div class="status" id="ocr-status">Scans total amount off receipt.</div>
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top:5px;" id="ocr-status">Scan totals</div>
         </div>
-    </div>
-
-    <!-- Manual Entry Form -->
-    <div class="card">
-        <h3 style="margin-top:0;">Add Entry</h3>
-        <form id="expense-form">
-            <input type="date" id="date" required>
-            <input type="text" id="description" placeholder="Description / Merchant" required oninput="autoSuggestCategory(this.value)">
-            <select id="category" required>
-                <!-- Populated Dynamically -->
-            </select>
-            <input type="number" id="amount" placeholder="Amount (¥)" step="any" required>
-            <button type="submit" class="btn-primary">Add Entry</button>
-        </form>
     </div>
 
     <!-- Analytics Section -->
     <div class="card">
-        <div class="month-header">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
             <h3 style="margin:0;">📊 Analytics & Breakdown</h3>
             <div>
-                <label for="filter-month" style="font-size: 0.9rem; font-weight: 600;">Selected Month: </label>
+                <button class="btn-solar" onclick="openSolarModal()" style="margin-right:10px;">⚡ View Solar Analysis</button>
+                <label for="filter-month" style="font-size: 0.9rem; font-weight: 600;">Month: </label>
                 <select id="filter-month" onchange="renderExpenses()"></select>
             </div>
         </div>
         
         <div class="grid-charts">
             <div>
-                <h4 style="text-align: center; margin-top: 0; color: var(--text-secondary);">Monthly Category Share</h4>
-                <div class="chart-container">
-                    <canvas id="pieChart"></canvas>
-                </div>
+                <h4 style="text-align: center; color: var(--text-secondary);">Monthly Category Share</h4>
+                <div class="chart-container"><canvas id="pieChart"></canvas></div>
             </div>
             <div>
-                <h4 style="text-align: center; margin-top: 0; color: var(--text-secondary);">Monthly Overall Trend</h4>
-                <div class="chart-container">
-                    <canvas id="barChart"></canvas>
-                </div>
+                <h4 style="text-align: center; color: var(--text-secondary);">Monthly Expense Trend</h4>
+                <div class="chart-container"><canvas id="barChart"></canvas></div>
             </div>
         </div>
     </div>
 
     <!-- Expense Table -->
     <div class="card">
-        <div class="ai-banner">
-            <span>🤖 <strong>Adaptive Rules Engine:</strong> Manual corrections automatically teach the engine to categorize future imports correctly.</span>
-            <span id="rules-count" style="font-weight: bold;">0 Learned Rules</span>
-        </div>
-
-        <h3 style="margin-top: 0;">Expense Log</h3>
+        <h3>Expense Log</h3>
         <table>
             <thead>
                 <tr>
                     <th>Date</th>
                     <th>Description</th>
-                    <th>Category (Click to Edit)</th>
+                    <th>Category</th>
                     <th>Source</th>
                     <th>Amount</th>
                     <th>Action</th>
@@ -341,11 +262,19 @@
             </thead>
             <tbody id="expense-list"></tbody>
         </table>
+    </div>
+</div>
 
-        <div class="actions">
-            <button class="btn-primary" onclick="reCategorizeAll()">⚡ Re-apply Learned Rules & Fix Dates</button>
-            <button class="btn-outline" onclick="exportCSV()">📥 Export Backup (CSV)</button>
-            <button class="btn-outline" style="color: var(--danger);" onclick="clearAll()">Clear All Data</button>
+<!-- Solar Analysis Modal -->
+<div class="modal-overlay" id="solarModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 style="margin:0;">☀️ Solar vs. Purchased Electricity</h2>
+            <button class="close-btn" onclick="closeSolarModal()">&times;</button>
+        </div>
+        <div id="solar-metrics" style="margin-bottom: 15px; font-weight: 600; color: var(--text-secondary);"></div>
+        <div class="chart-container" style="height:320px;">
+            <canvas id="solarChart"></canvas>
         </div>
     </div>
 </div>
@@ -353,177 +282,117 @@
 <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-    document.getElementById('date').valueAsDate = new Date();
-
-    const defaultCategories = [
-        "Food & Groceries",
-        "Car & Transport",
-        "Shopping",
-        "Household & Utilities",
-        "Education & Activities",
-        "Travel & Leisure",
-        "Subscriptions & Streaming",
-        "Health & Medical",
-        "Insurance & Finance",
-        "Other"
-    ];
-
     let expenses = JSON.parse(localStorage.getItem('household_expenses')) || [];
-    let customCategories = JSON.parse(localStorage.getItem('household_categories')) || defaultCategories;
-    let learnedRules = JSON.parse(localStorage.getItem('user_keyword_rules')) || {};
+    let solarData = JSON.parse(localStorage.getItem('solar_consumption_data')) || [];
+    let customCategories = ["Food & Groceries", "Car & Transport", "Shopping", "Household & Utilities", "Education & Activities", "Travel & Leisure", "Subscriptions & Streaming", "Health & Medical", "Insurance & Finance", "Other"];
+    
+    let pieChartInstance, barChartInstance, solarChartInstance;
 
-    let pieChartInstance = null;
-    let barChartInstance = null;
-
-    function updateRulesDisplay() {
-        const count = Object.keys(learnedRules).length;
-        document.getElementById('rules-count').textContent = `${count} Learned Rules`;
-    }
-
-    function registerCategory(newCat) {
-        if (!newCat) return "Other";
-        const formatted = newCat.trim().toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
-        if (!customCategories.includes(formatted)) {
-            customCategories.push(formatted);
-            localStorage.setItem('household_categories', JSON.stringify(customCategories));
-        }
-        updateCategorySelect();
-        return formatted;
-    }
-
-    function updateCategorySelect() {
-        const select = document.getElementById('category');
-        select.innerHTML = '';
-        customCategories.forEach(cat => {
-            const opt = document.createElement('option');
-            opt.value = cat;
-            opt.textContent = cat;
-            select.appendChild(opt);
-        });
-    }
-
-    // Adaptive Matching Algorithm (Learned Memory First, Fallback to Preset Regex)
-    function categorizeByKeyword(rawDescription) {
-        if (!rawDescription) return "Other";
-        
-        let normalizedDesc = rawDescription.normalize('NFKC').toLowerCase().replace(/[\s\u3000]+/g, '');
-
-        // 1. Check user-taught learned rules first
-        for (let ruleKey in learnedRules) {
-            if (normalizedDesc.includes(ruleKey)) {
-                return learnedRules[ruleKey];
-            }
-        }
-
-        // 2. Pre-defined Rules
-        if (/(ネットフリックス|netflix|spotify|apple|google|youtube|ユーチューブ|adobe|microsoft|アマゾンプライム|prime|hulu|disney|chatgpt|openai)/i.test(normalizedDesc)) {
-            return "Subscriptions & Streaming";
-        }
-
-        if (/(東京電力|電気|電力|料金等|関電|中部電力|ガス|水道|新聞|yc新聞|購読|nuro|nuro光|光ご利用|ワイアレスゲート|ソフトバンク|softbank|docomo|au|楽天モバイル|internet|wifi|utility)/i.test(normalizedDesc)) {
-            return "Household & Utilities";
-        }
-
-        if (/(ノジマ|nojima|amazon|アマゾン|amazon\.co\.jp|ビックカメラ|ヨドバシ|ヤマダデンキ|イオン|aeon|ユニクロ|uniqlo|zara|shopping|ストア|rakuten|楽天)/i.test(normalizedDesc)) {
-            return "Shopping";
-        }
-
-        if (/(etc|首都高|関東支社|高速|道路|eneos|エネオス|出光|コスモ|石油|ガソリン|parking|タイムズ|toll|suica|pasmo|スイカ|パスモ|モバイルsuica|jr|電車|バス|タクシー|交通)/i.test(normalizedDesc)) {
-            return "Car & Transport";
-        }
-
-        if (/(クリニック|メディカル|病院|医院|歯科|薬局|ドラッグ|マツモトキヨシ|ウェルシア|サンドラッグ|スギ薬局|調剤|hospital|clinic|pharmacy)/i.test(normalizedDesc)) {
-            return "Health & Medical";
-        }
-
-        if (/(スイミング|スイミングスクール|水泳|塾|スクール|レッスン|学費|授業料|スポーツ|ジム|ゼミ|kumon|公文|プール)/i.test(normalizedDesc)) {
-            return "Education & Activities";
-        }
-
-        if (/(スーパー|ライフ|ヤオコー|マルエツ|イトーヨーカドー|セブン|ファミリーマート|ローソン|コンビニ|マクドナルド|スターバックス|カフェ|レストラン|食堂|food|grocery)/i.test(normalizedDesc)) {
-            return "Food & Groceries";
-        }
-
-        if (/(ホテル|jtb|airbnb|expedia|じゃらん|楽天トラベル|航空|飛行機|jr東日本|スキー|リゾート|hotel|flight)/i.test(normalizedDesc)) {
-            return "Travel & Leisure";
-        }
-
-        if (/(保険|生命保険|損保|税金|手数料|bank|insurance)/i.test(normalizedDesc)) {
-            return "Insurance & Finance";
-        }
-
-        return "Other";
-    }
-
-    // Interactive Learning Callback
-    function updateExpenseCategory(index, newCategory) {
-        const item = expenses[index];
-        item.category = newCategory;
-
-        // Extract pattern key and store into Adaptive Knowledge Base
-        const cleanKey = item.description.normalize('NFKC').toLowerCase().replace(/[\s\u3000]+/g, '');
-        if (cleanKey.length >= 2) {
-            learnedRules[cleanKey] = newCategory;
-            localStorage.setItem('user_keyword_rules', JSON.stringify(learnedRules));
-            updateRulesDisplay();
-        }
-
-        localStorage.setItem('household_expenses', JSON.stringify(expenses));
-        renderExpenses();
-    }
-
-    // Strict Date Formatter (Normalizes corrupted YY-MM-DD / YYYY-MM-DD dates)
     function sanitizeDate(rawDateStr) {
         if (!rawDateStr) return null;
-
-        // Clean characters
         let clean = rawDateStr.replace(/\./g, '-').replace(/\//g, '-').trim();
         let parts = clean.split('-');
-
         if (parts.length < 3) return null;
-
         let year = parseInt(parts[0], 10);
         let month = parseInt(parts[1], 10);
         let day = parseInt(parts[2], 10);
-
-        // Filter out malformed strings (e.g., THB / 2026-52-89)
-        if (isNaN(year) || isNaN(month) || isNaN(day) || month < 1 || month > 12 || day < 1 || day > 31) {
-            return null;
-        }
-
+        if (isNaN(year) || isNaN(month) || isNaN(day) || month < 1 || month > 12) return null;
         if (year < 100) year += 2000;
-
-        const m = String(month).padStart(2, '0');
-        const d = String(day).padStart(2, '0');
-
-        return `${year}-${m}-${d}`;
+        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     }
 
-    function reCategorizeAll() {
-        let count = 0;
-        let validExpenses = [];
+    // Handle Solar CSV Upload
+    function handleSolarCSVUpload(event) {
+        const file = event.target.files[0];
+        const status = document.getElementById('solar-status');
+        if (!file) return;
 
-        expenses.forEach(e => {
-            const cleanDate = sanitizeDate(e.date);
-            if (cleanDate) {
-                e.date = cleanDate;
-                e.category = categorizeByKeyword(e.description);
-                validExpenses.push(e);
-                count++;
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                let count = 0;
+                results.data.forEach(row => {
+                    let rawDate = row.Date || row.date || row['日付'] || '';
+                    let cleanDate = sanitizeDate(rawDate);
+                    let solarKwh = parseFloat(row.Solar || row.solar_kwh || row['自家消費'] || row['Solar kWh'] || 0);
+                    let gridKwh = parseFloat(row.Grid || row.grid_kwh || row['買電'] || row['Grid Purchased kWh'] || 0);
+
+                    if (cleanDate && (!isNaN(solarKwh) || !isNaN(gridKwh))) {
+                        solarData.push({ date: cleanDate, solar: solarKwh, grid: gridKwh });
+                        count++;
+                    }
+                });
+                localStorage.setItem('solar_consumption_data', JSON.stringify(solarData));
+                status.textContent = `Imported ${count} solar records!`;
+            }
+        });
+    }
+
+    function openSolarModal() {
+        document.getElementById('solarModal').style.display = 'flex';
+        renderSolarChart();
+    }
+
+    function closeSolarModal() {
+        document.getElementById('solarModal').style.display = 'none';
+    }
+
+    function renderSolarChart() {
+        const selectedMonth = document.getElementById('filter-month').value || 'ALL';
+        const monthlySolarMap = {};
+
+        solarData.forEach(d => {
+            if (d.date && d.date.length >= 7) {
+                const monthKey = d.date.substring(0, 7);
+                if (!monthlySolarMap[monthKey]) monthlySolarMap[monthKey] = { solar: 0, grid: 0 };
+                monthlySolarMap[monthKey].solar += d.solar;
+                monthlySolarMap[monthKey].grid += d.grid;
             }
         });
 
-        expenses = validExpenses;
-        renderExpenses();
-        alert(`Cleaned up dates and re-categorized ${count} entries based on learned rules!`);
-    }
+        const sortedMonths = Object.keys(monthlySolarMap).sort();
+        const solarValues = sortedMonths.map(m => monthlySolarMap[m].solar);
+        const gridValues = sortedMonths.map(m => monthlySolarMap[m].grid);
 
-    function autoSuggestCategory(text) {
-        const catSelect = document.getElementById('category');
-        const matched = categorizeByKeyword(text);
-        if (matched !== "Other") {
-            catSelect.value = matched;
+        // Calculate Self-Sufficiency for Selected Month
+        let currentSolar = 0, currentGrid = 0;
+        if (selectedMonth !== 'ALL' && monthlySolarMap[selectedMonth]) {
+            currentSolar = monthlySolarMap[selectedMonth].solar;
+            currentGrid = monthlySolarMap[selectedMonth].grid;
+        } else {
+            currentSolar = solarValues.reduce((a, b) => a + b, 0);
+            currentGrid = gridValues.reduce((a, b) => a + b, 0);
         }
+
+        const totalEnergy = currentSolar + currentGrid;
+        const solarPercentage = totalEnergy > 0 ? ((currentSolar / totalEnergy) * 100).toFixed(1) : 0;
+
+        document.getElementById('solar-metrics').innerHTML = `
+            Selected Period: <strong>${selectedMonth}</strong> | 
+            ☀️ Solar: <strong>${currentSolar.toFixed(1)} kWh</strong> | 
+            🔌 Grid: <strong>${currentGrid.toFixed(1)} kWh</strong> | 
+            🌱 Solar Coverage: <strong>${solarPercentage}%</strong>
+        `;
+
+        if (solarChartInstance) solarChartInstance.destroy();
+
+        const ctx = document.getElementById('solarChart').getContext('2d');
+        solarChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: sortedMonths.length > 0 ? sortedMonths : ['No Solar Data'],
+                datasets: [
+                    { label: 'Solar Generated (kWh)', data: solarValues, backgroundColor: '#f59e0b', borderRadius: 4 },
+                    { label: 'Grid Purchased (kWh)', data: gridValues, backgroundColor: '#3b82f6', borderRadius: 4 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true, title: { display: true, text: 'kWh' } } }
+            }
+        });
     }
 
     function populateMonthDropdown() {
@@ -532,382 +401,69 @@
         monthSelect.innerHTML = '<option value="ALL">All Months</option>';
 
         const months = new Set();
-        expenses.forEach(e => {
-            if (e.date && e.date.length >= 7) {
-                months.add(e.date.substring(0, 7)); // Clean YYYY-MM
-            }
-        });
+        expenses.forEach(e => { if (e.date) months.add(e.date.substring(0, 7)); });
+        solarData.forEach(s => { if (s.date) months.add(s.date.substring(0, 7)); });
 
         const sortedMonths = Array.from(months).sort().reverse();
         sortedMonths.forEach(m => {
             const opt = document.createElement('option');
-            opt.value = m;
-            opt.textContent = m;
+            opt.value = m; opt.textContent = m;
             monthSelect.appendChild(opt);
         });
 
-        if (currentValue && (currentValue === 'ALL' || sortedMonths.includes(currentValue))) {
-            monthSelect.value = currentValue;
-        } else if (sortedMonths.length > 0) {
-            monthSelect.value = sortedMonths[0];
-        }
+        if (currentValue && sortedMonths.includes(currentValue)) monthSelect.value = currentValue;
     }
 
     function renderExpenses() {
         populateMonthDropdown();
-        updateRulesDisplay();
         const selectedMonth = document.getElementById('filter-month').value || 'ALL';
-
         const list = document.getElementById('expense-list');
-        const totalEl = document.getElementById('total-amount');
-        const summaryLabel = document.getElementById('summary-label');
         list.innerHTML = '';
         let total = 0;
 
-        expenses.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-        const filteredExpenses = expenses.filter(e => {
-            if (selectedMonth === 'ALL') return true;
-            return e.date && e.date.startsWith(selectedMonth);
-        });
-
-        filteredExpenses.forEach((expense) => {
-            const originalIndex = expenses.indexOf(expense);
+        const filtered = expenses.filter(e => selectedMonth === 'ALL' || (e.date && e.date.startsWith(selectedMonth)));
+        filtered.forEach((expense) => {
             total += parseFloat(expense.amount);
-            
-            let optionsHtml = '';
-            customCategories.forEach(cat => {
-                optionsHtml += `<option value="${cat}" ${cat === expense.category ? 'selected' : ''}>${cat}</option>`;
-            });
-
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${expense.date}</td>
                 <td>${expense.description}</td>
-                <td>
-                    <select class="category-select-inline" onchange="updateExpenseCategory(${originalIndex}, this.value)">
-                        ${optionsHtml}
-                    </select>
-                </td>
-                <td><span class="source-tag">${expense.source || 'Manual'}</span></td>
+                <td>${expense.category}</td>
+                <td>${expense.source || 'Manual'}</td>
                 <td>¥${Number(expense.amount).toLocaleString()}</td>
-                <td><button class="delete-btn" onclick="deleteExpense(${originalIndex})">✕</button></td>
+                <td><button onclick="deleteExpense(${expenses.indexOf(expense)})">✕</button></td>
             `;
             list.appendChild(row);
         });
 
-        summaryLabel.textContent = selectedMonth === 'ALL' ? 'Total Expenses (All Time)' : `Total Expenses (${selectedMonth})`;
-        totalEl.textContent = `¥${Math.round(total).toLocaleString()}`;
-        localStorage.setItem('household_expenses', JSON.stringify(expenses));
-
-        updateCharts(selectedMonth);
+        document.getElementById('total-amount').textContent = `¥${Math.round(total).toLocaleString()}`;
+        updateExpenseCharts(selectedMonth);
     }
 
-    function updateCharts(selectedMonth) {
-        const filteredExpenses = expenses.filter(e => {
-            if (selectedMonth === 'ALL') return true;
-            return e.date && e.date.startsWith(selectedMonth);
-        });
-
-        // 1. Pie Chart
+    function updateExpenseCharts(selectedMonth) {
+        const filtered = expenses.filter(e => selectedMonth === 'ALL' || (e.date && e.date.startsWith(selectedMonth)));
         const categoryMap = {};
-        filteredExpenses.forEach(e => {
-            const cat = e.category || 'Other';
-            categoryMap[cat] = (categoryMap[cat] || 0) + parseFloat(e.amount);
-        });
-
-        const pieLabels = Object.keys(categoryMap);
-        const pieData = Object.values(categoryMap);
-
-        const chartColors = [
-            '#2563eb', '#3b82f6', '#10b981', '#f59e0b', 
-            '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', 
-            '#14b8a6', '#64748b'
-        ];
+        filtered.forEach(e => { categoryMap[e.category] = (categoryMap[e.category] || 0) + parseFloat(e.amount); });
 
         if (pieChartInstance) pieChartInstance.destroy();
-
-        const ctxPie = document.getElementById('pieChart').getContext('2d');
-        pieChartInstance = new Chart(ctxPie, {
+        pieChartInstance = new Chart(document.getElementById('pieChart').getContext('2d'), {
             type: 'pie',
-            data: {
-                labels: pieLabels.length > 0 ? pieLabels : ['No Data'],
-                datasets: [{
-                    data: pieData.length > 0 ? pieData : [1],
-                    backgroundColor: pieData.length > 0 ? chartColors.slice(0, pieLabels.length) : ['#cbd5e1']
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'bottom' }
-                }
-            }
+            data: { labels: Object.keys(categoryMap), datasets: [{ data: Object.values(categoryMap), backgroundColor: ['#2563eb', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'] }] },
+            options: { responsive: true, maintainAspectRatio: false }
         });
 
-        // 2. Bar Chart
         const monthlyMap = {};
-        expenses.forEach(e => {
-            if (e.date && e.date.length >= 7) {
-                const monthKey = e.date.substring(0, 7);
-                monthlyMap[monthKey] = (monthlyMap[monthKey] || 0) + parseFloat(e.amount);
-            }
-        });
-
-        const sortedMonths = Object.keys(monthlyMap).sort();
-        const barData = sortedMonths.map(m => monthlyMap[m]);
-
+        expenses.forEach(e => { if (e.date) monthlyMap[e.date.substring(0, 7)] = (monthlyMap[e.date.substring(0, 7)] || 0) + parseFloat(e.amount); });
+        
         if (barChartInstance) barChartInstance.destroy();
-
-        const ctxBar = document.getElementById('barChart').getContext('2d');
-        barChartInstance = new Chart(ctxBar, {
+        barChartInstance = new Chart(document.getElementById('barChart').getContext('2d'), {
             type: 'bar',
-            data: {
-                labels: sortedMonths.length > 0 ? sortedMonths : ['No Data'],
-                datasets: [{
-                    label: 'Monthly Total (¥)',
-                    data: barData.length > 0 ? barData : [0],
-                    backgroundColor: sortedMonths.map(m => m === selectedMonth ? '#1d4ed8' : '#60a5fa'),
-                    borderRadius: 6
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: { beginAtZero: true }
-                },
-                plugins: {
-                    legend: { display: false }
-                }
-            }
+            data: { labels: Object.keys(monthlyMap).sort(), datasets: [{ label: 'Total Expenses (¥)', data: Object.values(monthlyMap), backgroundColor: '#60a5fa' }] },
+            options: { responsive: true, maintainAspectRatio: false }
         });
     }
 
-    // Manual Entry
-    document.getElementById('expense-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const desc = document.getElementById('description').value;
-        const selectedCat = document.getElementById('category').value;
-        const inputDate = document.getElementById('date').value;
-
-        const cleanDate = sanitizeDate(inputDate) || new Date().toISOString().split('T')[0];
-
-        expenses.push({
-            date: cleanDate,
-            description: desc,
-            category: selectedCat,
-            source: 'Manual',
-            amount: parseFloat(document.getElementById('amount').value)
-        });
-
-        // Learn rule on manual creation if customized
-        const cleanKey = desc.normalize('NFKC').toLowerCase().replace(/[\s\u3000]+/g, '');
-        if (cleanKey.length >= 2) {
-            learnedRules[cleanKey] = selectedCat;
-            localStorage.setItem('user_keyword_rules', JSON.stringify(learnedRules));
-        }
-
-        renderExpenses();
-        document.getElementById('description').value = '';
-        document.getElementById('amount').value = '';
-    });
-
-    // Flexible PDF Parsing Engine
-    async function handlePDFUpload(event) {
-        const file = event.target.files[0];
-        const status = document.getElementById('pdf-status');
-        if (!file) return;
-
-        status.textContent = "Parsing statement PDF...";
-
-        try {
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-            let lines = [];
-
-            for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const textContent = await page.getTextContent();
-                
-                let lastY = null;
-                let pageLines = [];
-                let currentLine = "";
-
-                textContent.items.forEach(item => {
-                    if (lastY !== null && Math.abs(item.transform[5] - lastY) > 4) {
-                        if (currentLine.trim()) pageLines.push(currentLine.trim());
-                        currentLine = "";
-                    }
-                    currentLine += " " + item.str;
-                    lastY = item.transform[5];
-                });
-                if (currentLine.trim()) pageLines.push(currentLine.trim());
-                lines = lines.concat(pageLines);
-            }
-
-            const patternDateFirst = /^(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})\s+(.+?)\s+[¥\$]?\s*([\d,]+\.?\d*)\s*$/i;
-            const patternFlex = /(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})\s+(.+?)\s+([¥\$]?\s*[\d,]+(?:\.\d{1,2})?)/i;
-
-            let count = 0;
-
-            lines.forEach(line => {
-                let match = line.match(patternDateFirst) || line.match(patternFlex);
-
-                if (match) {
-                    let rawDate = match[1];
-                    let desc = match[2].trim();
-                    let rawAmount = match[3].replace(/[¥\$,\s]/g, '');
-                    let amount = parseFloat(rawAmount);
-
-                    let cleanDate = sanitizeDate(rawDate);
-
-                    if (cleanDate && desc.length >= 2 && !isNaN(amount) && amount > 0 && !/total|balance|payment|summary|previous|ご請求額/i.test(desc)) {
-                        const assignedCategory = categorizeByKeyword(desc);
-                        registerCategory(assignedCategory);
-
-                        expenses.push({
-                            date: cleanDate,
-                            description: desc,
-                            category: assignedCategory,
-                            source: 'PDF',
-                            amount: amount
-                        });
-                        count++;
-                    }
-                }
-            });
-
-            renderExpenses();
-            if (count > 0) {
-                status.textContent = `Extracted ${count} transactions successfully!`;
-            } else {
-                status.textContent = "Could not parse statement structure automatically. Try exporting as CSV.";
-            }
-        } catch (err) {
-            status.textContent = "Failed to parse PDF file.";
-        }
-    }
-
-    // CSV Import Engine
-    function handleCSVUpload(event) {
-        const file = event.target.files[0];
-        const status = document.getElementById('csv-status');
-        if (!file) return;
-
-        status.textContent = "Processing CSV...";
-
-        Papa.parse(file, {
-            header: true,
-            skipEmptyLines: true,
-            complete: function(results) {
-                let count = 0;
-                results.data.forEach(row => {
-                    let rawDate = row.Date || row.date || row['Transaction Date'] || row['利用日'] || '';
-                    const desc = row.Description || row.description || row.Payee || row.Name || row['利用店名・商品名'] || 'Card Purchase';
-                    let amount = row.Amount || row.amount || row.Price || row['利用金額'] || 0;
-                    const csvCat = row.Category || row.category;
-                    
-                    let cleanDate = sanitizeDate(rawDate) || new Date().toISOString().split('T')[0];
-
-                    let finalCat;
-                    if (csvCat && csvCat.trim() !== '') {
-                        finalCat = registerCategory(csvCat);
-                    } else {
-                        finalCat = categorizeByKeyword(desc);
-                        registerCategory(finalCat);
-                    }
-
-                    amount = String(amount).replace(/[^0-9.-]+/g, "");
-                    amount = Math.abs(parseFloat(amount));
-
-                    if (!isNaN(amount) && amount > 0) {
-                        expenses.push({
-                            date: cleanDate,
-                            description: desc,
-                            category: finalCat,
-                            source: 'CSV',
-                            amount: amount
-                        });
-                        count++;
-                    }
-                });
-                renderExpenses();
-                status.textContent = `Imported ${count} transactions!`;
-            },
-            error: function() {
-                status.textContent = "Error reading CSV.";
-            }
-        });
-    }
-
-    // Receipt OCR Upload
-    async function handleReceiptUpload(event) {
-        const file = event.target.files[0];
-        const status = document.getElementById('ocr-status');
-        if (!file) return;
-
-        status.textContent = "Scanning image...";
-
-        try {
-            const worker = await Tesseract.createWorker('eng');
-            const ret = await worker.recognize(file);
-            await worker.terminate();
-
-            const text = ret.data.text;
-            const numbers = text.match(/\d+[\.,]?\d*/g)
-                ?.map(n => parseFloat(n.replace(',', '')))
-                .filter(n => !isNaN(n) && n > 0) || [];
-
-            if (numbers.length > 0) {
-                const detectedTotal = Math.max(...numbers);
-                document.getElementById('amount').value = detectedTotal;
-                document.getElementById('description').value = "Scanned Receipt";
-                status.textContent = `Extracted ¥${detectedTotal.toLocaleString()}! Confirm category & click 'Add Entry'.`;
-            } else {
-                status.textContent = "Could not find totals on receipt.";
-            }
-        } catch (err) {
-            status.textContent = "Error scanning image.";
-        }
-    }
-
-    function deleteExpense(index) {
-        expenses.splice(index, 1);
-        renderExpenses();
-    }
-
-    function clearAll() {
-        if (confirm("Are you sure you want to clear all data, reset categories, and purge learned rules?")) {
-            expenses = [];
-            customCategories = [...defaultCategories];
-            learnedRules = {};
-            localStorage.removeItem('household_categories');
-            localStorage.removeItem('user_keyword_rules');
-            updateCategorySelect();
-            renderExpenses();
-        }
-    }
-
-    function exportCSV() {
-        if (expenses.length === 0) return alert("No expenses to export.");
-        let csvContent = "data:text/csv;charset=utf-8,Date,Description,Category,Source,Amount\n";
-        expenses.forEach(e => {
-            csvContent += `${e.date},"${e.description}",${e.category},${e.source || 'Manual'},${e.amount}\n`;
-        });
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "household_expenses.csv");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    }
-
-    updateCategorySelect();
     renderExpenses();
 </script>
-
 </body>
 </html>
