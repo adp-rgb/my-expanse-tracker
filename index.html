@@ -33,6 +33,16 @@
             background-color: #fafafa;
             margin-bottom: 20px;
         }
+        .btn-clear {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .btn-clear:hover { background-color: #c82333; }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -43,12 +53,8 @@
             padding: 10px;
             text-align: left;
         }
-        th {
-            background-color: #f1f3f5;
-        }
-        tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
+        th { background-color: #f1f3f5; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
         .summary-box {
             display: flex;
             gap: 15px;
@@ -74,6 +80,8 @@
             Upload Statement Files (CSV or PDF):
         </label><br><br>
         <input type="file" id="fileUpload" multiple accept=".csv, .pdf" onchange="handleBatchUpload(event)">
+        <br><br>
+        <button class="btn-clear" onclick="resetAllData()">Clear All Loaded Data</button>
     </div>
 
     <div class="summary-box">
@@ -108,6 +116,7 @@
 
 <script>
     let expenses = [];
+    let processedFiles = new Set();
 
     async function handleBatchUpload(event) {
         const files = Array.from(event.target.files);
@@ -115,12 +124,19 @@
 
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
+            
+            // Allow force re-reading even if filename was uploaded before
             if (file.name.endsWith('.csv')) {
                 await processCSVFile(file);
+                processedFiles.add(file.name);
             } else if (file.name.endsWith('.pdf')) {
                 await processPDFFile(file);
+                processedFiles.add(file.name);
             }
         }
+        
+        // Reset file input value so selecting the same file again triggers onchange
+        event.target.value = '';
         consolidateAndDeduplicateData();
     }
 
@@ -163,7 +179,7 @@
             fullText += pageText + "\n";
         }
 
-        // Regex targeting SMBC style statement rows: YY/MM/DD Description Amount
+        // Regex for SMBC format statements: YY/MM/DD Description Amount
         const regex = /(\d{2}\/\d{2}\/\d{2})\s+([^\d]+?)\s+([\d,]+)/g;
         let match;
 
@@ -201,10 +217,11 @@
     }
 
     function consolidateAndDeduplicateData() {
-        // Remove duplicate entries matching date, description, and amount
         const uniqueMap = new Map();
+        
         for (let exp of expenses) {
-            const key = `${exp.date}_${exp.description}_${exp.amount}`;
+            // Deduplicate including source filename & index to prevent identical valid charges from being omitted
+            const key = `${exp.source}_${exp.date}_${exp.description}_${exp.amount}`;
             if (!uniqueMap.has(key)) {
                 uniqueMap.set(key, exp);
             }
@@ -213,6 +230,13 @@
         expenses = Array.from(uniqueMap.values());
         expenses.sort((a, b) => new Date(b.date) - new Date(a.date));
 
+        renderUI();
+    }
+
+    function resetAllData() {
+        expenses = [];
+        processedFiles.clear();
+        document.getElementById('fileUpload').value = '';
         renderUI();
     }
 
