@@ -238,50 +238,68 @@
     document.getElementById('date').valueAsDate = new Date();
 
     const defaultCategories = [
-        "Food & Groceries",
-        "Car & Transport",
-        "Shopping",
-        "Household & Utilities",
-        "Education & Activities",
-        "Travel & Leisure",
-        "Other"
-    ];
+    "Food & Groceries",
+    "Car & Transport",
+    "Shopping",
+    "Household & Utilities",
+    "Education & Activities",
+    "Travel & Leisure",
+    "Subscriptions & Streaming",
+    "Health & Medical",
+    "Insurance & Finance",
+    "Other"
+];
 
-    let expenses = JSON.parse(localStorage.getItem('household_expenses')) || [];
-    let customCategories = JSON.parse(localStorage.getItem('household_categories')) || defaultCategories;
+function categorizeByKeyword(description) {
+    const desc = description.toLowerCase();
 
-    function registerCategory(newCat) {
-        if (!newCat) return "Other";
-        const formatted = newCat.trim().toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
-        if (!customCategories.includes(formatted)) {
-            customCategories.push(formatted);
-            localStorage.setItem('household_categories', JSON.stringify(customCategories));
-        }
-        updateCategorySelect();
-        return formatted;
+    // Food & Dining / Groceries
+    if (/(supermarket|grocery|mart|food|market|bakery|restaurant|cafe|coffee|mcdonald|7-eleven|family mart|lawson|dining|starbucks|uber eats)/i.test(desc)) {
+        return "Food & Groceries";
     }
 
-    function updateCategorySelect() {
-        const select = document.getElementById('category');
-        select.innerHTML = '';
-        customCategories.forEach(cat => {
-            const opt = document.createElement('option');
-            opt.value = cat;
-            opt.textContent = cat;
-            select.appendChild(opt);
-        });
+    // Transit, Driving, Tolls
+    if (/(gas|petrol|fuel|car|parking|toll|taxi|uber|train|transit|suica|pasmo|auto|jr|times|etc)/i.test(desc)) {
+        return "Car & Transport";
     }
 
-    function categorizeByKeyword(description) {
-        const desc = description.toLowerCase();
-        if (/(supermarket|grocery|mart|food|market|bakery|restaurant|cafe|coffee|mcdonald|7-eleven|family mart|lawson|dining)/i.test(desc)) return "Food & Groceries";
-        if (/(gas|petrol|fuel|car|parking|toll|taxi|uber|train|transit|suica|pasmo|auto)/i.test(desc)) return "Car & Transport";
-        if (/(amazon|shopping|clothing|store|uniqlo|zara|mall|retail|fashion|electronics)/i.test(desc)) return "Shopping";
-        if (/(electric|water|gas bill|utility|rent|house|internet|wifi|mobile|phone|ikea)/i.test(desc)) return "Household & Utilities";
-        if (/(school|tuition|swim|lesson|book|sports|gym|activity|education)/i.test(desc)) return "Education & Activities";
-        if (/(hotel|flight|airline|travel|resort|vacation|ski|park|ticket)/i.test(desc)) return "Travel & Leisure";
-        return "Other";
+    // Retail & Online Shopping
+    if (/(amazon|shopping|clothing|store|uniqlo|zara|mall|retail|fashion|electronics|rakuten|bic camera|yodobashi|aeon)/i.test(desc)) {
+        return "Shopping";
     }
+
+    // Utilities & Monthly Bills
+    if (/(electric|water|gas bill|utility|rent|house|internet|wifi|mobile|phone|ikea|tepco|ntt|docomo|au|softbank)/i.test(desc)) {
+        return "Household & Utilities";
+    }
+
+    // Digital Subscriptions & Media
+    if (/(netflix|spotify|apple|google|youtube|adobe|microsoft|prime|hulu|disney|github|chatgpt|openai)/i.test(desc)) {
+        return "Subscriptions & Streaming";
+    }
+
+    // Medical, Dental, Pharmacy
+    if (/(hospital|clinic|pharmacy|dental|doctor|health|drugstore|matsumoto|welcia|sundrug)/i.test(desc)) {
+        return "Health & Medical";
+    }
+
+    // School, Sports, Lessons
+    if (/(school|tuition|swim|lesson|book|sports|gym|activity|education|cram|kumon)/i.test(desc)) {
+        return "Education & Activities";
+    }
+
+    // Vacation & Travel
+    if (/(hotel|flight|airline|travel|resort|vacation|ski|park|ticket|expedia|booking|airbnb|jr pass)/i.test(desc)) {
+        return "Travel & Leisure";
+    }
+
+    // Insurance, Taxes, Banking Fees
+    if (/(insurance|life|health ins|premium|tax|fee|bank charge|investment|fund)/i.test(desc)) {
+        return "Insurance & Finance";
+    }
+
+    return "Other";
+}
 
     function renderExpenses() {
         const list = document.getElementById('expense-list');
