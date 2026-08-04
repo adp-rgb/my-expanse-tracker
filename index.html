@@ -8,6 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --primary: #2563eb;
@@ -27,7 +28,7 @@
         }
 
         .container {
-            max-width: 900px;
+            max-width: 950px;
             margin: 0 auto;
         }
 
@@ -64,6 +65,18 @@
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 15px;
+        }
+
+        .grid-charts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 280px;
+            width: 100%;
         }
 
         form {
@@ -124,6 +137,15 @@
             display: inline-block;
         }
 
+        .source-tag {
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            color: #475569;
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+        }
+
         .delete-btn {
             background: none;
             border: none;
@@ -149,6 +171,13 @@
             color: #64748b;
             margin-top: 5px;
         }
+
+        .month-selector {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 <body>
@@ -171,7 +200,7 @@
                 <span>Upload Card PDF</span>
                 <input type="file" id="pdf-file" accept=".pdf" onchange="handlePDFUpload(event)">
             </div>
-            <div class="status" id="pdf-status">Auto-detects statements & formats.</div>
+            <div class="status" id="pdf-status">Auto-detects statements & categories.</div>
         </div>
 
         <!-- CSV Upload -->
@@ -181,7 +210,7 @@
                 <span>Upload Statement CSV</span>
                 <input type="file" id="csv-file" accept=".csv" onchange="handleCSVUpload(event)">
             </div>
-            <div class="status" id="csv-status">Parses & auto-registers categories.</div>
+            <div class="status" id="csv-status">Parses & categorizes entries.</div>
         </div>
 
         <!-- Receipt Scan -->
@@ -200,13 +229,39 @@
         <h3>Add Manual Expense</h3>
         <form id="expense-form">
             <input type="date" id="date" required>
-            <input type="text" id="description" placeholder="Description" required>
+            <input type="text" id="description" placeholder="Description" required oninput="autoSuggestCategory(this.value)">
             <select id="category" required>
                 <!-- Populated Dynamically -->
             </select>
             <input type="number" id="amount" placeholder="Amount" step="any" required>
             <button type="submit" class="btn-primary">Add Entry</button>
         </form>
+    </div>
+
+    <!-- Visual Graphs Section -->
+    <div class="card">
+        <div class="month-selector">
+            <h3>📊 Analytics & Breakdown</h3>
+            <div>
+                <label for="filter-month">Filter Month: </label>
+                <select id="filter-month" onchange="updateCharts()"></select>
+            </div>
+        </div>
+        
+        <div class="grid-charts">
+            <div>
+                <h4 style="text-align: center; margin-top: 0;">Category Share (Pie)</h4>
+                <div class="chart-container">
+                    <canvas id="pieChart"></canvas>
+                </div>
+            </div>
+            <div>
+                <h4 style="text-align: center; margin-top: 0;">Monthly Spending Trend (Bar)</h4>
+                <div class="chart-container">
+                    <canvas id="barChart"></canvas>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Expense Table -->
@@ -218,6 +273,7 @@
                     <th>Date</th>
                     <th>Description</th>
                     <th>Category</th>
+                    <th>Source</th>
                     <th>Amount</th>
                     <th>Action</th>
                 </tr>
@@ -238,68 +294,112 @@
     document.getElementById('date').valueAsDate = new Date();
 
     const defaultCategories = [
-    "Food & Groceries",
-    "Car & Transport",
-    "Shopping",
-    "Household & Utilities",
-    "Education & Activities",
-    "Travel & Leisure",
-    "Subscriptions & Streaming",
-    "Health & Medical",
-    "Insurance & Finance",
-    "Other"
-];
+        "Food & Groceries",
+        "Car & Transport",
+        "Shopping",
+        "Household & Utilities",
+        "Education & Activities",
+        "Travel & Leisure",
+        "Subscriptions & Streaming",
+        "Health & Medical",
+        "Insurance & Finance",
+        "Other"
+    ];
 
-function categorizeByKeyword(description) {
-    const desc = description.toLowerCase();
+    let expenses = JSON.parse(localStorage.getItem('household_expenses')) || [];
+    let customCategories = JSON.parse(localStorage.getItem('household_categories')) || defaultCategories;
 
-    // Food & Dining / Groceries
-    if (/(supermarket|grocery|mart|food|market|bakery|restaurant|cafe|coffee|mcdonald|7-eleven|family mart|lawson|dining|starbucks|uber eats)/i.test(desc)) {
-        return "Food & Groceries";
+    let pieChartInstance = null;
+    let barChartInstance = null;
+
+    function registerCategory(newCat) {
+        if (!newCat) return "Other";
+        const formatted = newCat.trim().toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+        if (!customCategories.includes(formatted)) {
+            customCategories.push(formatted);
+            localStorage.setItem('household_categories', JSON.stringify(customCategories));
+        }
+        updateCategorySelect();
+        return formatted;
     }
 
-    // Transit, Driving, Tolls
-    if (/(gas|petrol|fuel|car|parking|toll|taxi|uber|train|transit|suica|pasmo|auto|jr|times|etc)/i.test(desc)) {
-        return "Car & Transport";
+    function updateCategorySelect() {
+        const select = document.getElementById('category');
+        select.innerHTML = '';
+        customCategories.forEach(cat => {
+            const opt = document.createElement('option');
+            opt.value = cat;
+            opt.textContent = cat;
+            select.appendChild(opt);
+        });
     }
 
-    // Retail & Online Shopping
-    if (/(amazon|shopping|clothing|store|uniqlo|zara|mall|retail|fashion|electronics|rakuten|bic camera|yodobashi|aeon)/i.test(desc)) {
-        return "Shopping";
+    function categorizeByKeyword(description) {
+        if (!description) return "Other";
+        const desc = description.toLowerCase().trim();
+
+        if (/(supermarket|grocery|mart|food|market|bakery|restaurant|cafe|coffee|mcdonald|7-eleven|family mart|lawson|dining|starbucks|uber eats)/i.test(desc)) {
+            return "Food & Groceries";
+        }
+        if (/(gas|petrol|fuel|car|parking|toll|taxi|uber|train|transit|suica|pasmo|auto|jr|times|etc)/i.test(desc)) {
+            return "Car & Transport";
+        }
+        if (/(amazon|shopping|clothing|store|uniqlo|zara|mall|retail|fashion|electronics|rakuten|bic camera|yodobashi|aeon)/i.test(desc)) {
+            return "Shopping";
+        }
+        if (/(electric|water|gas bill|utility|rent|house|internet|wifi|mobile|phone|ikea|tepco|ntt|docomo|au|softbank)/i.test(desc)) {
+            return "Household & Utilities";
+        }
+        if (/(netflix|spotify|apple|google|youtube|adobe|microsoft|prime|hulu|disney|github|chatgpt|openai)/i.test(desc)) {
+            return "Subscriptions & Streaming";
+        }
+        if (/(hospital|clinic|pharmacy|dental|doctor|health|drugstore|matsumoto|welcia|sundrug)/i.test(desc)) {
+            return "Health & Medical";
+        }
+        if (/(school|tuition|swim|lesson|book|sports|gym|activity|education|cram|kumon)/i.test(desc)) {
+            return "Education & Activities";
+        }
+        if (/(hotel|flight|airline|travel|resort|vacation|ski|park|ticket|expedia|booking|airbnb|jr pass)/i.test(desc)) {
+            return "Travel & Leisure";
+        }
+        if (/(insurance|life|health ins|premium|tax|fee|bank charge|investment|fund)/i.test(desc)) {
+            return "Insurance & Finance";
+        }
+
+        return "Other";
     }
 
-    // Utilities & Monthly Bills
-    if (/(electric|water|gas bill|utility|rent|house|internet|wifi|mobile|phone|ikea|tepco|ntt|docomo|au|softbank)/i.test(desc)) {
-        return "Household & Utilities";
+    function autoSuggestCategory(text) {
+        const catSelect = document.getElementById('category');
+        const matched = categorizeByKeyword(text);
+        if (matched !== "Other") {
+            catSelect.value = matched;
+        }
     }
 
-    // Digital Subscriptions & Media
-    if (/(netflix|spotify|apple|google|youtube|adobe|microsoft|prime|hulu|disney|github|chatgpt|openai)/i.test(desc)) {
-        return "Subscriptions & Streaming";
-    }
+    function populateMonthDropdown() {
+        const monthSelect = document.getElementById('filter-month');
+        const currentValue = monthSelect.value;
+        monthSelect.innerHTML = '<option value="ALL">All Months</option>';
 
-    // Medical, Dental, Pharmacy
-    if (/(hospital|clinic|pharmacy|dental|doctor|health|drugstore|matsumoto|welcia|sundrug)/i.test(desc)) {
-        return "Health & Medical";
-    }
+        const months = new Set();
+        expenses.forEach(e => {
+            if (e.date && e.date.length >= 7) {
+                months.add(e.date.substring(0, 7)); // YYYY-MM
+            }
+        });
 
-    // School, Sports, Lessons
-    if (/(school|tuition|swim|lesson|book|sports|gym|activity|education|cram|kumon)/i.test(desc)) {
-        return "Education & Activities";
-    }
+        Array.from(months).sort().reverse().forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = m;
+            monthSelect.appendChild(opt);
+        });
 
-    // Vacation & Travel
-    if (/(hotel|flight|airline|travel|resort|vacation|ski|park|ticket|expedia|booking|airbnb|jr pass)/i.test(desc)) {
-        return "Travel & Leisure";
+        if (currentValue && Array.from(months).includes(currentValue)) {
+            monthSelect.value = currentValue;
+        }
     }
-
-    // Insurance, Taxes, Banking Fees
-    if (/(insurance|life|health ins|premium|tax|fee|bank charge|investment|fund)/i.test(desc)) {
-        return "Insurance & Finance";
-    }
-
-    return "Other";
-}
 
     function renderExpenses() {
         const list = document.getElementById('expense-list');
@@ -316,6 +416,7 @@ function categorizeByKeyword(description) {
                 <td>${expense.date}</td>
                 <td>${expense.description}</td>
                 <td><span class="tag">${expense.category}</span></td>
+                <td><span class="source-tag">${expense.source || 'Manual'}</span></td>
                 <td>¥${Number(expense.amount).toLocaleString()}</td>
                 <td><button class="delete-btn" onclick="deleteExpense(${index})">✕</button></td>
             `;
@@ -324,23 +425,116 @@ function categorizeByKeyword(description) {
 
         totalEl.textContent = `¥${Math.round(total).toLocaleString()}`;
         localStorage.setItem('household_expenses', JSON.stringify(expenses));
+
+        populateMonthDropdown();
+        updateCharts();
+    }
+
+    function updateCharts() {
+        const selectedMonth = document.getElementById('filter-month').value || 'ALL';
+        
+        // Filter expenses for selected month
+        const filteredExpenses = expenses.filter(e => {
+            if (selectedMonth === 'ALL') return true;
+            return e.date && e.date.startsWith(selectedMonth);
+        });
+
+        // 1. Prepare Data for Pie Chart (Category totals for selected month)
+        const categoryMap = {};
+        filteredExpenses.forEach(e => {
+            const cat = e.category || 'Other';
+            categoryMap[cat] = (categoryMap[cat] || 0) + parseFloat(e.amount);
+        });
+
+        const pieLabels = Object.keys(categoryMap);
+        const pieData = Object.values(categoryMap);
+
+        // Colors palette
+        const chartColors = [
+            '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', 
+            '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', 
+            '#ec4899', '#64748b', '#06b6d4', '#14b8a6'
+        ];
+
+        if (pieChartInstance) pieChartInstance.destroy();
+
+        const ctxPie = document.getElementById('pieChart').getContext('2d');
+        pieChartInstance = new Chart(ctxPie, {
+            type: 'pie',
+            data: {
+                labels: pieLabels.length > 0 ? pieLabels : ['No Data'],
+                datasets: [{
+                    data: pieData.length > 0 ? pieData : [1],
+                    backgroundColor: pieData.length > 0 ? chartColors.slice(0, pieLabels.length) : ['#cbd5e1']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+
+        // 2. Prepare Data for Bar Chart (Monthly totals overview)
+        const monthlyMap = {};
+        expenses.forEach(e => {
+            if (e.date && e.date.length >= 7) {
+                const monthKey = e.date.substring(0, 7);
+                monthlyMap[monthKey] = (monthlyMap[monthKey] || 0) + parseFloat(e.amount);
+            }
+        });
+
+        const sortedMonths = Object.keys(monthlyMap).sort();
+        const barData = sortedMonths.map(m => monthlyMap[m]);
+
+        if (barChartInstance) barChartInstance.destroy();
+
+        const ctxBar = document.getElementById('barChart').getContext('2d');
+        barChartInstance = new Chart(ctxBar, {
+            type: 'bar',
+            data: {
+                labels: sortedMonths.length > 0 ? sortedMonths : ['No Data'],
+                datasets: [{
+                    label: 'Total Expenses (¥)',
+                    data: barData.length > 0 ? barData : [0],
+                    backgroundColor: '#2563eb',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
     }
 
     // Manual Entry
     document.getElementById('expense-form').addEventListener('submit', (e) => {
         e.preventDefault();
+        const desc = document.getElementById('description').value;
+        const selectedCat = document.getElementById('category').value;
+
         expenses.push({
             date: document.getElementById('date').value,
-            description: document.getElementById('description').value,
-            category: document.getElementById('category').value,
-            amount: document.getElementById('amount').value
+            description: desc,
+            category: selectedCat,
+            source: 'Manual',
+            amount: parseFloat(document.getElementById('amount').value)
         });
         renderExpenses();
         document.getElementById('description').value = '';
         document.getElementById('amount').value = '';
     });
 
-    // Flexible Multi-Pattern PDF Parsing Engine
+    // PDF Import Engine
     async function handlePDFUpload(event) {
         const file = event.target.files[0];
         const status = document.getElementById('pdf-status');
@@ -357,7 +551,6 @@ function categorizeByKeyword(description) {
                 const page = await pdf.getPage(i);
                 const textContent = await page.getTextContent();
                 
-                // Group text items by line height to preserve row structure
                 let lastY = null;
                 let pageLines = [];
                 let currentLine = "";
@@ -374,12 +567,8 @@ function categorizeByKeyword(description) {
                 lines = lines.concat(pageLines);
             }
 
-            // Patterns covering various bank statement layouts:
-            // 1. Date First (YYYY/MM/DD or MM/DD/YYYY or DD/MM/YYYY or YYYY.MM.DD) -> Description -> Amount
             const patternDateFirst = /^(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{2,4})\s+(.+?)\s+[¥\$]?\s*([\d,]+\.?\d*)\s*$/i;
-            // 2. Short Date (MM/DD or DD/MM) -> Description -> Amount
             const patternShortDate = /^(\d{1,2}[\/\.-]\d{1,2})\s+(.+?)\s+[¥\$]?\s*([\d,]+\.?\d*)\s*$/i;
-            // 3. Compact line: Date -> Description + Amount mixed
             const patternFlex = /(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{2,4}|\d{1,2}[\/\.-]\d{1,2})\s+(.+?)\s+([¥\$]?\s*[\d,]+(?:\.\d{1,2})?)/i;
 
             let count = 0;
@@ -394,12 +583,10 @@ function categorizeByKeyword(description) {
                     let rawAmount = match[3].replace(/[¥\$,\s]/g, '');
                     let amount = parseFloat(rawAmount);
 
-                    // Add current year if date only has MM-DD
                     if (rawDate.split('-').length === 2) {
                         rawDate = `${currentYear}-${rawDate}`;
                     }
 
-                    // Exclude headers, balance totals, and non-expense lines
                     if (desc.length >= 2 && !isNaN(amount) && amount > 0 && !/total|balance|payment|summary|previous/i.test(desc)) {
                         const assignedCategory = categorizeByKeyword(desc);
                         registerCategory(assignedCategory);
@@ -408,6 +595,7 @@ function categorizeByKeyword(description) {
                             date: rawDate,
                             description: desc,
                             category: assignedCategory,
+                            source: 'PDF',
                             amount: amount
                         });
                         count++;
@@ -426,7 +614,7 @@ function categorizeByKeyword(description) {
         }
     }
 
-    // Handle CSV Upload
+    // CSV Import Engine
     function handleCSVUpload(event) {
         const file = event.target.files[0];
         const status = document.getElementById('csv-status');
@@ -441,7 +629,7 @@ function categorizeByKeyword(description) {
                 let count = 0;
                 results.data.forEach(row => {
                     const date = row.Date || row.date || row['Transaction Date'] || new Date().toISOString().split('T')[0];
-                    const desc = row.Description || row.description || row.Payee || row.Name || 'Credit Card Charge';
+                    const desc = row.Description || row.description || row.Payee || row.Name || 'Card Purchase';
                     let amount = row.Amount || row.amount || row.Price || 0;
                     const csvCat = row.Category || row.category || row.Type || row.type;
                     
@@ -461,6 +649,7 @@ function categorizeByKeyword(description) {
                             date: date,
                             description: desc,
                             category: finalCat,
+                            source: 'CSV',
                             amount: amount
                         });
                         count++;
@@ -523,9 +712,9 @@ function categorizeByKeyword(description) {
 
     function exportCSV() {
         if (expenses.length === 0) return alert("No expenses to export.");
-        let csvContent = "data:text/csv;charset=utf-8,Date,Description,Category,Amount\n";
+        let csvContent = "data:text/csv;charset=utf-8,Date,Description,Category,Source,Amount\n";
         expenses.forEach(e => {
-            csvContent += `${e.date},"${e.description}",${e.category},${e.amount}\n`;
+            csvContent += `${e.date},"${e.description}",${e.category},${e.source || 'Manual'},${e.amount}\n`;
         });
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
