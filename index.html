@@ -12,59 +12,76 @@
     <style>
         :root {
             --primary: #2563eb;
-            --bg: #f8fafc;
+            --primary-dark: #1d4ed8;
+            --bg: #f1f5f9;
             --card-bg: #ffffff;
-            --text: #1e293b;
+            --text: #0f172a;
+            --text-secondary: #64748b;
             --border: #e2e8f0;
             --danger: #ef4444;
+            --radius: 12px;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             background-color: var(--bg);
             color: var(--text);
             margin: 0;
-            padding: 20px;
+            padding: 24px 12px;
         }
 
         .container {
-            max-width: 950px;
+            max-width: 1000px;
             margin: 0 auto;
         }
 
-        h1 {
+        .app-header {
             text-align: center;
-            color: #0f172a;
+            margin-bottom: 24px;
+        }
+
+        .app-header h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            color: var(--text);
         }
 
         .summary-card {
-            background: var(--primary);
+            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
             color: white;
-            padding: 20px;
-            border-radius: 12px;
+            padding: 24px;
+            border-radius: var(--radius);
             text-align: center;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-bottom: 24px;
+            box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.25);
+        }
+
+        .summary-card span {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            opacity: 0.9;
         }
 
         .summary-card h2 {
-            margin: 0;
-            font-size: 2.2rem;
+            margin: 8px 0 0 0;
+            font-size: 2.5rem;
+            font-weight: 700;
         }
 
         .card {
             background: var(--card-bg);
             padding: 20px;
-            border-radius: 12px;
+            border-radius: var(--radius);
             border: 1px solid var(--border);
-            margin-bottom: 20px;
+            margin-bottom: 24px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
 
         .grid-3 {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
         }
 
         .grid-charts {
@@ -81,15 +98,22 @@
 
         form {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 10px;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
         }
 
         input, select, button {
-            padding: 10px;
+            padding: 10px 14px;
             border: 1px solid var(--border);
-            border-radius: 6px;
+            border-radius: 8px;
             font-size: 0.9rem;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
         }
 
         .btn-primary {
@@ -100,17 +124,19 @@
             font-weight: 600;
         }
 
-        .btn-primary:hover { background: #1d4ed8; }
+        .btn-primary:hover { background: var(--primary-dark); }
 
         .drop-zone {
-            border: 2px dashed var(--border);
-            padding: 15px;
+            border: 2px dashed #cbd5e1;
+            padding: 20px 15px;
             text-align: center;
             border-radius: 8px;
-            background: #f1f5f9;
+            background: #f8fafc;
             cursor: pointer;
-            font-size: 0.85rem;
+            transition: border-color 0.2s;
         }
+
+        .drop-zone:hover { border-color: var(--primary); background: #eff6ff; }
 
         .drop-zone input { display: none; }
 
@@ -122,24 +148,30 @@
 
         th, td {
             text-align: left;
-            padding: 10px;
+            padding: 12px 10px;
             border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
         }
 
-        th { background-color: #f1f5f9; }
+        th {
+            background-color: #f8fafc;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
 
         .tag {
-            padding: 3px 8px;
+            padding: 4px 10px;
             border-radius: 12px;
             font-size: 0.75rem;
             font-weight: 600;
             background: #e2e8f0;
+            color: #334155;
             display: inline-block;
         }
 
         .source-tag {
-            padding: 2px 6px;
-            border-radius: 4px;
+            padding: 2px 8px;
+            border-radius: 6px;
             font-size: 0.7rem;
             color: #475569;
             background: #f1f5f9;
@@ -152,42 +184,50 @@
             color: var(--danger);
             cursor: pointer;
             font-weight: bold;
+            font-size: 1.1rem;
         }
 
         .actions {
             display: flex;
             justify-content: space-between;
-            margin-top: 15px;
+            margin-top: 20px;
         }
 
         .btn-outline {
             background: transparent;
             border: 1px solid var(--border);
             cursor: pointer;
+            font-weight: 500;
         }
+
+        .btn-outline:hover { background: #f8fafc; }
 
         .status {
             font-size: 0.8rem;
-            color: #64748b;
-            margin-top: 5px;
+            color: var(--text-secondary);
+            margin-top: 8px;
         }
 
-        .month-selector {
+        .month-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
             margin-bottom: 15px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🏠 Household Expense Tracker</h1>
+    <div class="app-header">
+        <h1>🏠 Household Expense Tracker</h1>
+    </div>
 
     <!-- Summary Box -->
     <div class="summary-card">
-        <span>Total Expenses</span>
+        <span id="summary-label">Total Monthly Expenses</span>
         <h2 id="total-amount">¥0</h2>
     </div>
 
@@ -195,27 +235,27 @@
     <div class="grid-3">
         <!-- PDF Upload -->
         <div class="card">
-            <h3>📄 Import PDF Statement</h3>
+            <h3 style="margin-top: 0;">📄 Import PDF Statement</h3>
             <div class="drop-zone" onclick="document.getElementById('pdf-file').click()">
-                <span>Upload Card PDF</span>
+                <span>Upload Statement PDF</span>
                 <input type="file" id="pdf-file" accept=".pdf" onchange="handlePDFUpload(event)">
             </div>
-            <div class="status" id="pdf-status">Auto-detects statements & categories.</div>
+            <div class="status" id="pdf-status">Supports Japanese & Global Credit Cards.</div>
         </div>
 
         <!-- CSV Upload -->
         <div class="card">
-            <h3>💳 Import CSV File</h3>
+            <h3 style="margin-top: 0;">💳 Import CSV File</h3>
             <div class="drop-zone" onclick="document.getElementById('csv-file').click()">
                 <span>Upload Statement CSV</span>
                 <input type="file" id="csv-file" accept=".csv" onchange="handleCSVUpload(event)">
             </div>
-            <div class="status" id="csv-status">Parses & categorizes entries.</div>
+            <div class="status" id="csv-status">Parses & auto-categorizes entries.</div>
         </div>
 
         <!-- Receipt Scan -->
         <div class="card">
-            <h3>📷 Scan Receipt Photo</h3>
+            <h3 style="margin-top: 0;">📷 Scan Receipt Photo</h3>
             <div class="drop-zone" onclick="document.getElementById('receipt-file').click()">
                 <span>Upload Receipt Photo</span>
                 <input type="file" id="receipt-file" accept="image/*" onchange="handleReceiptUpload(event)">
@@ -226,37 +266,37 @@
 
     <!-- Manual Entry Form -->
     <div class="card">
-        <h3>Add Manual Expense</h3>
+        <h3 style="margin-top:0;">Add Entry</h3>
         <form id="expense-form">
             <input type="date" id="date" required>
-            <input type="text" id="description" placeholder="Description" required oninput="autoSuggestCategory(this.value)">
+            <input type="text" id="description" placeholder="Description / Merchant" required oninput="autoSuggestCategory(this.value)">
             <select id="category" required>
                 <!-- Populated Dynamically -->
             </select>
-            <input type="number" id="amount" placeholder="Amount" step="any" required>
+            <input type="number" id="amount" placeholder="Amount (¥)" step="any" required>
             <button type="submit" class="btn-primary">Add Entry</button>
         </form>
     </div>
 
-    <!-- Visual Graphs Section -->
+    <!-- Analytics Section -->
     <div class="card">
-        <div class="month-selector">
-            <h3>📊 Analytics & Breakdown</h3>
+        <div class="month-header">
+            <h3 style="margin:0;">📊 Analytics & Breakdown</h3>
             <div>
-                <label for="filter-month">Filter Month: </label>
-                <select id="filter-month" onchange="updateCharts()"></select>
+                <label for="filter-month" style="font-size: 0.9rem; font-weight: 600;">Selected Month: </label>
+                <select id="filter-month" onchange="renderExpenses()"></select>
             </div>
         </div>
         
         <div class="grid-charts">
             <div>
-                <h4 style="text-align: center; margin-top: 0;">Category Share (Pie)</h4>
+                <h4 style="text-align: center; margin-top: 0; color: var(--text-secondary);">Monthly Category Share</h4>
                 <div class="chart-container">
                     <canvas id="pieChart"></canvas>
                 </div>
             </div>
             <div>
-                <h4 style="text-align: center; margin-top: 0;">Monthly Spending Trend (Bar)</h4>
+                <h4 style="text-align: center; margin-top: 0; color: var(--text-secondary);">Monthly Overall Trend</h4>
                 <div class="chart-container">
                     <canvas id="barChart"></canvas>
                 </div>
@@ -266,7 +306,7 @@
 
     <!-- Expense Table -->
     <div class="card">
-        <h3>Expense Log</h3>
+        <h3 style="margin-top: 0;">Expense Log</h3>
         <table>
             <thead>
                 <tr>
@@ -334,35 +374,55 @@
         });
     }
 
-    function categorizeByKeyword(description) {
-        if (!description) return "Other";
-        const desc = description.toLowerCase().trim();
+    // Comprehensive Japanese & English Categorization Matching Engine
+    function categorizeByKeyword(rawDescription) {
+        if (!rawDescription) return "Other";
+        
+        // Normalize Japanese full-width characters (e.g., ＥＴＣ -> ETC, ネットフリックス -> ネットフリックス)
+        const desc = rawDescription.normalize('NFKC').toLowerCase().replace(/\s+/g, '');
 
-        if (/(supermarket|grocery|mart|food|market|bakery|restaurant|cafe|coffee|mcdonald|7-eleven|family mart|lawson|dining|starbucks|uber eats)/i.test(desc)) {
-            return "Food & Groceries";
-        }
-        if (/(gas|petrol|fuel|car|parking|toll|taxi|uber|train|transit|suica|pasmo|auto|jr|times|etc)/i.test(desc)) {
+        // 1. Car & Transport (ETC, Highway, Tolls, Gas, Petrol, Transit)
+        if (/(etc|首都高|関東支社|高速|道路|eneos|エネオス|出光|コスモ|石油|ガソリン|parking|タイムズ|toll|suica|pasmo|スイカ|パスモ|モバイルsuica|jr|電車|バス|タクシー|交通)/i.test(desc)) {
             return "Car & Transport";
         }
-        if (/(amazon|shopping|clothing|store|uniqlo|zara|mall|retail|fashion|electronics|rakuten|bic camera|yodobashi|aeon)/i.test(desc)) {
-            return "Shopping";
-        }
-        if (/(electric|water|gas bill|utility|rent|house|internet|wifi|mobile|phone|ikea|tepco|ntt|docomo|au|softbank)/i.test(desc)) {
-            return "Household & Utilities";
-        }
-        if (/(netflix|spotify|apple|google|youtube|adobe|microsoft|prime|hulu|disney|github|chatgpt|openai)/i.test(desc)) {
+
+        // 2. Subscriptions & Streaming
+        if (/(ネットフリックス|netflix|spotify|apple|google|youtube|ユーチューブ|adobe|microsoft|アマゾンプライム|prime|hulu|disney|chatgpt|openai)/i.test(desc)) {
             return "Subscriptions & Streaming";
         }
-        if (/(hospital|clinic|pharmacy|dental|doctor|health|drugstore|matsumoto|welcia|sundrug)/i.test(desc)) {
+
+        // 3. Health & Medical (Clinics, Hospitals, Pharmacies)
+        if (/(クリニック|メディカル|病院|医院|歯科|薬局|ドラッグ|マツモトキヨシ|ウェルシア|サンドラッグ|スギ薬局|調剤|hospital|clinic|pharmacy)/i.test(desc)) {
             return "Health & Medical";
         }
-        if (/(school|tuition|swim|lesson|book|sports|gym|activity|education|cram|kumon)/i.test(desc)) {
+
+        // 4. Education & Activities (Swimming, Tuition, Cram School, Lessons)
+        if (/(スイミング|スイミングスクール|水泳|塾|スクール|レッスン|学費|授業料|スポーツ|ジム|ゼミ|kumon|公文|プール)/i.test(desc)) {
             return "Education & Activities";
         }
-        if (/(hotel|flight|airline|travel|resort|vacation|ski|park|ticket|expedia|booking|airbnb|jr pass)/i.test(desc)) {
+
+        // 5. Household & Utilities (Electricity, Water, Gas, Internet, Newspaper, Mobile)
+        if (/(東京電力|電気|関西電力|中部電力|ガス|水道|新聞|yc新聞|購読|nuro|nuro光|光ご利用|ワイアレスゲート|ソフトバンク|docomo|au|楽天モバイル|internet|wifi|utility)/i.test(desc)) {
+            return "Household & Utilities";
+        }
+
+        // 6. Shopping & Retail (Amazon, Electronics, Malls)
+        if (/(amazon|アマゾン|ノジマ|nojima|ビックカメラ|ヨドバシ|ヤマダデンキ|イオン|aeon|ユニクロ|uniqlo|zara|shopping|ストア|Rakuten|楽天)/i.test(desc)) {
+            return "Shopping";
+        }
+
+        // 7. Food & Groceries
+        if (/(スーパー|ライフ|ヤオコー|マルエツ|イトーヨーカドー|セブン|ファミリーマート|ローソン|コンビニ|マクドナルド|スターバックス|カフェ|レストラン|食堂|food|grocery)/i.test(desc)) {
+            return "Food & Groceries";
+        }
+
+        // 8. Travel & Leisure
+        if (/(ホテル|JTB|airbnb|expedia|じゃらん|楽天トラベル|航空|飛行機|JR東日本|スキー|リゾート|hotel|flight)/i.test(desc)) {
             return "Travel & Leisure";
         }
-        if (/(insurance|life|health ins|premium|tax|fee|bank charge|investment|fund)/i.test(desc)) {
+
+        // 9. Insurance & Finance
+        if (/(保険|生命保険|損保|税金|手数料|bank|insurance)/i.test(desc)) {
             return "Insurance & Finance";
         }
 
@@ -377,6 +437,16 @@
         }
     }
 
+    function formatJapaneseDate(yearShort, month, day) {
+        let fullYear = parseInt(yearShort, 10);
+        if (fullYear < 100) {
+            fullYear += 2000; // Convert 26 to 2026
+        }
+        const m = String(month).padStart(2, '0');
+        const d = String(day).padStart(2, '0');
+        return `${fullYear}-${m}-${d}`;
+    }
+
     function populateMonthDropdown() {
         const monthSelect = document.getElementById('filter-month');
         const currentValue = monthSelect.value;
@@ -389,27 +459,39 @@
             }
         });
 
-        Array.from(months).sort().reverse().forEach(m => {
+        const sortedMonths = Array.from(months).sort().reverse();
+        sortedMonths.forEach(m => {
             const opt = document.createElement('option');
             opt.value = m;
             opt.textContent = m;
             monthSelect.appendChild(opt);
         });
 
-        if (currentValue && Array.from(months).includes(currentValue)) {
+        if (currentValue && (currentValue === 'ALL' || sortedMonths.includes(currentValue))) {
             monthSelect.value = currentValue;
+        } else if (sortedMonths.length > 0) {
+            monthSelect.value = sortedMonths[0]; // Default to most recent month
         }
     }
 
     function renderExpenses() {
+        populateMonthDropdown();
+        const selectedMonth = document.getElementById('filter-month').value || 'ALL';
+
         const list = document.getElementById('expense-list');
         const totalEl = document.getElementById('total-amount');
+        const summaryLabel = document.getElementById('summary-label');
         list.innerHTML = '';
         let total = 0;
 
         expenses.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-        expenses.forEach((expense, index) => {
+        const filteredExpenses = expenses.filter(e => {
+            if (selectedMonth === 'ALL') return true;
+            return e.date && e.date.startsWith(selectedMonth);
+        });
+
+        filteredExpenses.forEach((expense, index) => {
             total += parseFloat(expense.amount);
             const row = document.createElement('tr');
             row.innerHTML = `
@@ -418,28 +500,25 @@
                 <td><span class="tag">${expense.category}</span></td>
                 <td><span class="source-tag">${expense.source || 'Manual'}</span></td>
                 <td>¥${Number(expense.amount).toLocaleString()}</td>
-                <td><button class="delete-btn" onclick="deleteExpense(${index})">✕</button></td>
+                <td><button class="delete-btn" onclick="deleteExpense(${expenses.indexOf(expense)})">✕</button></td>
             `;
             list.appendChild(row);
         });
 
+        summaryLabel.textContent = selectedMonth === 'ALL' ? 'Total Expenses (All Time)' : `Total Expenses (${selectedMonth})`;
         totalEl.textContent = `¥${Math.round(total).toLocaleString()}`;
         localStorage.setItem('household_expenses', JSON.stringify(expenses));
 
-        populateMonthDropdown();
-        updateCharts();
+        updateCharts(selectedMonth);
     }
 
-    function updateCharts() {
-        const selectedMonth = document.getElementById('filter-month').value || 'ALL';
-        
-        // Filter expenses for selected month
+    function updateCharts(selectedMonth) {
         const filteredExpenses = expenses.filter(e => {
             if (selectedMonth === 'ALL') return true;
             return e.date && e.date.startsWith(selectedMonth);
         });
 
-        // 1. Prepare Data for Pie Chart (Category totals for selected month)
+        // 1. Pie Chart: Category Share for the selected month
         const categoryMap = {};
         filteredExpenses.forEach(e => {
             const cat = e.category || 'Other';
@@ -449,11 +528,10 @@
         const pieLabels = Object.keys(categoryMap);
         const pieData = Object.values(categoryMap);
 
-        // Colors palette
         const chartColors = [
-            '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', 
-            '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', 
-            '#ec4899', '#64748b', '#06b6d4', '#14b8a6'
+            '#2563eb', '#3b82f6', '#10b981', '#f59e0b', 
+            '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', 
+            '#14b8a6', '#64748b'
         ];
 
         if (pieChartInstance) pieChartInstance.destroy();
@@ -477,11 +555,11 @@
             }
         });
 
-        // 2. Prepare Data for Bar Chart (Monthly totals overview)
+        // 2. Bar Chart: Aggregate spending grouped BY MONTH ONLY
         const monthlyMap = {};
         expenses.forEach(e => {
             if (e.date && e.date.length >= 7) {
-                const monthKey = e.date.substring(0, 7);
+                const monthKey = e.date.substring(0, 7); // YYYY-MM
                 monthlyMap[monthKey] = (monthlyMap[monthKey] || 0) + parseFloat(e.amount);
             }
         });
@@ -497,10 +575,10 @@
             data: {
                 labels: sortedMonths.length > 0 ? sortedMonths : ['No Data'],
                 datasets: [{
-                    label: 'Total Expenses (¥)',
+                    label: 'Monthly Total (¥)',
                     data: barData.length > 0 ? barData : [0],
-                    backgroundColor: '#2563eb',
-                    borderRadius: 4
+                    backgroundColor: sortedMonths.map(m => m === selectedMonth ? '#1d4ed8' : '#60a5fa'),
+                    borderRadius: 6
                 }]
             },
             options: {
@@ -534,13 +612,13 @@
         document.getElementById('amount').value = '';
     });
 
-    // PDF Import Engine
+    // Flexible PDF Parsing Engine
     async function handlePDFUpload(event) {
         const file = event.target.files[0];
         const status = document.getElementById('pdf-status');
         if (!file) return;
 
-        status.textContent = "Parsing PDF statement...";
+        status.textContent = "Parsing statement PDF...";
 
         try {
             const arrayBuffer = await file.arrayBuffer();
@@ -567,32 +645,32 @@
                 lines = lines.concat(pageLines);
             }
 
-            const patternDateFirst = /^(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{2,4})\s+(.+?)\s+[¥\$]?\s*([\d,]+\.?\d*)\s*$/i;
-            const patternShortDate = /^(\d{1,2}[\/\.-]\d{1,2})\s+(.+?)\s+[¥\$]?\s*([\d,]+\.?\d*)\s*$/i;
-            const patternFlex = /(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{2,4}|\d{1,2}[\/\.-]\d{1,2})\s+(.+?)\s+([¥\$]?\s*[\d,]+(?:\.\d{1,2})?)/i;
+            // Patterns to extract YY-MM-DD, YYYY-MM-DD, or MM-DD
+            const patternDateFirst = /^(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})\s+(.+?)\s+[¥\$]?\s*([\d,]+\.?\d*)\s*$/i;
+            const patternFlex = /(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})\s+(.+?)\s+([¥\$]?\s*[\d,]+(?:\.\d{1,2})?)/i;
 
             let count = 0;
-            const currentYear = new Date().getFullYear();
 
             lines.forEach(line => {
-                let match = line.match(patternDateFirst) || line.match(patternShortDate) || line.match(patternFlex);
+                let match = line.match(patternDateFirst) || line.match(patternFlex);
 
                 if (match) {
-                    let rawDate = match[1].replace(/\./g, '-').replace(/\//g, '-');
+                    let dateStr = match[1].replace(/\./g, '-').replace(/\//g, '-');
                     let desc = match[2].trim();
                     let rawAmount = match[3].replace(/[¥\$,\s]/g, '');
                     let amount = parseFloat(rawAmount);
 
-                    if (rawDate.split('-').length === 2) {
-                        rawDate = `${currentYear}-${rawDate}`;
+                    const dateParts = dateStr.split('-');
+                    if (dateParts.length === 3) {
+                        dateStr = formatJapaneseDate(dateParts[0], dateParts[1], dateParts[2]);
                     }
 
-                    if (desc.length >= 2 && !isNaN(amount) && amount > 0 && !/total|balance|payment|summary|previous/i.test(desc)) {
+                    if (desc.length >= 2 && !isNaN(amount) && amount > 0 && !/total|balance|payment|summary|previous|ご請求額/i.test(desc)) {
                         const assignedCategory = categorizeByKeyword(desc);
                         registerCategory(assignedCategory);
 
                         expenses.push({
-                            date: rawDate,
+                            date: dateStr,
                             description: desc,
                             category: assignedCategory,
                             source: 'PDF',
@@ -605,7 +683,7 @@
 
             renderExpenses();
             if (count > 0) {
-                status.textContent = `Successfully extracted ${count} transactions!`;
+                status.textContent = `Extracted ${count} transactions successfully!`;
             } else {
                 status.textContent = "Could not parse statement structure automatically. Try exporting as CSV.";
             }
@@ -628,11 +706,16 @@
             complete: function(results) {
                 let count = 0;
                 results.data.forEach(row => {
-                    const date = row.Date || row.date || row['Transaction Date'] || new Date().toISOString().split('T')[0];
-                    const desc = row.Description || row.description || row.Payee || row.Name || 'Card Purchase';
-                    let amount = row.Amount || row.amount || row.Price || 0;
-                    const csvCat = row.Category || row.category || row.Type || row.type;
+                    let date = row.Date || row.date || row['Transaction Date'] || row['利用日'] || new Date().toISOString().split('T')[0];
+                    const desc = row.Description || row.description || row.Payee || row.Name || row['利用店名・商品名'] || 'Card Purchase';
+                    let amount = row.Amount || row.amount || row.Price || row['利用金額'] || 0;
+                    const csvCat = row.Category || row.category;
                     
+                    const dateParts = date.replace(/\./g, '-').replace(/\//g, '-').split('-');
+                    if (dateParts.length === 3) {
+                        date = formatJapaneseDate(dateParts[0], dateParts[1], dateParts[2]);
+                    }
+
                     let finalCat;
                     if (csvCat && csvCat.trim() !== '') {
                         finalCat = registerCategory(csvCat);
@@ -656,7 +739,7 @@
                     }
                 });
                 renderExpenses();
-                status.textContent = `Imported ${count} transactions & updated categories!`;
+                status.textContent = `Imported ${count} transactions!`;
             },
             error: function() {
                 status.textContent = "Error reading CSV.";
