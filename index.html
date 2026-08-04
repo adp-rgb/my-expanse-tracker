@@ -116,6 +116,17 @@
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
         }
 
+        .category-select-inline {
+            padding: 4px 8px;
+            font-size: 0.8rem;
+            border-radius: 6px;
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            font-weight: 600;
+            color: #334155;
+            cursor: pointer;
+        }
+
         .btn-primary {
             background: var(--primary);
             color: white;
@@ -159,16 +170,6 @@
             font-weight: 600;
         }
 
-        .tag {
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            background: #e2e8f0;
-            color: #334155;
-            display: inline-block;
-        }
-
         .source-tag {
             padding: 2px 8px;
             border-radius: 6px;
@@ -189,8 +190,10 @@
 
         .actions {
             display: flex;
+            gap: 10px;
             justify-content: space-between;
             margin-top: 20px;
+            flex-wrap: wrap;
         }
 
         .btn-outline {
@@ -312,7 +315,7 @@
                 <tr>
                     <th>Date</th>
                     <th>Description</th>
-                    <th>Category</th>
+                    <th>Category (Click to Edit)</th>
                     <th>Source</th>
                     <th>Amount</th>
                     <th>Action</th>
@@ -322,6 +325,7 @@
         </table>
 
         <div class="actions">
+            <button class="btn-primary" onclick="reCategorizeAll()">⚡ Re-Categorize All Data</button>
             <button class="btn-outline" onclick="exportCSV()">📥 Export Backup (CSV)</button>
             <button class="btn-outline" style="color: var(--danger);" onclick="clearAll()">Clear All Data</button>
         </div>
@@ -374,59 +378,81 @@
         });
     }
 
-    // Comprehensive Japanese & English Categorization Matching Engine
+    // Advanced Normalization & Multi-Keyword Japanese Rules
     function categorizeByKeyword(rawDescription) {
         if (!rawDescription) return "Other";
         
-        // Normalize Japanese full-width characters (e.g., ＥＴＣ -> ETC, ネットフリックス -> ネットフリックス)
-        const desc = rawDescription.normalize('NFKC').toLowerCase().replace(/\s+/g, '');
+        // 1. Convert Full-width to Half-width and lowercase
+        let desc = rawDescription.normalize('NFKC').toLowerCase();
+        
+        // 2. Remove all spaces (full-width \u3000 and half-width)
+        desc = desc.replace(/[\s\u3000]+/g, '');
 
-        // 1. Car & Transport (ETC, Highway, Tolls, Gas, Petrol, Transit)
-        if (/(etc|首都高|関東支社|高速|道路|eneos|エネオス|出光|コスモ|石油|ガソリン|parking|タイムズ|toll|suica|pasmo|スイカ|パスモ|モバイルsuica|jr|電車|バス|タクシー|交通)/i.test(desc)) {
-            return "Car & Transport";
-        }
-
-        // 2. Subscriptions & Streaming
+        // 3. Subscriptions & Digital Services
         if (/(ネットフリックス|netflix|spotify|apple|google|youtube|ユーチューブ|adobe|microsoft|アマゾンプライム|prime|hulu|disney|chatgpt|openai)/i.test(desc)) {
             return "Subscriptions & Streaming";
         }
 
-        // 3. Health & Medical (Clinics, Hospitals, Pharmacies)
+        // 4. Household, Utilities, Telecom, Newspapers
+        if (/(東京電力|電気|電力|料金等|関電|中部電力|ガス|水道|新聞|yc新聞|購読|nuro|nuro光|光ご利用|ワイアレスゲート|ソフトバンク|softbank|docomo|au|楽天モバイル|internet|wifi|utility)/i.test(desc)) {
+            return "Household & Utilities";
+        }
+
+        // 5. Electronics & Retail Shopping
+        if (/(ノジマ|nojima|amazon|アマゾン|amazon\.co\.jp|ビックカメラ|ヨドバシ|ヤマダデンキ|イオン|aeon|ユニクロ|uniqlo|zara|shopping|ストア|rakuten|楽天)/i.test(desc)) {
+            return "Shopping";
+        }
+
+        // 6. Transport, Fuel, ETC, Highway & Tolls
+        if (/(etc|首都高|関東支社|高速|道路|eneos|エネオス|出光|コスモ|石油|ガソリン|parking|タイムズ|toll|suica|pasmo|スイカ|パスモ|モバイルsuica|jr|電車|バス|タクシー|交通)/i.test(desc)) {
+            return "Car & Transport";
+        }
+
+        // 7. Health & Medical
         if (/(クリニック|メディカル|病院|医院|歯科|薬局|ドラッグ|マツモトキヨシ|ウェルシア|サンドラッグ|スギ薬局|調剤|hospital|clinic|pharmacy)/i.test(desc)) {
             return "Health & Medical";
         }
 
-        // 4. Education & Activities (Swimming, Tuition, Cram School, Lessons)
+        // 8. Education & Activities
         if (/(スイミング|スイミングスクール|水泳|塾|スクール|レッスン|学費|授業料|スポーツ|ジム|ゼミ|kumon|公文|プール)/i.test(desc)) {
             return "Education & Activities";
         }
 
-        // 5. Household & Utilities (Electricity, Water, Gas, Internet, Newspaper, Mobile)
-        if (/(東京電力|電気|関西電力|中部電力|ガス|水道|新聞|yc新聞|購読|nuro|nuro光|光ご利用|ワイアレスゲート|ソフトバンク|docomo|au|楽天モバイル|internet|wifi|utility)/i.test(desc)) {
-            return "Household & Utilities";
-        }
-
-        // 6. Shopping & Retail (Amazon, Electronics, Malls)
-        if (/(amazon|アマゾン|ノジマ|nojima|ビックカメラ|ヨドバシ|ヤマダデンキ|イオン|aeon|ユニクロ|uniqlo|zara|shopping|ストア|Rakuten|楽天)/i.test(desc)) {
-            return "Shopping";
-        }
-
-        // 7. Food & Groceries
+        // 9. Food & Groceries
         if (/(スーパー|ライフ|ヤオコー|マルエツ|イトーヨーカドー|セブン|ファミリーマート|ローソン|コンビニ|マクドナルド|スターバックス|カフェ|レストラン|食堂|food|grocery)/i.test(desc)) {
             return "Food & Groceries";
         }
 
-        // 8. Travel & Leisure
-        if (/(ホテル|JTB|airbnb|expedia|じゃらん|楽天トラベル|航空|飛行機|JR東日本|スキー|リゾート|hotel|flight)/i.test(desc)) {
+        // 10. Travel & Leisure
+        if (/(ホテル|jtb|airbnb|expedia|じゃらん|楽天トラベル|航空|飛行機|jr東日本|スキー|リゾート|hotel|flight)/i.test(desc)) {
             return "Travel & Leisure";
         }
 
-        // 9. Insurance & Finance
+        // 11. Insurance & Finance
         if (/(保険|生命保険|損保|税金|手数料|bank|insurance)/i.test(desc)) {
             return "Insurance & Finance";
         }
 
         return "Other";
+    }
+
+    function reCategorizeAll() {
+        let count = 0;
+        expenses.forEach(e => {
+            const newCat = categorizeByKeyword(e.description);
+            if (newCat !== "Other" || e.category === "Other") {
+                e.category = newCat;
+                count++;
+            }
+        });
+        renderExpenses();
+        alert(`Successfully re-categorized ${count} entries based on updated rules!`);
+    }
+
+    function updateExpenseCategory(index, newCategory) {
+        expenses[index].category = newCategory;
+        localStorage.setItem('household_expenses', JSON.stringify(expenses));
+        renderExpenses();
     }
 
     function autoSuggestCategory(text) {
@@ -440,7 +466,7 @@
     function formatJapaneseDate(yearShort, month, day) {
         let fullYear = parseInt(yearShort, 10);
         if (fullYear < 100) {
-            fullYear += 2000; // Convert 26 to 2026
+            fullYear += 2000;
         }
         const m = String(month).padStart(2, '0');
         const d = String(day).padStart(2, '0');
@@ -470,7 +496,7 @@
         if (currentValue && (currentValue === 'ALL' || sortedMonths.includes(currentValue))) {
             monthSelect.value = currentValue;
         } else if (sortedMonths.length > 0) {
-            monthSelect.value = sortedMonths[0]; // Default to most recent month
+            monthSelect.value = sortedMonths[0];
         }
     }
 
@@ -491,16 +517,28 @@
             return e.date && e.date.startsWith(selectedMonth);
         });
 
-        filteredExpenses.forEach((expense, index) => {
+        filteredExpenses.forEach((expense) => {
+            const originalIndex = expenses.indexOf(expense);
             total += parseFloat(expense.amount);
+            
+            // Generate inline Category Dropdown
+            let optionsHtml = '';
+            customCategories.forEach(cat => {
+                optionsHtml += `<option value="${cat}" ${cat === expense.category ? 'selected' : ''}>${cat}</option>`;
+            });
+
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${expense.date}</td>
                 <td>${expense.description}</td>
-                <td><span class="tag">${expense.category}</span></td>
+                <td>
+                    <select class="category-select-inline" onchange="updateExpenseCategory(${originalIndex}, this.value)">
+                        ${optionsHtml}
+                    </select>
+                </td>
                 <td><span class="source-tag">${expense.source || 'Manual'}</span></td>
                 <td>¥${Number(expense.amount).toLocaleString()}</td>
-                <td><button class="delete-btn" onclick="deleteExpense(${expenses.indexOf(expense)})">✕</button></td>
+                <td><button class="delete-btn" onclick="deleteExpense(${originalIndex})">✕</button></td>
             `;
             list.appendChild(row);
         });
@@ -518,7 +556,6 @@
             return e.date && e.date.startsWith(selectedMonth);
         });
 
-        // 1. Pie Chart: Category Share for the selected month
         const categoryMap = {};
         filteredExpenses.forEach(e => {
             const cat = e.category || 'Other';
@@ -555,11 +592,10 @@
             }
         });
 
-        // 2. Bar Chart: Aggregate spending grouped BY MONTH ONLY
         const monthlyMap = {};
         expenses.forEach(e => {
             if (e.date && e.date.length >= 7) {
-                const monthKey = e.date.substring(0, 7); // YYYY-MM
+                const monthKey = e.date.substring(0, 7);
                 monthlyMap[monthKey] = (monthlyMap[monthKey] || 0) + parseFloat(e.amount);
             }
         });
@@ -645,7 +681,6 @@
                 lines = lines.concat(pageLines);
             }
 
-            // Patterns to extract YY-MM-DD, YYYY-MM-DD, or MM-DD
             const patternDateFirst = /^(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})\s+(.+?)\s+[¥\$]?\s*([\d,]+\.?\d*)\s*$/i;
             const patternFlex = /(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})\s+(.+?)\s+([¥\$]?\s*[\d,]+(?:\.\d{1,2})?)/i;
 
