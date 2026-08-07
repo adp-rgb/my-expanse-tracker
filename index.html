@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Household Expense & Multi-Statement Reconciler</title>
+    <title>Household Expense Tracker</title>
     <!-- External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -58,14 +58,11 @@
         .chart-container { position: relative; height: 320px; width: 100%; }
 
         input, select, button { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.88rem; outline: none; }
-        .btn-purge { background: #64748b; color: white; border: none; cursor: pointer; font-weight: 600; }
         .btn-reset { background: #d97706; color: white; border: none; cursor: pointer; font-weight: 600; }
 
         /* Badges */
         .badge { padding: 4px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
-        .badge-reconciled { background: #d1fae5; color: #065f46; }
-        .badge-unreconciled { background: #fee2e2; color: #991b1b; }
-        .badge-settlement { background: #e0f2fe; color: #0369a1; }
+        .badge-auto { background: #dbeafe; color: #1e40af; }
         .badge-manual { background: #fef3c7; color: #92400e; }
 
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
@@ -73,32 +70,28 @@
         th { background: #f8fafc; color: var(--text-secondary); }
 
         .cat-select { padding: 4px 6px; font-size: 0.82rem; border-radius: 4px; background: #fff; cursor: pointer; }
-        .settlement-row { background-color: #f8fafc; opacity: 0.8; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="app-header">
-        <h1>💳 Multi-Statement Expense & Settlement Reconciler</h1>
+        <h1>📊 Expense Tracker & Smart Categorizer</h1>
     </div>
 
     <!-- Summary Box -->
     <div class="summary-card">
-        <span>Net Expense Total (Excluding Bank Card Settlement Lump-Sums)</span>
+        <span>Total Expenses (Filtered Month)</span>
         <h2 id="total-amount" style="margin: 8px 0 0 0; font-size: 2.2rem;">¥0</h2>
-        <div id="settlement-summary" style="font-size: 0.85rem; margin-top: 6px; opacity: 0.9;">
-            Bank Settlements Detected: ¥0 | Unreconciled Card Items: ¥0
-        </div>
     </div>
 
     <!-- Upload Section -->
     <div class="card">
-        <h3>📁 Upload Bank PDFs, Credit Card Statements, or PayPay CSVs</h3>
+        <h3>📁 Upload Credit Card Statements (PDF) or Wallet Statements (CSV)</h3>
         <div class="batch-drop-zone" onclick="document.getElementById('batch-files').click()">
-            <span style="font-size: 1.05rem; font-weight: 600; color: #1e40af;">Click or Drag & Drop File Batches</span>
+            <span style="font-size: 1.05rem; font-weight: 600; color: #1e40af;">Click or Drag & Drop Statement Files</span>
             <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 6px;">
-                Supports Bank PDFs (SMBC), Credit Card PDFs (JCB/VISA/MUFG), and Digital Wallet CSVs.
+                Upload PDF Statements (Credit Cards, Utilities) or CSVs (PayPay, Bank Exports).
             </div>
             <input type="file" id="batch-files" accept=".csv, .pdf" multiple onchange="handleBatchUpload(event)">
         </div>
@@ -108,29 +101,23 @@
     <!-- Controls & Charts -->
     <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap: wrap; gap: 10px;">
-            <h3 style="margin:0;">📊 Analytics & Reconciliation</h3>
+            <h3 style="margin:0;">📈 Spending Dashboard</h3>
             <div>
-                <button class="btn-reset" onclick="resetFileHistory()">🔄 Clear Upload Cache</button>
-                <button class="btn-purge" onclick="reconcileTransactions()">⚡ Match & Reconcile</button>
+                <button class="btn-reset" onclick="resetAllData()">🗑️ Clear All Data</button>
                 <label for="filter-month" style="font-size: 0.9rem; font-weight: 600; margin-left: 8px;">Month: </label>
                 <select id="filter-month" onchange="renderExpenses()"></select>
-                <label for="filter-status" style="font-size: 0.9rem; font-weight: 600; margin-left: 8px;">View: </label>
-                <select id="filter-status" onchange="renderExpenses()">
-                    <option value="ALL">All Transactions</option>
-                    <option value="EXPENSES_ONLY">Net Expenses Only (Hide Settlements)</option>
-                    <option value="SETTLEMENTS_ONLY">Bank Credit Settlements Only</option>
-                    <option value="UNRECONCILED">Unreconciled Items Only</option>
-                </select>
+                <label for="filter-category" style="font-size: 0.9rem; font-weight: 600; margin-left: 8px;">Category: </label>
+                <select id="filter-category" onchange="renderExpenses()"></select>
             </div>
         </div>
         
         <div class="grid-charts">
             <div>
-                <h4 style="text-align: center; color: var(--text-secondary);">Itemized Category Breakdown</h4>
+                <h4 style="text-align: center; color: var(--text-secondary);">Category Breakdown</h4>
                 <div class="chart-container"><canvas id="pieChart"></canvas></div>
             </div>
             <div>
-                <h4 style="text-align: center; color: var(--text-secondary);">Monthly Net Spending Trend</h4>
+                <h4 style="text-align: center; color: var(--text-secondary);">Monthly Total Trend</h4>
                 <div class="chart-container"><canvas id="barChart"></canvas></div>
             </div>
         </div>
@@ -138,15 +125,14 @@
 
     <!-- Expense Log Table -->
     <div class="card">
-        <h3>Transaction Registry</h3>
+        <h3>Transaction List</h3>
         <table>
             <thead>
                 <tr>
                     <th>Date</th>
                     <th>Description</th>
-                    <th>Category</th>
-                    <th>Reconciliation Role</th>
-                    <th>Source Document</th>
+                    <th>Category (Editable)</th>
+                    <th>Source File</th>
                     <th>Amount</th>
                     <th>Action</th>
                 </tr>
@@ -159,20 +145,21 @@
 <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-    let expenses = JSON.parse(localStorage.getItem('household_expenses_v2')) || [];
-    let processedFilesHashes = JSON.parse(localStorage.getItem('processed_file_hashes_v2')) || [];
+    let expenses = JSON.parse(localStorage.getItem('household_expenses_v3')) || [];
+    let processedFilesHashes = JSON.parse(localStorage.getItem('processed_file_hashes_v3')) || [];
     let pieChartInstance, barChartInstance;
 
     const CATEGORIES = [
-        'Credit Card Settlement / Transfer',
         'Groceries & Supermarket',
         'Dining Out',
+        'Transportation & Travel',
         'Utilities & Telecom',
-        'Transportation',
         'Shopping & E-Commerce',
-        'Insurance & Investments',
+        'Subscriptions & Digital',
         'Childcare & Education',
-        'Subscriptions',
+        'Sports & Fitness',
+        'Healthcare & Insurance',
+        'Housing & Rent',
         'General'
     ];
 
@@ -196,33 +183,60 @@
         return isNaN(num) ? 0 : num;
     }
 
-    // Auto Categorize logic distinguishing Card Settlements vs Individual Spending
-    function categorizeExpense(desc, isBankStatement) {
-        let lower = desc.toLowerCase();
-        
-        // 1. Bank Direct Debits for Credit Card Settlement / PayPay Top-Up
-        if (isBankStatement && (
-            lower.includes('ミツイスミトモカード') || 
-            lower.includes('カード ミツビシ') || 
-            lower.includes('ジヤツクス') || 
-            lower.includes('セブンbk') ||
-            lower.includes('sjローン') ||
-            lower.includes('paypay')
-        )) {
-            return 'Credit Card Settlement / Transfer';
+    // Advanced Multi-Keyword Categorization Rule Engine
+    function autoCategorize(desc) {
+        let text = desc.toLowerCase();
+
+        // 1. Groceries & Supermarkets
+        if (/イオン|イトーヨーカドー|ライフ|スーパー|オーケー|マルエツ|ヤオコー|西友|seiyu|costco|コストコ|まいばすけっと|業務スーパー|肉のハナマサ/i.test(text)) {
+            return 'Groceries & Supermarket';
         }
 
-        // 2. Individual Merchant Categorization (for Card Statements or Direct Bank Purchases)
-        if (lower.includes('paypayチャージ') || lower.includes('チャージ') || lower.includes('振込')) return 'Credit Card Settlement / Transfer';
-        if (lower.includes('etc') || lower.includes('高速') || lower.includes('suica') || lower.includes('タイムズ') || lower.includes('タクシー') || lower.includes('jr')) return 'Transportation';
-        if (lower.includes('電力') || lower.includes('水道') || lower.includes('nuro') || lower.includes('ソフトバンク') || lower.includes('ntt')) return 'Utilities & Telecom';
-        if (lower.includes('マクドナルド') || lower.includes('スターバックス') || lower.includes('starbucks') || lower.includes('カフェ') || lower.includes('ドトール')) return 'Dining Out';
-        if (lower.includes('イオン') || lower.includes('イトーヨーカドー') || lower.includes('ライフ') || lower.includes('スーパー') || lower.includes('オーケー')) return 'Groceries & Supermarket';
-        if (lower.includes('セイメイ') || lower.includes('ホケン') || lower.includes('投信') || lower.includes('ツミn')) return 'Insurance & Investments';
-        if (lower.includes('school') || lower.includes('コソダテ') || lower.includes('ジドウテアテ')) return 'Childcare & Education';
-        if (lower.includes('netflix') || lower.includes('amazon') || lower.includes('apple')) return 'Subscriptions';
-        if (lower.includes('ヤフー') || lower.includes('ラゾーナ') || lower.includes('ショッピング')) return 'Shopping & E-Commerce';
-        
+        // 2. Dining Out & Cafes
+        if (/マクドナルド|スターバックス|starbucks|ドトール|ドトールコーヒー|カフェ|cafe|ガスト|サイゼリヤ|すき家|吉野家|松屋|スシロー|くら寿司|タリーズ|コメダ|ラーメン|居酒屋/i.test(text)) {
+            return 'Dining Out';
+        }
+
+        // 3. Transportation & Travel
+        if (/etc|高速|suica|pasmo|jr|東日本|東海|西日本|タクシー|タイムズ|times|駐車場|ガソリン|エネオス|eneos|出光|シェル|JAL|ANA|航空/i.test(text)) {
+            return 'Transportation & Travel';
+        }
+
+        // 4. Utilities & Telecom
+        if (/電力|東京電力|関西電力|中部電力|ガス|水道|ntt|ソフトバンク|softbank|au|kddi|docomo|ドコモ|nuro|ひかり|通信/i.test(text)) {
+            return 'Utilities & Telecom';
+        }
+
+        // 5. Shopping & E-Commerce
+        if (/amazon|アマゾン|rakuten|楽天|ヤフー|yahoo|メルカリ|ユニクロ|uniqlo|gu|zara|ヨドバシ|ビックカメラ|ヤマダ|無印良品|ダイソー|セリア/i.test(text)) {
+            return 'Shopping & E-Commerce';
+        }
+
+        // 6. Subscriptions & Digital
+        if (/netflix|apple|spotify|youtube|google|disney|hulu|prime|github|chatgpt|openai/i.test(text)) {
+            return 'Subscriptions & Digital';
+        }
+
+        // 7. Childcare & Education
+        if (/school|スクール|学校|保育園|幼稚園|塾|公文|学研|スイミング|習い事|教育/i.test(text)) {
+            return 'Childcare & Education';
+        }
+
+        // 8. Sports & Fitness
+        if (/アルペン|ゼビオ|スポーツ|フィットネス|ジム|アリナ|arena|スピード|speedo|ミズノ|mizuno/i.test(text)) {
+            return 'Sports & Fitness';
+        }
+
+        // 9. Healthcare & Insurance
+        if (/セイメイ|ホケン|保険|クリニック|病院|薬局|ドラッグ|マツモトキヨシ|ウエルシア|ツルハ/i.test(text)) {
+            return 'Healthcare & Insurance';
+        }
+
+        // 10. Housing & Rent
+        if (/家賃|住宅|ローン|管理費|修繕/i.test(text)) {
+            return 'Housing & Rent';
+        }
+
         return 'General';
     }
 
@@ -230,13 +244,15 @@
         return `${file.name}_${file.size}_${file.lastModified}`;
     }
 
-    function resetFileHistory() {
-        processedFilesHashes = [];
-        expenses = [];
-        localStorage.removeItem('processed_file_hashes_v2');
-        localStorage.removeItem('household_expenses_v2');
-        renderExpenses();
-        document.getElementById('batch-status').textContent = 'Upload cache cleared!';
+    function resetAllData() {
+        if (confirm("Are you sure you want to clear all imported transactions?")) {
+            processedFilesHashes = [];
+            expenses = [];
+            localStorage.removeItem('processed_file_hashes_v3');
+            localStorage.removeItem('household_expenses_v3');
+            renderExpenses();
+            document.getElementById('batch-status').textContent = 'All data cleared.';
+        }
     }
 
     async function handleBatchUpload(event) {
@@ -251,7 +267,7 @@
 
             if (processedFilesHashes.includes(signature)) continue;
 
-            status.textContent = `Parsing (${i + 1}/${files.length}): ${file.name}...`;
+            status.textContent = `Processing (${i + 1}/${files.length}): ${file.name}...`;
             let count = 0;
 
             if (file.name.toLowerCase().endsWith('.csv')) {
@@ -266,15 +282,14 @@
             }
         }
 
-        localStorage.setItem('processed_file_hashes_v2', JSON.stringify(processedFilesHashes));
-        reconcileTransactions();
-        status.textContent = `Done! Imported ${totalExtracted} transaction records.`;
+        localStorage.setItem('processed_file_hashes_v3', JSON.stringify(processedFilesHashes));
+        localStorage.setItem('household_expenses_v3', JSON.stringify(expenses));
+        renderExpenses();
+        status.textContent = `Done! Successfully imported ${totalExtracted} transaction items.`;
     }
 
     async function processPDFFile(file) {
         let extractedCount = 0;
-        let isBankPDF = file.name.toLowerCase().includes('bank') || file.name.toLowerCase().includes('smbc') || file.name.toLowerCase().includes('明細');
-        
         try {
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -304,21 +319,15 @@
                     if (dateMatch && amountMatch) {
                         let cleanDate = sanitizeDate(dateMatch[0].includes('月') ? `2026年${dateMatch[0]}` : dateMatch[0]);
                         let desc = lineText.replace(dateMatch[0], '').replace(/[\d,]+円?[-\+]?/g, '').trim();
-                        let amount = parseNum(amountMatch[0]);
+                        let amount = parseNum(amountMatch[amountMatch.length - 1]);
 
                         if (cleanDate && amount > 0 && desc.length > 1) {
-                            let defaultCategory = categorizeExpense(desc, isBankPDF);
-                            let isSettlement = defaultCategory === 'Credit Card Settlement / Transfer';
-
                             expenses.push({
                                 id: Date.now() + Math.random(),
                                 date: cleanDate,
                                 description: desc,
-                                category: defaultCategory,
+                                category: autoCategorize(desc),
                                 isManualCategory: false,
-                                isSettlementLumpSum: isSettlement,
-                                docType: isBankPDF ? 'BANK_STATEMENT' : 'CARD_STATEMENT',
-                                reconciliationStatus: 'Unreconciled',
                                 source: file.name,
                                 amount: amount
                             });
@@ -366,25 +375,19 @@
 
                         let txType = row['Transaction Type'] || '';
                         let amtOut = parseNum(row['Amount Outgoing (Yen)'] || row['金額'] || row['Amount']);
-                        let amtIn = parseNum(row['Amount Incoming (Yen)']);
-                        let bizName = row['Business Name'] || row['利用店名・商品名'] || 'CSV Item';
+                        let bizName = row['Business Name'] || row['利用店名・商品名'] || 'Transaction Item';
 
                         if (txType === 'Points, Balance Earned') continue;
 
-                        let amount = amtOut > 0 ? amtOut : amtIn;
-                        if (amount > 0) {
-                            let defaultCategory = categorizeExpense(bizName, false);
+                        if (amtOut > 0) {
                             expenses.push({
                                 id: Date.now() + Math.random(),
                                 date: cleanDate,
                                 description: bizName,
-                                category: defaultCategory,
+                                category: autoCategorize(bizName),
                                 isManualCategory: false,
-                                isSettlementLumpSum: defaultCategory === 'Credit Card Settlement / Transfer',
-                                docType: 'DIGITAL_WALLET_CSV',
-                                reconciliationStatus: 'Unreconciled',
                                 source: file.name,
-                                amount: amount
+                                amount: amtOut
                             });
                             extractedCount++;
                         }
@@ -395,51 +398,31 @@
         });
     }
 
-    // Advanced Cross-Statement Reconciliation Algorithm
-    function reconcileTransactions() {
-        let bankSettlements = expenses.filter(e => e.docType === 'BANK_STATEMENT' && e.isSettlementLumpSum);
-        let cardItems = expenses.filter(e => e.docType === 'CARD_STATEMENT' || e.docType === 'DIGITAL_WALLET_CSV');
-
-        // Group card items by month & sum them up to see if they reconcile with bank lump-sum settlements
-        bankSettlements.forEach(bankTx => {
-            let bankMonth = bankTx.date.substring(0, 7);
-            
-            // Sum card items from current or previous month
-            let matchingCardItems = cardItems.filter(c => c.date.substring(0, 7) === bankMonth || c.date.substring(0, 7) < bankMonth);
-            let totalCardSum = matchingCardItems.reduce((sum, item) => sum + item.amount, 0);
-
-            // If bank debit lump sum matches total card statement bill within margin
-            if (Math.abs(totalCardSum - bankTx.amount) < 5000 || matchingCardItems.length > 0) {
-                bankTx.reconciliationStatus = 'Settlement Matched';
-                matchingCardItems.forEach(c => { c.reconciliationStatus = 'Reconciled (Card)'; });
-            }
-        });
-
-        localStorage.setItem('household_expenses_v2', JSON.stringify(expenses));
-        renderExpenses();
-    }
-
     function updateCategory(id, newCategory) {
         let item = expenses.find(e => e.id === id);
         if (item) {
             item.category = newCategory;
             item.isManualCategory = true;
-            item.isSettlementLumpSum = (newCategory === 'Credit Card Settlement / Transfer');
-            localStorage.setItem('household_expenses_v2', JSON.stringify(expenses));
+            localStorage.setItem('household_expenses_v3', JSON.stringify(expenses));
             renderExpenses();
         }
     }
 
     function deleteExpense(id) {
         expenses = expenses.filter(e => e.id !== id);
-        localStorage.setItem('household_expenses_v2', JSON.stringify(expenses));
+        localStorage.setItem('household_expenses_v3', JSON.stringify(expenses));
         renderExpenses();
     }
 
-    function populateMonthDropdown() {
+    function populateFilterDropdowns() {
         const monthSelect = document.getElementById('filter-month');
-        const currentValue = monthSelect.value;
+        const catFilterSelect = document.getElementById('filter-category');
+        
+        const curMonth = monthSelect.value;
+        const curCat = catFilterSelect.value;
+
         monthSelect.innerHTML = '<option value="ALL">All Months</option>';
+        catFilterSelect.innerHTML = '<option value="ALL">All Categories</option>';
 
         const months = new Set();
         expenses.forEach(e => { if (e.date) months.add(e.date.substring(0, 7)); });
@@ -450,56 +433,43 @@
             monthSelect.appendChild(opt);
         });
 
-        if (currentValue) monthSelect.value = currentValue;
+        CATEGORIES.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c; opt.textContent = c;
+            catFilterSelect.appendChild(opt);
+        });
+
+        if (curMonth) monthSelect.value = curMonth;
+        if (curCat) catFilterSelect.value = curCat;
     }
 
     function renderExpenses() {
-        populateMonthDropdown();
+        populateFilterDropdowns();
         const selectedMonth = document.getElementById('filter-month').value || 'ALL';
-        const selectedStatus = document.getElementById('filter-status').value || 'ALL';
+        const selectedCategory = document.getElementById('filter-category').value || 'ALL';
         
         const list = document.getElementById('expense-list');
         list.innerHTML = '';
-        let netExpenseTotal = 0;
-        let settlementTotal = 0;
-        let unreconciledCount = 0;
+        let total = 0;
 
         const filtered = expenses.filter(e => {
             let matchMonth = selectedMonth === 'ALL' || (e.date && e.date.startsWith(selectedMonth));
-            let matchStatus = true;
-            if (selectedStatus === 'EXPENSES_ONLY') matchStatus = !e.isSettlementLumpSum;
-            if (selectedStatus === 'SETTLEMENTS_ONLY') matchStatus = e.isSettlementLumpSum;
-            if (selectedStatus === 'UNRECONCILED') matchStatus = e.reconciliationStatus === 'Unreconciled';
-            return matchMonth && matchStatus;
+            let matchCategory = selectedCategory === 'ALL' || e.category === selectedCategory;
+            return matchMonth && matchCategory;
         });
 
         filtered.forEach((expense) => {
-            if (expense.isSettlementLumpSum) {
-                settlementTotal += parseFloat(expense.amount);
-            } else {
-                netExpenseTotal += parseFloat(expense.amount);
-            }
-
-            if (expense.reconciliationStatus === 'Unreconciled') unreconciledCount++;
-
-            let statusBadge = `<span class="badge badge-unreconciled">Unreconciled</span>`;
-            if (expense.isSettlementLumpSum) {
-                statusBadge = `<span class="badge badge-settlement">Bank Settlement</span>`;
-            } else if (expense.reconciliationStatus.includes('Reconciled')) {
-                statusBadge = `<span class="badge badge-reconciled">${expense.reconciliationStatus}</span>`;
-            }
-
-            if (expense.isManualCategory) {
-                statusBadge += ` <span class="badge badge-manual">Edited</span>`;
-            }
+            total += parseFloat(expense.amount);
 
             let catOptions = CATEGORIES.map(c => 
                 `<option value="${c}" ${c === expense.category ? 'selected' : ''}>${c}</option>`
             ).join('');
 
-            const row = document.createElement('tr');
-            if (expense.isSettlementLumpSum) row.className = 'settlement-row';
+            let badge = expense.isManualCategory 
+                ? `<span class="badge badge-manual">Manual</span>`
+                : `<span class="badge badge-auto">Auto</span>`;
 
+            const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${expense.date}</td>
                 <td>${expense.description}</td>
@@ -507,22 +477,17 @@
                     <select class="cat-select" onchange="updateCategory(${expense.id}, this.value)">
                         ${catOptions}
                     </select>
+                    ${badge}
                 </td>
-                <td>${statusBadge}</td>
-                <td>${expense.source || 'Manual'}</td>
-                <td style="font-weight:${expense.isSettlementLumpSum ? 'normal' : '600'}">
-                    ${expense.isSettlementLumpSum ? '<i>(Settlement)</i> ' : ''}¥${Number(expense.amount).toLocaleString()}
-                </td>
+                <td>${expense.source || 'Imported'}</td>
+                <td style="font-weight: 600;">¥${Number(expense.amount).toLocaleString()}</td>
                 <td><button style="color:var(--danger); cursor:pointer;" onclick="deleteExpense(${expense.id})">✕</button></td>
             `;
             list.appendChild(row);
         });
 
-        document.getElementById('total-amount').textContent = `¥${Math.round(netExpenseTotal).toLocaleString()}`;
-        document.getElementById('settlement-summary').textContent = 
-            `Bank Settlement Lump-Sums Excluded: ¥${Math.round(settlementTotal).toLocaleString()} | Unreconciled Items: ${unreconciledCount}`;
-
-        updateExpenseCharts(filtered.filter(e => !e.isSettlementLumpSum));
+        document.getElementById('total-amount').textContent = `¥${Math.round(total).toLocaleString()}`;
+        updateExpenseCharts(filtered);
     }
 
     function updateExpenseCharts(dataList) {
@@ -532,19 +497,19 @@
         if (pieChartInstance) pieChartInstance.destroy();
         pieChartInstance = new Chart(document.getElementById('pieChart').getContext('2d'), {
             type: 'pie',
-            data: { labels: Object.keys(categoryMap), datasets: [{ data: Object.values(categoryMap), backgroundColor: ['#2563eb', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'] }] },
+            data: { labels: Object.keys(categoryMap), datasets: [{ data: Object.values(categoryMap), backgroundColor: ['#2563eb', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#64748b'] }] },
             options: { responsive: true, maintainAspectRatio: false }
         });
 
         const monthlyMap = {};
-        expenses.filter(e => !e.isSettlementLumpSum).forEach(e => { 
+        expenses.forEach(e => { 
             if (e.date) monthlyMap[e.date.substring(0, 7)] = (monthlyMap[e.date.substring(0, 7)] || 0) + parseFloat(e.amount); 
         });
         
         if (barChartInstance) barChartInstance.destroy();
         barChartInstance = new Chart(document.getElementById('barChart').getContext('2d'), {
             type: 'bar',
-            data: { labels: Object.keys(monthlyMap).sort(), datasets: [{ label: 'Net Monthly Spending (Excl. Bank Settlements)', data: Object.values(monthlyMap), backgroundColor: '#60a5fa' }] },
+            data: { labels: Object.keys(monthlyMap).sort(), datasets: [{ label: 'Monthly Total Spending (¥)', data: Object.values(monthlyMap), backgroundColor: '#60a5fa' }] },
             options: { responsive: true, maintainAspectRatio: false }
         });
     }
