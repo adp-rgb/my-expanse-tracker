@@ -11,129 +11,182 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
-            --primary: #2563eb;
-            --primary-dark: #1d4ed8;
-            --bg: #f8fafc;
-            --card-bg: #ffffff;
-            --text: #0f172a;
-            --text-secondary: #64748b;
+            --primary: #3b82f6;
+            --primary-dark: #2563eb;
+            --primary-light: #eff6ff;
+            --surface: #ffffff;
+            --background: #f8fafc;
             --border: #e2e8f0;
+            --border-hover: #cbd5e1;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
             --danger: #ef4444;
-            --solar: #f59e0b;
-            --radius: 14px;
-            --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
-            --shadow-md: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+            --danger-bg: #fef2f2;
+            --solar: #d97706;
+            --solar-bg: #fffbeb;
+            --radius-lg: 16px;
+            --radius-md: 10px;
+            --radius-sm: 6px;
+            --shadow-subtle: 0 1px 3px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.02);
+            --shadow-card: 0 4px 6px -1px rgba(15, 23, 42, 0.04), 0 2px 4px -2px rgba(15, 23, 42, 0.03);
+            --shadow-modal: 0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.05);
         }
+
+        * { box-sizing: border-box; }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--background);
+            color: var(--text-main);
             margin: 0;
-            padding: 28px 16px;
+            padding: 32px 20px;
+            -webkit-font-smoothing: antialiased;
         }
 
-        .container { max-width: 1100px; margin: 0 auto; }
-        
-        .app-header { 
-            text-align: center; 
-            margin-bottom: 28px; 
-        }
-        .app-header h1 {
-            font-size: 1.8rem;
-            font-weight: 800;
-            letter-spacing: -0.025em;
-            color: var(--text);
-            margin: 0;
-        }
+        .container { max-width: 1200px; margin: 0 auto; }
 
-        .summary-card {
-            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-            color: white; 
-            padding: 28px; 
-            border-radius: var(--radius);
-            text-align: center; 
+        /* Header Navigation Style */
+        .app-navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .app-brand { display: flex; align-items: center; gap: 12px; }
+        .app-brand-icon {
+            width: 40px; height: 40px; background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 1.25rem; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+        }
+        .app-brand h1 { font-size: 1.35rem; font-weight: 700; color: var(--text-main); margin: 0; letter-spacing: -0.02em; }
+
+        /* Modern Dashboard KPI Banner */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
             margin-bottom: 24px;
-            box-shadow: 0 12px 20px -4px rgba(37, 99, 235, 0.3);
         }
-        .summary-card span { font-size: 0.95rem; opacity: 0.9; font-weight: 500; }
-        .summary-card h2 { margin: 8px 0 0 0; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; }
-
-        .card {
-            background: var(--card-bg); 
-            padding: 24px;
-            border-radius: var(--radius); 
+        .kpi-card {
+            background: var(--surface);
             border: 1px solid var(--border);
-            margin-bottom: 24px; 
-            box-shadow: var(--shadow-sm);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            box-shadow: var(--shadow-subtle);
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-card); }
+        .kpi-card.highlight {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: white;
+            border: none;
+        }
+        .kpi-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; }
+        .kpi-card.highlight .kpi-title { color: #94a3b8; }
+        .kpi-value { font-size: 1.85rem; font-weight: 800; letter-spacing: -0.03em; margin: 0; }
+        
+        /* Modern Card Styling */
+        .card {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow-subtle);
             transition: box-shadow 0.2s ease;
         }
-        .card:hover { box-shadow: var(--shadow-md); }
-        .card h3 { margin-top: 0; margin-bottom: 16px; font-size: 1.15rem; font-weight: 700; }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .card-title { margin: 0; font-size: 1.1rem; font-weight: 700; letter-spacing: -0.01em; color: var(--text-main); }
 
+        /* Drop Zone UI */
         .batch-drop-zone {
-            border: 2px dashed #93c5fd;
-            padding: 32px 20px;
+            border: 2px dashed var(--border-hover);
+            padding: 36px 20px;
             text-align: center;
-            border-radius: var(--radius);
-            background: #eff6ff;
+            border-radius: var(--radius-md);
+            background: #fafafa;
             cursor: pointer;
             transition: all 0.2s ease;
         }
         .batch-drop-zone:hover {
-            border-color: #2563eb;
-            background: #dbeafe;
-            transform: translateY(-1px);
+            border-color: var(--primary);
+            background: var(--primary-light);
         }
         .batch-drop-zone input { display: none; }
+        .drop-icon { font-size: 2rem; margin-bottom: 8px; display: block; }
 
-        .grid-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; }
-        .chart-container { position: relative; height: 320px; width: 100%; }
-
-        input, select, button { 
-            padding: 9px 14px; 
-            border: 1px solid var(--border); 
-            border-radius: 8px; 
-            font-size: 0.88rem; 
-            outline: none; 
+        /* Buttons & Form Controls */
+        input, select, button {
+            font-family: inherit;
+            padding: 8px 14px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            font-size: 0.85rem;
+            outline: none;
             transition: all 0.15s ease;
+            background: var(--surface);
         }
-        input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+        input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12); }
         
-        .btn-primary { background: var(--primary); color: white; border: none; cursor: pointer; font-weight: 600; }
-        .btn-solar { background: #f59e0b; color: white; border: none; cursor: pointer; font-weight: 600; box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2); }
-        .btn-solar:hover { background: #d97706; }
-        .btn-purge { background: #64748b; color: white; border: none; cursor: pointer; font-weight: 600; }
-        .btn-purge:hover { background: #475569; }
-        .btn-reset { background: #ea580c; color: white; border: none; cursor: pointer; font-weight: 600; }
-        .btn-reset:hover { background: #c2410c; }
+        .btn { font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; border: 1px solid transparent; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-solar { background: var(--solar-bg); color: var(--solar); border-color: #fde68a; }
+        .btn-solar:hover { background: #fef3c7; }
+        .btn-secondary { background: var(--surface); border-color: var(--border); color: var(--text-main); }
+        .btn-secondary:hover { background: #f1f5f9; }
+        .btn-danger-subtle { background: var(--danger-bg); color: var(--danger); border-color: #fecaca; }
+        .btn-danger-subtle:hover { background: #fee2e2; }
 
-        .btn-toggle-group { display: flex; gap: 6px; flex-wrap: wrap; }
-        .btn-toggle { background: #f1f5f9; color: #475569; border: 1px solid var(--border); cursor: pointer; font-weight: 600; padding: 7px 14px; border-radius: 8px; }
-        .btn-toggle.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 
-        /* Modern Table & Badges */
-        .table-responsive { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-        th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid var(--border); font-size: 0.88rem; }
-        th { background: #f8fafc; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; }
+        .btn-toggle-group { display: flex; gap: 4px; background: #f1f5f9; padding: 4px; border-radius: var(--radius-md); border: 1px solid var(--border); }
+        .btn-toggle { background: transparent; color: var(--text-muted); border: none; cursor: pointer; font-weight: 600; padding: 6px 12px; border-radius: var(--radius-sm); font-size: 0.8rem; }
+        .btn-toggle.active { background: var(--surface); color: var(--text-main); box-shadow: var(--shadow-subtle); }
 
-        .badge { padding: 3px 8px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; display: inline-block; }
-        .badge-auto { background: #dbeafe; color: #1e40af; }
-        .badge-csv { background: #d1fae5; color: #065f46; }
-        .badge-manual { background: #fef3c7; color: #92400e; }
+        /* Charts Layout */
+        .grid-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 24px; }
+        .chart-box { background: var(--surface); border-radius: var(--radius-md); padding: 12px; }
+        .chart-container { position: relative; height: 300px; width: 100%; }
 
-        .cat-select { padding: 4px 8px; font-size: 0.82rem; border-radius: 6px; background: #fff; cursor: pointer; border: 1px solid var(--border); }
+        /* Table Design */
+        .table-responsive { overflow-x: auto; margin-top: 8px; }
+        table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+        th { background: #f8fafc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; position: sticky; top: 0; }
+        tr:last-child td { border-bottom: none; }
+        tbody tr:hover { background: #f8fafc; }
 
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 1000; }
-        .modal-content { background: var(--card-bg); padding: 28px; border-radius: var(--radius); width: 92%; max-width: 880px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
+        /* Badges */
+        .badge { padding: 2px 8px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; display: inline-block; text-transform: uppercase; letter-spacing: 0.02em; }
+        .badge-auto { background: #e0f2fe; color: #0369a1; }
+        .badge-csv { background: #dcfce7; color: #15803d; }
+        .badge-manual { background: #fef3c7; color: #b45309; }
+
+        .cat-select { padding: 4px 8px; font-size: 0.8rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); cursor: pointer; }
+
+        /* Modal Overlay */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: var(--surface); padding: 28px; border-radius: var(--radius-lg); width: 92%; max-width: 900px; box-shadow: var(--shadow-modal); border: 1px solid var(--border); }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .close-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary); }
+        .close-btn { background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted); padding: 4px 8px; border-radius: var(--radius-sm); }
+        .close-btn:hover { background: #f1f5f9; color: var(--text-main); }
 
         .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 20px; }
-        .metric-card { background: #f8fafc; border: 1px solid var(--border); padding: 16px; border-radius: 10px; text-align: center; }
-        .metric-card span { font-size: 0.8rem; color: var(--text-secondary); font-weight: 600; }
-        .metric-card div { font-size: 1.35rem; font-weight: 800; margin-top: 6px; }
+        .metric-card { background: #f8fafc; border: 1px solid var(--border); padding: 16px; border-radius: var(--radius-md); text-align: center; }
+        .metric-card span { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+        .metric-card div { font-size: 1.4rem; font-weight: 800; margin-top: 4px; }
         
         .progress-bar { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin-top: 12px; display: none; }
         .progress-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.2s; }
@@ -142,52 +195,74 @@
 <body>
 
 <div class="container">
-    <div class="app-header">
-        <h1>🏠 Household Expense & Solar Energy Tracker</h1>
+    <!-- Navbar Banner -->
+    <div class="app-navbar">
+        <div class="app-brand">
+            <div class="app-brand-icon">⚡</div>
+            <h1>Household & Solar Dashboard</h1>
+        </div>
+        <div class="toolbar">
+            <button class="btn btn-solar" onclick="openSolarModal()">☀️ Solar Electricity Modal</button>
+        </div>
     </div>
 
-    <!-- Summary Box -->
-    <div class="summary-card">
-        <span id="summary-label">Total Expenses (Filtered View)</span>
-        <h2 id="total-amount">¥0</h2>
+    <!-- Summary KPI Header Cards -->
+    <div class="kpi-grid">
+        <div class="kpi-card highlight">
+            <div class="kpi-title" id="summary-label">Filtered Expenses</div>
+            <div class="kpi-value" id="total-amount">¥0</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-title">Active Filter View</div>
+            <div class="kpi-value" id="kpi-active-view" style="font-size: 1.25rem; font-weight: 700; color: var(--primary-dark); margin-top: 8px;">All Records</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-title">Total Logged Items</div>
+            <div class="kpi-value" id="kpi-total-count" style="color: var(--text-main);">0</div>
+        </div>
     </div>
 
-    <!-- Batch Upload Section -->
+    <!-- Batch Upload Card -->
     <div class="card">
-        <h3>📁 Batch Import Files (Up to 50 CSV / PDF / Images)</h3>
+        <div class="card-header">
+            <h3 class="card-title">📁 Import Statement & Energy Files</h3>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">Batch support up to 50 files (CSV, PDF, Images)</span>
+        </div>
         <div class="batch-drop-zone" onclick="document.getElementById('batch-files').click()">
-            <span style="font-size: 1.05rem; font-weight: 700; color: #1e40af;">Click or Drag & Drop up to 50 files here</span>
-            <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 6px;">
-                Supports Solar CSVs, Expense CSVs, Statement PDFs, and Receipt Images.
+            <span class="drop-icon">📤</span>
+            <span style="font-size: 0.95rem; font-weight: 600; color: var(--text-main);">Click or Drag & Drop statements and logs here</span>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+                Supports Japanese Credit Card PDFs/CSVs, Utility Bills, and Solar CSV exports.
             </div>
             <input type="file" id="batch-files" accept=".csv, .pdf, image/*" multiple onchange="handleBatchUpload(event)">
         </div>
         <div class="progress-bar" id="p-bar"><div class="progress-fill" id="p-fill"></div></div>
-        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 10px;" id="batch-status">Ready for batch input. Duplicate files/records are automatically ignored.</div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 10px;" id="batch-status">Ready for batch input. Duplicate entries are automatically deduplicated.</div>
     </div>
 
     <!-- Analytics Section -->
     <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; flex-wrap: wrap; gap: 12px;">
-            <h3 style="margin:0;">📊 Analytics & Breakdown</h3>
-            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-                <button class="btn-reset" onclick="resetFileHistory()">🔄 Reset History</button>
-                <button class="btn-purge" onclick="consolidateAndDeduplicateData()">🧹 Clean Data</button>
-                <button class="btn-solar" onclick="openSolarModal()">☀️ Solar Energy Modal</button>
-                <label for="filter-month" style="font-size: 0.88rem; font-weight: 600; margin-left: 4px;">Month: </label>
+        <div class="card-header">
+            <h3 class="card-title">📊 Expense Analytics</h3>
+            <div class="toolbar">
+                <label for="filter-month" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">Month:</label>
                 <select id="filter-month" onchange="renderExpenses()"></select>
-                <label for="filter-category" style="font-size: 0.88rem; font-weight: 600; margin-left: 4px;">Category: </label>
+                
+                <label for="filter-category" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">Category:</label>
                 <select id="filter-category" onchange="renderExpenses()"></select>
+
+                <button class="btn btn-secondary" onclick="consolidateAndDeduplicateData()" title="Clean Duplicate Records">🧹 Clean Data</button>
+                <button class="btn btn-danger-subtle" onclick="resetFileHistory()" title="Clear Upload History Cache">🔄 Reset History</button>
             </div>
         </div>
         
         <div class="grid-charts">
-            <div>
-                <h4 style="text-align: center; color: var(--text-secondary); margin-bottom: 8px; font-weight: 600;">Monthly Category Share</h4>
+            <div class="chart-box">
+                <h4 style="text-align: center; color: var(--text-muted); margin-top:0; margin-bottom: 12px; font-size: 0.85rem; font-weight: 600;">Category Distribution</h4>
                 <div class="chart-container"><canvas id="pieChart"></canvas></div>
             </div>
-            <div>
-                <h4 style="text-align: center; color: var(--text-secondary); margin-bottom: 8px; font-weight: 600;">Monthly Expense Trend</h4>
+            <div class="chart-box">
+                <h4 style="text-align: center; color: var(--text-muted); margin-top:0; margin-bottom: 12px; font-size: 0.85rem; font-weight: 600;">Monthly Trend Comparison</h4>
                 <div class="chart-container"><canvas id="barChart"></canvas></div>
             </div>
         </div>
@@ -195,7 +270,9 @@
 
     <!-- Expense Table -->
     <div class="card">
-        <h3>Expense Log</h3>
+        <div class="card-header">
+            <h3 class="card-title">Transaction Log</h3>
+        </div>
         <div class="table-responsive">
             <table>
                 <thead>
@@ -205,7 +282,7 @@
                         <th>Category (Editable)</th>
                         <th>Source</th>
                         <th>Amount</th>
-                        <th>Action</th>
+                        <th style="text-align: right;">Action</th>
                     </tr>
                 </thead>
                 <tbody id="expense-list"></tbody>
@@ -218,32 +295,32 @@
 <div class="modal-overlay" id="solarModal">
     <div class="modal-content">
         <div class="modal-header">
-            <h2 style="margin:0; font-size: 1.4rem;">☀️ Solar Electricity Monitor</h2>
+            <h3 class="card-title" style="font-size: 1.2rem;">☀️ Solar Energy Monitor</h3>
             <button class="close-btn" onclick="closeSolarModal()">&times;</button>
         </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
             <div class="btn-toggle-group">
                 <button id="btnViewOverall" class="btn-toggle" onclick="setSolarViewMode('overall')">1. Overall View</button>
-                <button id="btnViewYearly" class="btn-toggle" onclick="setSolarViewMode('yearly')">2. Yearly Consolidated</button>
-                <button id="btnViewMonthly" class="btn-toggle" onclick="setSolarViewMode('monthly')">3. Monthly View</button>
+                <button id="btnViewYearly" class="btn-toggle" onclick="setSolarViewMode('yearly')">2. Yearly</button>
+                <button id="btnViewMonthly" class="btn-toggle" onclick="setSolarViewMode('monthly')">3. Monthly</button>
                 <button id="btnViewDaily" class="btn-toggle active" onclick="setSolarViewMode('daily')">4. Daily View</button>
             </div>
-            <span id="solar-period-title" style="font-weight: 600; color: var(--text-secondary); font-size: 0.9rem;"></span>
+            <span id="solar-period-title" style="font-weight: 600; color: var(--text-muted); font-size: 0.85rem;"></span>
         </div>
 
         <!-- Metrics Cards -->
         <div class="metrics-grid">
-            <div class="metric-card" style="border-top: 4px solid #f59e0b;">
-                <span>Electricity Generated</span>
+            <div class="metric-card" style="border-top: 3px solid #f59e0b;">
+                <span>Generated</span>
                 <div id="m-generated" style="color: #d97706;">0.0 kWh</div>
             </div>
-            <div class="metric-card" style="border-top: 4px solid #10b981;">
-                <span>Electricity Consumed</span>
+            <div class="metric-card" style="border-top: 3px solid #10b981;">
+                <span>Consumed</span>
                 <div id="m-consumed" style="color: #059669;">0.0 kWh</div>
             </div>
-            <div class="metric-card" style="border-top: 4px solid #ef4444;">
-                <span>Electricity Purchased</span>
+            <div class="metric-card" style="border-top: 3px solid #ef4444;">
+                <span>Purchased</span>
                 <div id="m-purchased" style="color: #dc2626;">0.0 kWh</div>
             </div>
         </div>
@@ -550,7 +627,6 @@
                         let rawDate = row['年月日'] || row['Date'] || row['日付'] || row['利用日'] || row['利用年月日'] || row['Date & Time'] || row['取引日時'] || '';
                         let cleanDate = sanitizeDate(rawDate);
 
-                        // SOLAR DATA PARSING LOGIC (UNCHANGED)
                         if (cleanDate && (row['発電電力量[kWh]'] !== undefined || row['Generated'] !== undefined)) {
                             solarDailyData.push({
                                 date: cleanDate,
@@ -560,7 +636,6 @@
                             });
                             extractedCount++;
                         } 
-                        // EXPENSE CSV PARSING LOGIC WITH AUTO CATEGORY MATCHING
                         else if (cleanDate) {
                             let rawAmt = row['金額'] || row['Amount'] || row['Amount Outgoing (Yen)'] || row['利用金額(円)'] || row['支払金額'] || row['利用金額'] || row['請求金額'] || '0';
                             let amt = parseNum(rawAmt);
@@ -611,7 +686,6 @@
         renderExpenses();
     }
 
-    // SOLAR ENERGY LOGIC AND FUNCTIONS (EXACT ORIGINAL LOGIC MAINTAINED)
     function openSolarModal() {
         document.getElementById('solarModal').style.display = 'flex';
         renderSolarChart();
@@ -809,14 +883,17 @@
                     </select>
                     <span class="badge ${badgeClass}">${badgeLabel}</span>
                 </td>
-                <td style="color: var(--text-secondary); font-size: 0.82rem;">${expense.source || 'Manual'}</td>
+                <td style="color: var(--text-muted); font-size: 0.82rem;">${expense.source || 'Manual'}</td>
                 <td style="font-weight: 700;">¥${Number(expense.amount).toLocaleString()}</td>
-                <td><button style="color: var(--danger); cursor: pointer; border: none; background: none; font-weight: bold;" onclick="deleteExpense(${expenses.indexOf(expense)})">✕</button></td>
+                <td style="text-align: right;"><button style="color: var(--danger); cursor: pointer; border: none; background: none; font-weight: bold; font-size: 1rem;" onclick="deleteExpense(${expenses.indexOf(expense)})">✕</button></td>
             `;
             list.appendChild(row);
         });
 
         document.getElementById('total-amount').textContent = `¥${Math.round(total).toLocaleString()}`;
+        document.getElementById('kpi-active-view').textContent = `${selectedMonth === 'ALL' ? 'All Months' : selectedMonth} • ${selectedCat === 'ALL' ? 'All Categories' : selectedCat}`;
+        document.getElementById('kpi-total-count').textContent = `${filtered.length} Items`;
+
         updateExpenseCharts(selectedMonth, selectedCat);
     }
 
@@ -833,7 +910,7 @@
         if (pieChartInstance) pieChartInstance.destroy();
         pieChartInstance = new Chart(document.getElementById('pieChart').getContext('2d'), {
             type: 'pie',
-            data: { labels: Object.keys(categoryMap), datasets: [{ data: Object.values(categoryMap), backgroundColor: ['#2563eb', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#64748b'] }] },
+            data: { labels: Object.keys(categoryMap), datasets: [{ data: Object.values(categoryMap), backgroundColor: ['#3b82f6', '#60a5fa', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#64748b'] }] },
             options: { responsive: true, maintainAspectRatio: false }
         });
 
@@ -843,7 +920,7 @@
         if (barChartInstance) barChartInstance.destroy();
         barChartInstance = new Chart(document.getElementById('barChart').getContext('2d'), {
             type: 'bar',
-            data: { labels: Object.keys(monthlyMap).sort(), datasets: [{ label: 'Total Expenses (¥)', data: Object.values(monthlyMap), backgroundColor: '#60a5fa', borderRadius: 4 }] },
+            data: { labels: Object.keys(monthlyMap).sort(), datasets: [{ label: 'Total Expenses (¥)', data: Object.values(monthlyMap), backgroundColor: '#3b82f6', borderRadius: 4 }] },
             options: { responsive: true, maintainAspectRatio: false }
         });
     }
