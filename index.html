@@ -115,12 +115,12 @@
         <div class="batch-drop-zone" onclick="document.getElementById('batch-files').click()">
             <span style="font-size: 1.1rem; font-weight: 600; color: #1e40af;">Click or Drag & Drop up to 50 files here</span>
             <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 6px;">
-                Supports PayPay CSV Statements, Bank CSVs, Solar CSVs, Statement PDFs, and Receipts.
+                Supports Solar CSVs, Expense CSVs, Statement PDFs, and Receipt Images.
             </div>
             <input type="file" id="batch-files" accept=".csv, .pdf, image/*" multiple onchange="handleBatchUpload(event)">
         </div>
         <div class="progress-bar" id="p-bar"><div class="progress-fill" id="p-fill"></div></div>
-        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 8px;" id="batch-status">Ready for batch input. Duplicate files/records and Bank-PayPay recharges are auto-reconciled.</div>
+        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 8px;" id="batch-status">Ready for batch input. Duplicate files/records are automatically ignored.</div>
     </div>
 
     <!-- Analytics Section -->
@@ -129,7 +129,7 @@
             <h3 style="margin:0;">📊 Analytics & Breakdown</h3>
             <div>
                 <button class="btn-reset" onclick="resetFileHistory()" style="margin-right:8px;">🔄 Reset Upload History</button>
-                <button class="btn-purge" onclick="consolidateAndDeduplicateData()" style="margin-right:8px;">🧹 Clean Data & Reconcile</button>
+                <button class="btn-purge" onclick="consolidateAndDeduplicateData()" style="margin-right:8px;">🧹 Clean Data & Hashes</button>
                 <button class="btn-solar" onclick="openSolarModal()" style="margin-right:10px;">☀️ Solar Energy Modal</button>
                 <label for="filter-month" style="font-size: 0.9rem; font-weight: 600;">Month: </label>
                 <select id="filter-month" onchange="renderExpenses()"></select>
@@ -220,8 +220,7 @@
 
     function sanitizeDate(rawDateStr) {
         if (!rawDateStr) return null;
-        let dateOnly = String(rawDateStr).trim().split(' ')[0];
-        let clean = dateOnly.replace(/\./g, '-').replace(/\//g, '-').trim();
+        let clean = rawDateStr.replace(/\./g, '-').replace(/\//g, '-').trim();
         let parts = clean.split('-');
         if (parts.length < 3) return null;
         let year = parseInt(parts[0], 10);
@@ -237,24 +236,18 @@
     }
 
     function parseNum(val) {
-        if (val === undefined || val === null || val === '' || val === '-') return 0;
+        if (val === undefined || val === null || val === '') return 0;
         let num = parseFloat(String(val).replace(/,/g, ''));
         return isNaN(num) ? 0 : num;
     }
 
     function categorizeExpense(desc) {
         let lower = desc.toLowerCase();
-        if (lower.includes('paypayチャージ') || lower.includes('チャージ') || lower.includes('口座振替') || lower.includes('top-up')) return 'Transfer/Recharge';
-        if (lower.includes('etc') || lower.includes('高速') || lower.includes('suica') || lower.includes('タイムズ') || lower.includes('タクシー')) return 'Transportation';
+        if (lower.includes('etc') || lower.includes('高速') || lower.includes('suica') || lower.includes('タイムズ')) return 'Transportation';
         if (lower.includes('電力') || lower.includes('水道') || lower.includes('nuro') || lower.includes('ソフトバンク') || lower.includes('ワイヤレス')) return 'Utilities';
-        if (lower.includes('マクドナルド') || lower.includes('スターバックス') || lower.includes('starbucks') || lower.includes('menu') || lower.includes('カフェ')) return 'Dining Out';
-        if (lower.includes('netflix') || lower.includes('amazon') || lower.includes('apple')) return 'Subscriptions';
+        if (lower.includes('マクドナルド') || lower.includes('starbucks') || lower.includes('menu') || lower.includes('express')) return 'Dining Out';
+        if (lower.includes('netflix')) return 'Subscriptions';
         return 'General';
-    }
-
-    function isPayPayRecharge(desc) {
-        let lower = desc.toLowerCase();
-        return (lower.includes('paypay') && (lower.includes('チャージ') || lower.includes('口座振替') || lower.includes('入金') || lower.includes('top-up'))) || lower.includes('paypay top-up');
     }
 
     function getFileSignature(file) {
@@ -264,7 +257,8 @@
     function resetFileHistory() {
         processedFilesHashes = [];
         localStorage.removeItem('processed_file_hashes');
-        document.getElementById('batch-status').textContent = 'Upload history cleared! You can now re-upload files.';
+        const status = document.getElementById('batch-status');
+        status.textContent = 'Upload history cleared! You can now re-upload your PDF files.';
     }
 
     async function handleBatchUpload(event) {
@@ -301,6 +295,7 @@
                 itemsExtracted = await processPDFFile(file);
             }
 
+            // Only mark hash as processed if items were successfully extracted
             if (itemsExtracted > 0) {
                 processedFilesHashes.push(signature);
                 totalExtracted += itemsExtracted;
@@ -311,9 +306,9 @@
         }
 
         localStorage.setItem('processed_file_hashes', JSON.stringify(processedFilesHashes));
-        let reconciledCount = consolidateAndDeduplicateData();
+        consolidateAndDeduplicateData();
 
-        status.textContent = `Completed! Extracted ${totalExtracted} items (${reconciledCount} Bank-PayPay recharges auto-reconciled).`;
+        status.textContent = `Completed! Extracted ${totalExtracted} items from ${files.length - skippedFiles} files (${skippedFiles} skipped).`;
         setTimeout(() => { pBar.style.display = 'none'; pFill.style.width = '0%'; }, 2500);
     }
 
@@ -386,9 +381,7 @@
                     let headerIndex = -1;
                     for (let i = 0; i < rows.length; i++) {
                         let cleanedRow = rows[i].map(cleanHeader);
-                        if (cleanedRow.some(col => 
-                            ['年月日', '年月', 'Date', 'Date & Time', 'Month', '金額', 'Amount', 'Amount Outgoing (Yen)', '取引履歴', '利用店舗名', 'Transaction Type'].some(k => col.includes(k))
-                        )) {
+                        if (cleanedRow.some(col => ['年月日', '年月', 'Date', 'Month', '金額', 'Amount'].includes(col))) {
                             headerIndex = i;
                             break;
                         }
@@ -404,12 +397,10 @@
                             row[h] = rowArr[idx] !== undefined ? String(rowArr[idx]).replace(/["']/g, '').trim() : '';
                         });
 
-                        let rawDate = row['Date & Time'] || row['年月日'] || row['Date'] || row['日付'] || row['取引日時'] || '';
+                        let rawDate = row['年月日'] || row['Date'] || row['日付'] || '';
                         let cleanDate = sanitizeDate(rawDate);
-                        if (!cleanDate) continue;
 
-                        // Case A: Solar Panel CSV
-                        if (row['発電電力量[kWh]'] !== undefined || row['Generated'] !== undefined) {
+                        if (cleanDate && (row['発電電力量[kWh]'] !== undefined || row['Generated'] !== undefined)) {
                             solarDailyData.push({
                                 date: cleanDate,
                                 generated: parseNum(row['発電電力量[kWh]'] || row['Generated']),
@@ -417,53 +408,13 @@
                                 purchased: parseNum(row['買電電力量[kWh]'] || row['Purchased'])
                             });
                             extractedCount++;
-                        } 
-                        // Case B: Official PayPay Statement CSV
-                        else if (row['Transaction Type'] !== undefined || row['Amount Outgoing (Yen)'] !== undefined) {
-                            let txType = row['Transaction Type'] || '';
-                            let amtOut = parseNum(row['Amount Outgoing (Yen)']);
-                            let amtIn = parseNum(row['Amount Incoming (Yen)']);
-                            let bizName = row['Business Name'] || 'PayPay Transaction';
-                            let method = row['Method'] || '';
-
-                            // Ignore cashback/earned points from spending totals
-                            if (txType === 'Points, Balance Earned') {
-                                continue;
-                            } 
-                            // Bank Top-Ups / Recharges
-                            else if (txType === 'Top-Up' || isPayPayRecharge(bizName) || isPayPayRecharge(method)) {
-                                expenses.push({
-                                    date: cleanDate,
-                                    description: `PayPay Top-Up (${method || bizName})`,
-                                    category: 'Transfer/Recharge',
-                                    source: file.name,
-                                    amount: amtIn > 0 ? amtIn : amtOut
-                                });
-                                extractedCount++;
-                            } 
-                            // Regular Merchant Purchases
-                            else if (txType === 'Payment' || amtOut > 0) {
-                                expenses.push({
-                                    date: cleanDate,
-                                    description: bizName,
-                                    category: categorizeExpense(bizName),
-                                    source: file.name,
-                                    amount: amtOut
-                                });
-                                extractedCount++;
-                            }
-                        } 
-                        // Case C: Standard Bank / Credit Card CSV
-                        else if (row['金額'] || row['Amount'] || row['出金金額'] || row['利用金額']) {
-                            let desc = row['利用店名・商品名'] || row['Description'] || row['取引内容'] || row['利用店舗名'] || 'CSV Item';
-                            let amt = parseNum(row['金額'] || row['Amount'] || row['出金金額'] || row['利用金額']);
-
+                        } else if (cleanDate && (row['金額'] || row['Amount'])) {
                             expenses.push({
                                 date: cleanDate,
-                                description: desc,
-                                category: row['カテゴリ'] || row['Category'] || categorizeExpense(desc),
+                                description: row['利用店名・商品名'] || row['Description'] || 'CSV Item',
+                                category: row['カテゴリ'] || row['Category'] || categorizeExpense(row['利用店名・商品名'] || row['Description'] || ''),
                                 source: file.name,
-                                amount: amt
+                                amount: parseNum(row['金額'] || row['Amount'])
                             });
                             extractedCount++;
                         }
@@ -474,54 +425,22 @@
         });
     }
 
-    // Reconciliation and Deduplication logic
     function consolidateAndDeduplicateData() {
         const solarMap = new Map();
         solarDailyData.forEach(item => { if (item.date) solarMap.set(item.date, item); });
         solarDailyData = Array.from(solarMap.values());
 
-        // Step 1: Filter exact duplicates
         const expenseMap = new Map();
         expenses.forEach(item => {
             if (item.date && item.amount) {
-                expenseMap.set(`${item.date}_${item.description}_${item.amount}_${item.source}`, item);
+                expenseMap.set(`${item.date}_${item.description}_${item.amount}`, item);
             }
         });
-        let uniqueExpenses = Array.from(expenseMap.values());
-
-        // Step 2: Cross-Reconcile Bank Withdrawals against PayPay Recharges
-        let paypayRecharges = uniqueExpenses.filter(e => isPayPayRecharge(e.description) || e.category === 'Transfer/Recharge');
-        let reconciledIndices = new Set();
-        let reconciledCount = 0;
-
-        paypayRecharges.forEach(recharge => {
-            let rDate = new Date(recharge.date);
-            
-            // Find corresponding bank transfer within 2 days matching exact amount
-            let bankMatchIndex = uniqueExpenses.findIndex((e, idx) => {
-                if (reconciledIndices.has(idx)) return false;
-                if (!e.description.toLowerCase().includes('paypay') && !e.description.toLowerCase().includes('口座振替')) return false;
-                
-                let eDate = new Date(e.date);
-                let dayDiff = Math.abs((rDate - eDate) / (1000 * 60 * 60 * 24));
-                
-                return dayDiff <= 2 && Math.abs(e.amount) === Math.abs(recharge.amount);
-            });
-
-            if (bankMatchIndex !== -1) {
-                reconciledIndices.add(bankMatchIndex);
-                reconciledCount++;
-            }
-        });
-
-        // Keep all non-reconciled bank transfer records and non-charge expenses
-        expenses = uniqueExpenses.filter((e, idx) => !reconciledIndices.has(idx) && !isPayPayRecharge(e.description));
+        expenses = Array.from(expenseMap.values());
 
         localStorage.setItem('solar_daily_data', JSON.stringify(solarDailyData));
         localStorage.setItem('household_expenses', JSON.stringify(expenses));
         renderExpenses();
-
-        return reconciledCount;
     }
 
     function openSolarModal() {
