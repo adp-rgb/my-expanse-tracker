@@ -13,14 +13,16 @@
         :root {
             --primary: #2563eb;
             --primary-dark: #1d4ed8;
-            --bg: #f1f5f9;
+            --bg: #f8fafc;
             --card-bg: #ffffff;
             --text: #0f172a;
             --text-secondary: #64748b;
             --border: #e2e8f0;
             --danger: #ef4444;
             --solar: #f59e0b;
-            --radius: 12px;
+            --radius: 14px;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+            --shadow-md: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
         }
 
         body {
@@ -28,71 +30,112 @@
             background-color: var(--bg);
             color: var(--text);
             margin: 0;
-            padding: 24px 12px;
+            padding: 28px 16px;
         }
 
-        .container { max-width: 1000px; margin: 0 auto; }
-        .app-header { text-align: center; margin-bottom: 24px; }
+        .container { max-width: 1100px; margin: 0 auto; }
+        
+        .app-header { 
+            text-align: center; 
+            margin-bottom: 28px; 
+        }
+        .app-header h1 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            color: var(--text);
+            margin: 0;
+        }
 
         .summary-card {
-            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-            color: white; padding: 24px; border-radius: var(--radius);
-            text-align: center; margin-bottom: 24px;
-            box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.25);
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            color: white; 
+            padding: 28px; 
+            border-radius: var(--radius);
+            text-align: center; 
+            margin-bottom: 24px;
+            box-shadow: 0 12px 20px -4px rgba(37, 99, 235, 0.3);
         }
+        .summary-card span { font-size: 0.95rem; opacity: 0.9; font-weight: 500; }
+        .summary-card h2 { margin: 8px 0 0 0; font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; }
 
         .card {
-            background: var(--card-bg); padding: 20px;
-            border-radius: var(--radius); border: 1px solid var(--border);
-            margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            background: var(--card-bg); 
+            padding: 24px;
+            border-radius: var(--radius); 
+            border: 1px solid var(--border);
+            margin-bottom: 24px; 
+            box-shadow: var(--shadow-sm);
+            transition: box-shadow 0.2s ease;
         }
+        .card:hover { box-shadow: var(--shadow-md); }
+        .card h3 { margin-top: 0; margin-bottom: 16px; font-size: 1.15rem; font-weight: 700; }
 
         .batch-drop-zone {
             border: 2px dashed #93c5fd;
-            padding: 25px 15px;
+            padding: 32px 20px;
             text-align: center;
-            border-radius: 12px;
+            border-radius: var(--radius);
             background: #eff6ff;
             cursor: pointer;
             transition: all 0.2s ease;
         }
-
         .batch-drop-zone:hover {
             border-color: #2563eb;
             background: #dbeafe;
+            transform: translateY(-1px);
         }
-
         .batch-drop-zone input { display: none; }
 
-        .grid-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+        .grid-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; }
         .chart-container { position: relative; height: 320px; width: 100%; }
 
-        input, select, button { padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; outline: none; }
+        input, select, button { 
+            padding: 9px 14px; 
+            border: 1px solid var(--border); 
+            border-radius: 8px; 
+            font-size: 0.88rem; 
+            outline: none; 
+            transition: all 0.15s ease;
+        }
+        input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+        
         .btn-primary { background: var(--primary); color: white; border: none; cursor: pointer; font-weight: 600; }
-        .btn-solar { background: var(--solar); color: white; border: none; cursor: pointer; font-weight: 600; }
+        .btn-solar { background: #f59e0b; color: white; border: none; cursor: pointer; font-weight: 600; box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2); }
+        .btn-solar:hover { background: #d97706; }
         .btn-purge { background: #64748b; color: white; border: none; cursor: pointer; font-weight: 600; }
-        .btn-reset { background: #d97706; color: white; border: none; cursor: pointer; font-weight: 600; }
+        .btn-purge:hover { background: #475569; }
+        .btn-reset { background: #ea580c; color: white; border: none; cursor: pointer; font-weight: 600; }
+        .btn-reset:hover { background: #c2410c; }
 
         .btn-toggle-group { display: flex; gap: 6px; flex-wrap: wrap; }
-        .btn-toggle { background: #e2e8f0; color: #334155; border: none; cursor: pointer; font-weight: 600; padding: 6px 12px; border-radius: 6px; }
-        .btn-toggle.active { background: var(--primary); color: white; }
+        .btn-toggle { background: #f1f5f9; color: #475569; border: 1px solid var(--border); cursor: pointer; font-weight: 600; padding: 7px 14px; border-radius: 8px; }
+        .btn-toggle.active { background: var(--primary); color: white; border-color: var(--primary); }
 
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+        /* Modern Table & Badges */
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid var(--border); font-size: 0.88rem; }
+        th { background: #f8fafc; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; }
 
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); display: none; align-items: center; justify-content: center; z-index: 1000; }
-        .modal-content { background: var(--card-bg); padding: 24px; border-radius: var(--radius); width: 92%; max-width: 850px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .close-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; }
+        .badge { padding: 3px 8px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; display: inline-block; }
+        .badge-auto { background: #dbeafe; color: #1e40af; }
+        .badge-csv { background: #d1fae5; color: #065f46; }
+        .badge-manual { background: #fef3c7; color: #92400e; }
 
-        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
-        .metric-card { background: #f8fafc; border: 1px solid var(--border); padding: 12px; border-radius: 8px; text-align: center; }
-        .metric-card span { font-size: 0.8rem; color: var(--text-secondary); }
-        .metric-card div { font-size: 1.2rem; font-weight: bold; margin-top: 4px; }
+        .cat-select { padding: 4px 8px; font-size: 0.82rem; border-radius: 6px; background: #fff; cursor: pointer; border: 1px solid var(--border); }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: var(--card-bg); padding: 28px; border-radius: var(--radius); width: 92%; max-width: 880px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .close-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary); }
+
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 20px; }
+        .metric-card { background: #f8fafc; border: 1px solid var(--border); padding: 16px; border-radius: 10px; text-align: center; }
+        .metric-card span { font-size: 0.8rem; color: var(--text-secondary); font-weight: 600; }
+        .metric-card div { font-size: 1.35rem; font-weight: 800; margin-top: 6px; }
         
-        .progress-bar {
-            height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin-top: 10px; display: none;
-        }
+        .progress-bar { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin-top: 12px; display: none; }
         .progress-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.2s; }
     </style>
 </head>
@@ -105,7 +148,7 @@
 
     <!-- Summary Box -->
     <div class="summary-card">
-        <span id="summary-label">Total Monthly Expenses</span>
+        <span id="summary-label">Total Expenses (Filtered View)</span>
         <h2 id="total-amount">¥0</h2>
     </div>
 
@@ -113,36 +156,38 @@
     <div class="card">
         <h3>📁 Batch Import Files (Up to 50 CSV / PDF / Images)</h3>
         <div class="batch-drop-zone" onclick="document.getElementById('batch-files').click()">
-            <span style="font-size: 1.1rem; font-weight: 600; color: #1e40af;">Click or Drag & Drop up to 50 files here</span>
+            <span style="font-size: 1.05rem; font-weight: 700; color: #1e40af;">Click or Drag & Drop up to 50 files here</span>
             <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 6px;">
                 Supports Solar CSVs, Expense CSVs, Statement PDFs, and Receipt Images.
             </div>
             <input type="file" id="batch-files" accept=".csv, .pdf, image/*" multiple onchange="handleBatchUpload(event)">
         </div>
         <div class="progress-bar" id="p-bar"><div class="progress-fill" id="p-fill"></div></div>
-        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 8px;" id="batch-status">Ready for batch input. Duplicate files/records are automatically ignored.</div>
+        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 10px;" id="batch-status">Ready for batch input. Duplicate files/records are automatically ignored.</div>
     </div>
 
     <!-- Analytics Section -->
     <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap: wrap; gap: 10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; flex-wrap: wrap; gap: 12px;">
             <h3 style="margin:0;">📊 Analytics & Breakdown</h3>
-            <div>
-                <button class="btn-reset" onclick="resetFileHistory()" style="margin-right:8px;">🔄 Reset Upload History</button>
-                <button class="btn-purge" onclick="consolidateAndDeduplicateData()" style="margin-right:8px;">🧹 Clean Data & Hashes</button>
-                <button class="btn-solar" onclick="openSolarModal()" style="margin-right:10px;">☀️ Solar Energy Modal</button>
-                <label for="filter-month" style="font-size: 0.9rem; font-weight: 600;">Month: </label>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                <button class="btn-reset" onclick="resetFileHistory()">🔄 Reset History</button>
+                <button class="btn-purge" onclick="consolidateAndDeduplicateData()">🧹 Clean Data</button>
+                <button class="btn-solar" onclick="openSolarModal()">☀️ Solar Energy Modal</button>
+                <label for="filter-month" style="font-size: 0.88rem; font-weight: 600; margin-left: 4px;">Month: </label>
                 <select id="filter-month" onchange="renderExpenses()"></select>
+                <label for="filter-category" style="font-size: 0.88rem; font-weight: 600; margin-left: 4px;">Category: </label>
+                <select id="filter-category" onchange="renderExpenses()"></select>
             </div>
         </div>
         
         <div class="grid-charts">
             <div>
-                <h4 style="text-align: center; color: var(--text-secondary);">Monthly Category Share</h4>
+                <h4 style="text-align: center; color: var(--text-secondary); margin-bottom: 8px; font-weight: 600;">Monthly Category Share</h4>
                 <div class="chart-container"><canvas id="pieChart"></canvas></div>
             </div>
             <div>
-                <h4 style="text-align: center; color: var(--text-secondary);">Monthly Expense Trend</h4>
+                <h4 style="text-align: center; color: var(--text-secondary); margin-bottom: 8px; font-weight: 600;">Monthly Expense Trend</h4>
                 <div class="chart-container"><canvas id="barChart"></canvas></div>
             </div>
         </div>
@@ -151,38 +196,40 @@
     <!-- Expense Table -->
     <div class="card">
         <h3>Expense Log</h3>
-        <table>
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Description</th>
-                    <th>Category</th>
-                    <th>Source</th>
-                    <th>Amount</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody id="expense-list"></tbody>
-        </table>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Category (Editable)</th>
+                        <th>Source</th>
+                        <th>Amount</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="expense-list"></tbody>
+            </table>
+        </div>
     </div>
 </div>
 
-<!-- Solar Analysis Modal -->
+<!-- Solar Analysis Modal (UNCHANGED LOGIC) -->
 <div class="modal-overlay" id="solarModal">
     <div class="modal-content">
         <div class="modal-header">
-            <h2 style="margin:0;">☀️ Solar Electricity Monitor</h2>
+            <h2 style="margin:0; font-size: 1.4rem;">☀️ Solar Electricity Monitor</h2>
             <button class="close-btn" onclick="closeSolarModal()">&times;</button>
         </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
             <div class="btn-toggle-group">
                 <button id="btnViewOverall" class="btn-toggle" onclick="setSolarViewMode('overall')">1. Overall View</button>
                 <button id="btnViewYearly" class="btn-toggle" onclick="setSolarViewMode('yearly')">2. Yearly Consolidated</button>
                 <button id="btnViewMonthly" class="btn-toggle" onclick="setSolarViewMode('monthly')">3. Monthly View</button>
                 <button id="btnViewDaily" class="btn-toggle active" onclick="setSolarViewMode('daily')">4. Daily View</button>
             </div>
-            <span id="solar-period-title" style="font-weight: 600; color: var(--text-secondary);"></span>
+            <span id="solar-period-title" style="font-weight: 600; color: var(--text-secondary); font-size: 0.9rem;"></span>
         </div>
 
         <!-- Metrics Cards -->
@@ -218,9 +265,24 @@
     let currentSolarViewMode = 'daily';
     let pieChartInstance, barChartInstance, solarChartInstance;
 
+    const CATEGORIES = [
+        'Groceries & Supermarket',
+        'Dining Out',
+        'Transportation & Travel',
+        'Utilities & Telecom',
+        'Shopping & E-Commerce',
+        'Subscriptions & Digital',
+        'Childcare & Education',
+        'Sports & Fitness',
+        'Healthcare & Insurance',
+        'Housing & Rent',
+        'General'
+    ];
+
     function sanitizeDate(rawDateStr) {
         if (!rawDateStr) return null;
-        let clean = rawDateStr.replace(/\./g, '-').replace(/\//g, '-').trim();
+        let dateOnly = String(rawDateStr).trim().split(' ')[0];
+        let clean = dateOnly.replace(/\./g, '-').replace(/\//g, '-').replace(/年|月/g, '-').replace(/日/g, '').trim();
         let parts = clean.split('-');
         if (parts.length < 3) return null;
         let year = parseInt(parts[0], 10);
@@ -237,16 +299,24 @@
 
     function parseNum(val) {
         if (val === undefined || val === null || val === '') return 0;
-        let num = parseFloat(String(val).replace(/,/g, ''));
+        let num = parseFloat(String(val).replace(/,/g, '').replace(/円/g, ''));
         return isNaN(num) ? 0 : num;
     }
 
     function categorizeExpense(desc) {
-        let lower = desc.toLowerCase();
-        if (lower.includes('etc') || lower.includes('高速') || lower.includes('suica') || lower.includes('タイムズ')) return 'Transportation';
-        if (lower.includes('電力') || lower.includes('水道') || lower.includes('nuro') || lower.includes('ソフトバンク') || lower.includes('ワイヤレス')) return 'Utilities';
-        if (lower.includes('マクドナルド') || lower.includes('starbucks') || lower.includes('menu') || lower.includes('express')) return 'Dining Out';
-        if (lower.includes('netflix')) return 'Subscriptions';
+        let text = desc.toLowerCase();
+
+        if (/イオン|イトーヨーカドー|ライフ|スーパー|オーケー|マルエツ|ヤオコー|西友|seiyu|costco|コストコ|まいばすけっと|業務スーパー|肉のハナマサ/i.test(text)) return 'Groceries & Supermarket';
+        if (/マクドナルド|スターバックス|starbucks|ドトール|カフェ|cafe|ガスト|サイゼリヤ|すき家|吉野家|松屋|スシロー|くら寿司|タリーズ|コメダ|居酒屋/i.test(text)) return 'Dining Out';
+        if (/etc|高速|suica|pasmo|jr|東日本|東海|西日本|タクシー|タイムズ|times|駐車場|ガソリン|エネオス|eneos|JAL|ANA/i.test(text)) return 'Transportation & Travel';
+        if (/電力|東京電力|関西電力|中部電力|ガス|水道|ntt|ソフトバンク|softbank|au|kddi|docomo|ドコモ|nuro|ひかり|通信/i.test(text)) return 'Utilities & Telecom';
+        if (/amazon|アマゾン|rakuten|楽天|ヤフー|yahoo|メルカリ|ユニクロ|uniqlo|gu|zara|ヨドバシ|ビックカメラ|ヤマダ|無印良品|ダイソー|セリア/i.test(text)) return 'Shopping & E-Commerce';
+        if (/netflix|apple|spotify|youtube|google|disney|hulu|prime|github|chatgpt|openai/i.test(text)) return 'Subscriptions & Digital';
+        if (/school|スクール|学校|保育園|幼稚園|塾|公文|学研|スイミング|習い事|教育/i.test(text)) return 'Childcare & Education';
+        if (/アルペン|ゼビオ|スポーツ|フィットネス|ジム|アリナ|arena|スピード|speedo|ミズノ|mizuno/i.test(text)) return 'Sports & Fitness';
+        if (/セイメイ|ホケン|保険|クリニック|病院|薬局|ドラッグ|マツモトキヨシ|ウエルシア|ツルハ/i.test(text)) return 'Healthcare & Insurance';
+        if (/家賃|住宅|ローン|管理費|修繕/i.test(text)) return 'Housing & Rent';
+
         return 'General';
     }
 
@@ -258,7 +328,7 @@
         processedFilesHashes = [];
         localStorage.removeItem('processed_file_hashes');
         const status = document.getElementById('batch-status');
-        status.textContent = 'Upload history cleared! You can now re-upload your PDF files.';
+        status.textContent = 'Upload history cleared! You can now re-upload files.';
     }
 
     async function handleBatchUpload(event) {
@@ -295,7 +365,6 @@
                 itemsExtracted = await processPDFFile(file);
             }
 
-            // Only mark hash as processed if items were successfully extracted
             if (itemsExtracted > 0) {
                 processedFilesHashes.push(signature);
                 totalExtracted += itemsExtracted;
@@ -322,38 +391,47 @@
                 const page = await pdf.getPage(pageNum);
                 const textContent = await page.getTextContent();
                 
-                let linesMap = {};
+                let rawItems = [];
                 for (let item of textContent.items) {
                     if (!item.str || !item.str.trim()) continue;
-                    let y = Math.round(item.transform[5]);
-                    let x = Math.round(item.transform[4]);
-                    if (!linesMap[y]) linesMap[y] = [];
-                    linesMap[y].push({ x: x, str: item.str });
+                    rawItems.push({ x: item.transform[4], y: item.transform[5], str: item.str.trim() });
                 }
 
-                let sortedYs = Object.keys(linesMap).map(Number).sort((a, b) => b - a);
+                rawItems.sort((a, b) => b.y - a.y);
                 
-                for (let y of sortedYs) {
-                    let rowItems = linesMap[y].sort((a, b) => a.x - b.x);
-                    let lineText = rowItems.map(i => i.str).join(' ');
+                let visualRows = [];
+                const Y_TOLERANCE = 4.0;
 
-                    let smbcMatch = lineText.match(/^(\d{2}\/\d{2}\/\d{2})\s+(.+?)\s+([\d,]+)(?:\s+|$)/);
-                    let genericMatch = lineText.match(/(\d{4}[-\/]\d{2}[-\/]\d{2}|\d{2}[-\/]\d{2}[-\/]\d{2})\s+(.+?)\s+[¥\$]?([\d,]+)/);
-                    let match = smbcMatch || genericMatch;
+                for (let item of rawItems) {
+                    let matchedRow = visualRows.find(r => Math.abs(r.y - item.y) <= Y_TOLERANCE);
+                    if (matchedRow) {
+                        matchedRow.items.push(item);
+                    } else {
+                        visualRows.push({ y: item.y, items: [item] });
+                    }
+                }
 
-                    if (match) {
-                        let rawDate = match[1];
-                        let desc = match[2].trim();
-                        let amountStr = match[3];
+                for (let row of visualRows) {
+                    row.items.sort((a, b) => a.x - b.x);
+                    let lineText = row.items.map(i => i.str).join(' ');
 
-                        let cleanDate = sanitizeDate(rawDate);
-                        let amount = parseNum(amountStr);
+                    let dateMatch = lineText.match(/(\d{4}[-\/年]\d{1,2}[-\/月]\d{1,2}|\d{1,2}月\d{1,2}日)/);
+                    let amountMatches = lineText.match(/([\d,]{3,}|[\d]+)円?/g);
 
-                        if (cleanDate && amount > 0 && desc.length > 0 && !desc.includes('お支払い合計')) {
+                    if (dateMatch && amountMatches && amountMatches.length > 0) {
+                        let cleanDate = sanitizeDate(dateMatch[0].includes('月') ? `2026年${dateMatch[0]}` : dateMatch[0]);
+                        let rawAmount = amountMatches[amountMatches.length - 1];
+                        let amount = parseNum(rawAmount);
+
+                        let desc = lineText.replace(dateMatch[0], '').replace(rawAmount, '').replace(/円/g, '').replace(/\s+/g, ' ').trim();
+
+                        if (cleanDate && amount > 0 && desc.length > 1 && !desc.includes('お支払い合計')) {
                             expenses.push({
+                                id: Date.now() + Math.random(),
                                 date: cleanDate,
                                 description: desc,
                                 category: categorizeExpense(desc),
+                                categorySource: 'auto',
                                 source: file.name,
                                 amount: amount
                             });
@@ -381,7 +459,7 @@
                     let headerIndex = -1;
                     for (let i = 0; i < rows.length; i++) {
                         let cleanedRow = rows[i].map(cleanHeader);
-                        if (cleanedRow.some(col => ['年月日', '年月', 'Date', 'Month', '金額', 'Amount'].includes(col))) {
+                        if (cleanedRow.some(col => ['年月日', '年月', 'Date', 'Month', '金額', 'Amount', '取引日時'].includes(col))) {
                             headerIndex = i;
                             break;
                         }
@@ -397,9 +475,10 @@
                             row[h] = rowArr[idx] !== undefined ? String(rowArr[idx]).replace(/["']/g, '').trim() : '';
                         });
 
-                        let rawDate = row['年月日'] || row['Date'] || row['日付'] || '';
+                        let rawDate = row['年月日'] || row['Date'] || row['日付'] || row['Date & Time'] || '';
                         let cleanDate = sanitizeDate(rawDate);
 
+                        // SOLAR DATA PARSING LOGIC (UNCHANGED)
                         if (cleanDate && (row['発電電力量[kWh]'] !== undefined || row['Generated'] !== undefined)) {
                             solarDailyData.push({
                                 date: cleanDate,
@@ -408,15 +487,29 @@
                                 purchased: parseNum(row['買電電力量[kWh]'] || row['Purchased'])
                             });
                             extractedCount++;
-                        } else if (cleanDate && (row['金額'] || row['Amount'])) {
-                            expenses.push({
-                                date: cleanDate,
-                                description: row['利用店名・商品名'] || row['Description'] || 'CSV Item',
-                                category: row['カテゴリ'] || row['Category'] || categorizeExpense(row['利用店名・商品名'] || row['Description'] || ''),
-                                source: file.name,
-                                amount: parseNum(row['金額'] || row['Amount'])
-                            });
-                            extractedCount++;
+                        } 
+                        // EXPENSE CSV PARSING LOGIC WITH AUTO CATEGORY MATCHING
+                        else if (cleanDate && (row['金額'] || row['Amount'] || row['Amount Outgoing (Yen)'])) {
+                            let amt = parseNum(row['金額'] || row['Amount'] || row['Amount Outgoing (Yen)']);
+                            let desc = row['利用店名・商品名'] || row['Description'] || row['Business Name'] || 'CSV Transaction';
+                            
+                            // Check if explicit category exists in CSV row
+                            let csvCategory = row['カテゴリ'] || row['Category'] || row['ジャンル'] || '';
+                            let finalCategory = csvCategory.trim() !== '' ? csvCategory.trim() : categorizeExpense(desc);
+                            let catSrc = csvCategory.trim() !== '' ? 'csv' : 'auto';
+
+                            if (amt > 0) {
+                                expenses.push({
+                                    id: Date.now() + Math.random(),
+                                    date: cleanDate,
+                                    description: desc,
+                                    category: finalCategory,
+                                    categorySource: catSrc,
+                                    source: file.name,
+                                    amount: amt
+                                });
+                                extractedCount++;
+                            }
                         }
                     }
                     resolve(extractedCount);
@@ -433,7 +526,10 @@
         const expenseMap = new Map();
         expenses.forEach(item => {
             if (item.date && item.amount) {
-                expenseMap.set(`${item.date}_${item.description}_${item.amount}`, item);
+                let key = `${item.date}_${item.description}_${item.amount}`;
+                if (!expenseMap.has(key)) {
+                    expenseMap.set(key, item);
+                }
             }
         });
         expenses = Array.from(expenseMap.values());
@@ -443,6 +539,7 @@
         renderExpenses();
     }
 
+    // SOLAR ENERGY LOGIC AND FUNCTIONS (EXACT ORIGINAL LOGIC MAINTAINED)
     function openSolarModal() {
         document.getElementById('solarModal').style.display = 'flex';
         renderSolarChart();
@@ -558,10 +655,31 @@
         });
     }
 
-    function populateMonthDropdown() {
+    function updateCategory(id, newCategory) {
+        let item = expenses.find(e => e.id === id);
+        if (item) {
+            item.category = newCategory;
+            item.categorySource = 'manual';
+            localStorage.setItem('household_expenses', JSON.stringify(expenses));
+            renderExpenses();
+        }
+    }
+
+    function deleteExpense(index) {
+        expenses.splice(index, 1);
+        localStorage.setItem('household_expenses', JSON.stringify(expenses));
+        renderExpenses();
+    }
+
+    function populateFilterDropdowns() {
         const monthSelect = document.getElementById('filter-month');
-        const currentValue = monthSelect.value;
+        const catSelect = document.getElementById('filter-category');
+        
+        const curMonth = monthSelect.value;
+        const curCat = catSelect.value;
+
         monthSelect.innerHTML = '<option value="ALL">All Months</option>';
+        catSelect.innerHTML = '<option value="ALL">All Categories</option>';
 
         const months = new Set();
         expenses.forEach(e => { if (e.date) months.add(e.date.substring(0, 7)); });
@@ -574,50 +692,76 @@
             monthSelect.appendChild(opt);
         });
 
-        if (currentValue && sortedMonths.includes(currentValue)) monthSelect.value = currentValue;
-    }
+        CATEGORIES.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c; opt.textContent = c;
+            catSelect.appendChild(opt);
+        });
 
-    function deleteExpense(index) {
-        expenses.splice(index, 1);
-        localStorage.setItem('household_expenses', JSON.stringify(expenses));
-        renderExpenses();
+        if (curMonth && sortedMonths.includes(curMonth)) monthSelect.value = curMonth;
+        if (curCat) catSelect.value = curCat;
     }
 
     function renderExpenses() {
-        populateMonthDropdown();
+        populateFilterDropdowns();
         const selectedMonth = document.getElementById('filter-month').value || 'ALL';
+        const selectedCat = document.getElementById('filter-category').value || 'ALL';
+
         const list = document.getElementById('expense-list');
         list.innerHTML = '';
         let total = 0;
 
-        const filtered = expenses.filter(e => selectedMonth === 'ALL' || (e.date && e.date.startsWith(selectedMonth)));
+        const filtered = expenses.filter(e => {
+            let matchM = selectedMonth === 'ALL' || (e.date && e.date.startsWith(selectedMonth));
+            let matchC = selectedCat === 'ALL' || e.category === selectedCat;
+            return matchM && matchC;
+        });
+
         filtered.forEach((expense) => {
             total += parseFloat(expense.amount);
+            
+            let catOptions = CATEGORIES.map(c => 
+                `<option value="${c}" ${c === expense.category ? 'selected' : ''}>${c}</option>`
+            ).join('');
+
+            let badgeClass = expense.categorySource === 'csv' ? 'badge-csv' : (expense.categorySource === 'manual' ? 'badge-manual' : 'badge-auto');
+            let badgeLabel = expense.categorySource === 'csv' ? 'CSV' : (expense.categorySource === 'manual' ? 'Edited' : 'Auto');
+
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${expense.date}</td>
-                <td>${expense.description}</td>
-                <td>${expense.category}</td>
-                <td>${expense.source || 'Manual'}</td>
-                <td>¥${Number(expense.amount).toLocaleString()}</td>
-                <td><button onclick="deleteExpense(${expenses.indexOf(expense)})">✕</button></td>
+                <td style="font-weight: 500;">${expense.description}</td>
+                <td>
+                    <select class="cat-select" onchange="updateCategory(${expense.id || 0}, this.value)">
+                        ${catOptions}
+                    </select>
+                    <span class="badge ${badgeClass}">${badgeLabel}</span>
+                </td>
+                <td style="color: var(--text-secondary); font-size: 0.82rem;">${expense.source || 'Manual'}</td>
+                <td style="font-weight: 700;">¥${Number(expense.amount).toLocaleString()}</td>
+                <td><button style="color: var(--danger); cursor: pointer; border: none; background: none; font-weight: bold;" onclick="deleteExpense(${expenses.indexOf(expense)})">✕</button></td>
             `;
             list.appendChild(row);
         });
 
         document.getElementById('total-amount').textContent = `¥${Math.round(total).toLocaleString()}`;
-        updateExpenseCharts(selectedMonth);
+        updateExpenseCharts(selectedMonth, selectedCat);
     }
 
-    function updateExpenseCharts(selectedMonth) {
-        const filtered = expenses.filter(e => selectedMonth === 'ALL' || (e.date && e.date.startsWith(selectedMonth)));
+    function updateExpenseCharts(selectedMonth, selectedCat) {
+        const filtered = expenses.filter(e => {
+            let matchM = selectedMonth === 'ALL' || (e.date && e.date.startsWith(selectedMonth));
+            let matchC = selectedCat === 'ALL' || e.category === selectedCat;
+            return matchM && matchC;
+        });
+
         const categoryMap = {};
         filtered.forEach(e => { categoryMap[e.category] = (categoryMap[e.category] || 0) + parseFloat(e.amount); });
 
         if (pieChartInstance) pieChartInstance.destroy();
         pieChartInstance = new Chart(document.getElementById('pieChart').getContext('2d'), {
             type: 'pie',
-            data: { labels: Object.keys(categoryMap), datasets: [{ data: Object.values(categoryMap), backgroundColor: ['#2563eb', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'] }] },
+            data: { labels: Object.keys(categoryMap), datasets: [{ data: Object.values(categoryMap), backgroundColor: ['#2563eb', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#64748b'] }] },
             options: { responsive: true, maintainAspectRatio: false }
         });
 
@@ -627,7 +771,7 @@
         if (barChartInstance) barChartInstance.destroy();
         barChartInstance = new Chart(document.getElementById('barChart').getContext('2d'), {
             type: 'bar',
-            data: { labels: Object.keys(monthlyMap).sort(), datasets: [{ label: 'Total Expenses (¥)', data: Object.values(monthlyMap), backgroundColor: '#60a5fa' }] },
+            data: { labels: Object.keys(monthlyMap).sort(), datasets: [{ label: 'Total Expenses (¥)', data: Object.values(monthlyMap), backgroundColor: '#60a5fa', borderRadius: 4 }] },
             options: { responsive: true, maintainAspectRatio: false }
         });
     }
