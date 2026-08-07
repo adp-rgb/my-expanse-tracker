@@ -240,11 +240,11 @@
     }
 
     function categorizeExpense(desc) {
-        desc = desc.toLowerCase();
-        if (desc.includes('etc') || desc.includes('高速') || desc.includes('suica') || desc.includes('タイムズ')) return 'Transportation';
-        if (desc.includes('電力') || desc.includes('水道') || desc.includes('nuro') || desc.includes('ソフトバンク') || desc.includes('ワイヤレス')) return 'Utilities';
-        if (desc.includes('マクドナルド') || desc.includes('starbucks') || desc.includes('menu') || desc.includes('express')) return 'Dining Out';
-        if (desc.includes('netflix')) return 'Subscriptions';
+        let lower = desc.toLowerCase();
+        if (lower.includes('etc') || lower.includes('高速') || lower.includes('suica') || lower.includes('タイムズ')) return 'Transportation';
+        if (lower.includes('電力') || lower.includes('水道') || lower.includes('nuro') || lower.includes('ソフトバンク') || lower.includes('ワイヤレス')) return 'Utilities';
+        if (lower.includes('マクドナルド') || lower.includes('starbucks') || lower.includes('menu') || lower.includes('express')) return 'Dining Out';
+        if (lower.includes('netflix')) return 'Subscriptions';
         return 'General';
     }
 
@@ -301,35 +301,54 @@
         try {
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-            let fullText = '';
 
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                 const page = await pdf.getPage(pageNum);
                 const textContent = await page.getTextContent();
-                const pageText = textContent.items.map(item => item.str).join(' ');
-                fullText += pageText + '\n';
-            }
+                
+                // Group text elements by line Y-coordinate
+                let linesMap = {};
+                for (let item of textContent.items) {
+                    if (!item.str || !item.str.trim()) continue;
+                    let y = Math.round(item.transform[5]); // Vertical Y position
+                    let x = Math.round(item.transform[4]); // Horizontal X position
+                    if (!linesMap[y]) linesMap[y] = [];
+                    linesMap[y].push({ x: x, str: item.str });
+                }
 
-            // Regex matcher for Japanese Credit Card Statements (e.g. 25/04/07 ETC首都高 760)
-            const rowRegex = /(\d{2}\/\d{2}\/\d{2})\s+([^\d]+?)\s+([\d,]+)(?:\s+|$)/g;
-            let match;
+                // Sort lines top-to-bottom and items left-to-right
+                let sortedYs = Object.keys(linesMap).map(Number).sort((a, b) => b - a);
+                
+                for (let y of sortedYs) {
+                    let rowItems = linesMap[y].sort((a, b) => a.x - b.x);
+                    let lineText = rowItems.map(i => i.str).join(' ');
 
-            while ((match = rowRegex.exec(fullText)) !== null) {
-                const rawDate = match[1];
-                const desc = match[2].trim();
-                const amountStr = match[3];
+                    // Pattern 1: SMBC/Japanese CC format (e.g. 25/04/07 ETC首都高 760)
+                    let smbcMatch = lineText.match(/^(\d{2}\/\d{2}\/\d{2})\s+(.+?)\s+([\d,]+)(?:\s+|$)/);
+                    
+                    // Pattern 2: Generic PDF statement row (Date Item Amount)
+                    let genericMatch = lineText.match(/(\d{4}[-\/]\d{2}[-\/]\d{2}|\d{2}[-\/]\d{2}[-\/]\d{2})\s+(.+?)\s+[¥\$]?([\d,]+)/);
 
-                const cleanDate = sanitizeDate(rawDate);
-                const amount = parseNum(amountStr);
+                    let match = smbcMatch || genericMatch;
 
-                if (cleanDate && amount > 0 && desc.length > 0) {
-                    expenses.push({
-                        date: cleanDate,
-                        description: desc,
-                        category: categorizeExpense(desc),
-                        source: file.name,
-                        amount: amount
-                    });
+                    if (match) {
+                        let rawDate = match[1];
+                        let desc = match[2].trim();
+                        let amountStr = match[3];
+
+                        let cleanDate = sanitizeDate(rawDate);
+                        let amount = parseNum(amountStr);
+
+                        if (cleanDate && amount > 0 && desc.length > 0 && !desc.includes('お支払い合計')) {
+                            expenses.push({
+                                date: cleanDate,
+                                description: desc,
+                                category: categorizeExpense(desc),
+                                source: file.name,
+                                amount: amount
+                            });
+                        }
+                    }
                 }
             }
         } catch (err) {
