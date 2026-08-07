@@ -239,6 +239,15 @@
         return isNaN(num) ? 0 : num;
     }
 
+    function categorizeExpense(desc) {
+        desc = desc.toLowerCase();
+        if (desc.includes('etc') || desc.includes('高速') || desc.includes('suica') || desc.includes('タイムズ')) return 'Transportation';
+        if (desc.includes('電力') || desc.includes('水道') || desc.includes('nuro') || desc.includes('ソフトバンク') || desc.includes('ワイヤレス')) return 'Utilities';
+        if (desc.includes('マクドナルド') || desc.includes('starbucks') || desc.includes('menu') || desc.includes('express')) return 'Dining Out';
+        if (desc.includes('netflix')) return 'Subscriptions';
+        return 'General';
+    }
+
     function getFileSignature(file) {
         return `${file.name}_${file.size}_${file.lastModified}`;
     }
@@ -270,8 +279,10 @@
 
             status.textContent = `Processing (${i + 1}/${files.length}): ${file.name}...`;
 
-            if (file.name.endsWith('.csv')) {
+            if (file.name.toLowerCase().endsWith('.csv')) {
                 await processCSVFile(file);
+            } else if (file.name.toLowerCase().endsWith('.pdf')) {
+                await processPDFFile(file);
             }
 
             processedFilesHashes.push(signature);
@@ -284,6 +295,46 @@
 
         status.textContent = `Completed! Processed ${files.length - skippedFiles} files (${skippedFiles} duplicates skipped).`;
         setTimeout(() => { pBar.style.display = 'none'; pFill.style.width = '0%'; }, 2000);
+    }
+
+    async function processPDFFile(file) {
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let fullText = '';
+
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                const page = await pdf.getPage(pageNum);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join(' ');
+                fullText += pageText + '\n';
+            }
+
+            // Regex matcher for Japanese Credit Card Statements (e.g. 25/04/07 ETC首都高 760)
+            const rowRegex = /(\d{2}\/\d{2}\/\d{2})\s+([^\d]+?)\s+([\d,]+)(?:\s+|$)/g;
+            let match;
+
+            while ((match = rowRegex.exec(fullText)) !== null) {
+                const rawDate = match[1];
+                const desc = match[2].trim();
+                const amountStr = match[3];
+
+                const cleanDate = sanitizeDate(rawDate);
+                const amount = parseNum(amountStr);
+
+                if (cleanDate && amount > 0 && desc.length > 0) {
+                    expenses.push({
+                        date: cleanDate,
+                        description: desc,
+                        category: categorizeExpense(desc),
+                        source: file.name,
+                        amount: amount
+                    });
+                }
+            }
+        } catch (err) {
+            console.error('PDF parsing error:', err);
+        }
     }
 
     function processCSVFile(file) {
@@ -328,7 +379,7 @@
                             expenses.push({
                                 date: cleanDate,
                                 description: row['利用店名・商品名'] || row['Description'] || 'CSV Item',
-                                category: row['カテゴリ'] || row['Category'] || 'General',
+                                category: row['カテゴリ'] || row['Category'] || categorizeExpense(row['利用店名・商品名'] || row['Description'] || ''),
                                 source: file.name,
                                 amount: parseNum(row['金額'] || row['Amount'])
                             });
