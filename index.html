@@ -6,7 +6,6 @@
     <title>Household Expense & Solar Energy Tracker</title>
     <!-- External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -19,7 +18,8 @@
             --text-secondary: #64748b;
             --border: #e2e8f0;
             --danger: #ef4444;
-            --solar: #f59e0b;
+            --success: #10b981;
+            --warning: #f59e0b;
             --radius: 12px;
         }
 
@@ -31,7 +31,7 @@
             padding: 24px 12px;
         }
 
-        .container { max-width: 1000px; margin: 0 auto; }
+        .container { max-width: 1100px; margin: 0 auto; }
         .app-header { text-align: center; margin-bottom: 24px; }
 
         .summary-card {
@@ -48,101 +48,85 @@
         }
 
         .batch-drop-zone {
-            border: 2px dashed #93c5fd;
-            padding: 25px 15px;
-            text-align: center;
-            border-radius: 12px;
-            background: #eff6ff;
-            cursor: pointer;
-            transition: all 0.2s ease;
+            border: 2px dashed #93c5fd; padding: 25px 15px; text-align: center;
+            border-radius: 12px; background: #eff6ff; cursor: pointer; transition: all 0.2s ease;
         }
-
-        .batch-drop-zone:hover {
-            border-color: #2563eb;
-            background: #dbeafe;
-        }
-
+        .batch-drop-zone:hover { border-color: #2563eb; background: #dbeafe; }
         .batch-drop-zone input { display: none; }
 
         .grid-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
         .chart-container { position: relative; height: 320px; width: 100%; }
 
-        input, select, button { padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; outline: none; }
+        input, select, button { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.88rem; outline: none; }
         .btn-primary { background: var(--primary); color: white; border: none; cursor: pointer; font-weight: 600; }
-        .btn-solar { background: var(--solar); color: white; border: none; cursor: pointer; font-weight: 600; }
         .btn-purge { background: #64748b; color: white; border: none; cursor: pointer; font-weight: 600; }
         .btn-reset { background: #d97706; color: white; border: none; cursor: pointer; font-weight: 600; }
 
-        .btn-toggle-group { display: flex; gap: 6px; flex-wrap: wrap; }
-        .btn-toggle { background: #e2e8f0; color: #334155; border: none; cursor: pointer; font-weight: 600; padding: 6px 12px; border-radius: 6px; }
-        .btn-toggle.active { background: var(--primary); color: white; }
+        /* Status Badges */
+        .badge { padding: 4px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
+        .badge-reconciled { background: #d1fae5; color: #065f46; }
+        .badge-unreconciled { background: #fee2e2; color: #991b1b; }
+        .badge-manual { background: #e0e7ff; color: #3730a3; }
 
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+        th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); font-size: 0.88rem; }
+        th { background: #f8fafc; color: var(--text-secondary); }
 
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); display: none; align-items: center; justify-content: center; z-index: 1000; }
-        .modal-content { background: var(--card-bg); padding: 24px; border-radius: var(--radius); width: 92%; max-width: 850px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .close-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; }
-
-        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
-        .metric-card { background: #f8fafc; border: 1px solid var(--border); padding: 12px; border-radius: 8px; text-align: center; }
-        .metric-card span { font-size: 0.8rem; color: var(--text-secondary); }
-        .metric-card div { font-size: 1.2rem; font-weight: bold; margin-top: 4px; }
-        
-        .progress-bar {
-            height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin-top: 10px; display: none;
-        }
-        .progress-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.2s; }
+        .cat-select { padding: 4px 6px; font-size: 0.82rem; border-radius: 4px; background: #fff; cursor: pointer; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="app-header">
-        <h1>🏠 Household Expense & Solar Energy Tracker</h1>
+        <h1>🏠 Household Expense & Reconciliation Tracker</h1>
     </div>
 
     <!-- Summary Box -->
     <div class="summary-card">
-        <span id="summary-label">Total Monthly Expenses</span>
-        <h2 id="total-amount">¥0</h2>
+        <span>Total Expenses (Filtered Month)</span>
+        <h2 id="total-amount" style="margin: 8px 0 0 0; font-size: 2.2rem;">¥0</h2>
     </div>
 
     <!-- Batch Upload Section -->
     <div class="card">
-        <h3>📁 Batch Import Files (Up to 50 CSV / PDF / Images)</h3>
+        <h3>📁 Import Statements & Transactions (PDF / CSV)</h3>
         <div class="batch-drop-zone" onclick="document.getElementById('batch-files').click()">
-            <span style="font-size: 1.1rem; font-weight: 600; color: #1e40af;">Click or Drag & Drop up to 50 files here</span>
+            <span style="font-size: 1.05rem; font-weight: 600; color: #1e40af;">Click or Drag & Drop PayPay CSVs, Bank PDFs, or Card Statements</span>
             <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 6px;">
-                Supports PayPay CSV Statements, Bank CSVs, Solar CSVs, Statement PDFs, and Receipts.
+                Supports PayPay Statements, SMBC/Bank PDFs, and Credit Card PDFs.
             </div>
-            <input type="file" id="batch-files" accept=".csv, .pdf, image/*" multiple onchange="handleBatchUpload(event)">
+            <input type="file" id="batch-files" accept=".csv, .pdf" multiple onchange="handleBatchUpload(event)">
         </div>
-        <div class="progress-bar" id="p-bar"><div class="progress-fill" id="p-fill"></div></div>
-        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 8px;" id="batch-status">Ready for batch input. Duplicate files/records and Bank-PayPay recharges are auto-reconciled.</div>
+        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 8px;" id="batch-status">Ready. Unreconciled entries and manual categories are highlighted automatically.</div>
     </div>
 
     <!-- Analytics Section -->
     <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap: wrap; gap: 10px;">
-            <h3 style="margin:0;">📊 Analytics & Breakdown</h3>
+            <h3 style="margin:0;">📊 Analytics & Controls</h3>
             <div>
-                <button class="btn-reset" onclick="resetFileHistory()" style="margin-right:8px;">🔄 Reset Upload History</button>
-                <button class="btn-purge" onclick="consolidateAndDeduplicateData()" style="margin-right:8px;">🧹 Clean Data & Reconcile</button>
-                <button class="btn-solar" onclick="openSolarModal()" style="margin-right:10px;">☀️ Solar Energy Modal</button>
-                <label for="filter-month" style="font-size: 0.9rem; font-weight: 600;">Month: </label>
+                <button class="btn-reset" onclick="resetFileHistory()">🔄 Reset Upload History</button>
+                <button class="btn-purge" onclick="reconcileTransactions()">⚡ Run Reconciliation</button>
+                <label for="filter-month" style="font-size: 0.9rem; font-weight: 600; margin-left: 8px;">Month: </label>
                 <select id="filter-month" onchange="renderExpenses()"></select>
+                <label for="filter-status" style="font-size: 0.9rem; font-weight: 600; margin-left: 8px;">Status: </label>
+                <select id="filter-status" onchange="renderExpenses()">
+                    <option value="ALL">All Statuses</option>
+                    <option value="Unreconciled">Unreconciled Only</option>
+                    <option value="Reconciled">Reconciled Only</option>
+                    <option value="Manual">Manually Edited</option>
+                </select>
             </div>
         </div>
         
         <div class="grid-charts">
             <div>
-                <h4 style="text-align: center; color: var(--text-secondary);">Monthly Category Share</h4>
+                <h4 style="text-align: center; color: var(--text-secondary);">Category Breakdown</h4>
                 <div class="chart-container"><canvas id="pieChart"></canvas></div>
             </div>
             <div>
-                <h4 style="text-align: center; color: var(--text-secondary);">Monthly Expense Trend</h4>
+                <h4 style="text-align: center; color: var(--text-secondary);">Monthly Spending Trend</h4>
                 <div class="chart-container"><canvas id="barChart"></canvas></div>
             </div>
         </div>
@@ -150,14 +134,15 @@
 
     <!-- Expense Table -->
     <div class="card">
-        <h3>Expense Log</h3>
+        <h3>Transaction & Expense Log</h3>
         <table>
             <thead>
                 <tr>
                     <th>Date</th>
                     <th>Description</th>
-                    <th>Category</th>
-                    <th>Source</th>
+                    <th>Category (Editable)</th>
+                    <th>Reconciliation Status</th>
+                    <th>Source File</th>
                     <th>Amount</th>
                     <th>Action</th>
                 </tr>
@@ -167,61 +152,30 @@
     </div>
 </div>
 
-<!-- Solar Analysis Modal -->
-<div class="modal-overlay" id="solarModal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2 style="margin:0;">☀️ Solar Electricity Monitor</h2>
-            <button class="close-btn" onclick="closeSolarModal()">&times;</button>
-        </div>
-
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
-            <div class="btn-toggle-group">
-                <button id="btnViewOverall" class="btn-toggle" onclick="setSolarViewMode('overall')">1. Overall View</button>
-                <button id="btnViewYearly" class="btn-toggle" onclick="setSolarViewMode('yearly')">2. Yearly Consolidated</button>
-                <button id="btnViewMonthly" class="btn-toggle" onclick="setSolarViewMode('monthly')">3. Monthly View</button>
-                <button id="btnViewDaily" class="btn-toggle active" onclick="setSolarViewMode('daily')">4. Daily View</button>
-            </div>
-            <span id="solar-period-title" style="font-weight: 600; color: var(--text-secondary);"></span>
-        </div>
-
-        <!-- Metrics Cards -->
-        <div class="metrics-grid">
-            <div class="metric-card" style="border-top: 4px solid #f59e0b;">
-                <span>Electricity Generated</span>
-                <div id="m-generated" style="color: #d97706;">0.0 kWh</div>
-            </div>
-            <div class="metric-card" style="border-top: 4px solid #10b981;">
-                <span>Electricity Consumed</span>
-                <div id="m-consumed" style="color: #059669;">0.0 kWh</div>
-            </div>
-            <div class="metric-card" style="border-top: 4px solid #ef4444;">
-                <span>Electricity Purchased</span>
-                <div id="m-purchased" style="color: #dc2626;">0.0 kWh</div>
-            </div>
-        </div>
-
-        <div class="chart-container">
-            <canvas id="solarChart"></canvas>
-        </div>
-    </div>
-</div>
-
 <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
     let expenses = JSON.parse(localStorage.getItem('household_expenses')) || [];
-    let solarDailyData = JSON.parse(localStorage.getItem('solar_daily_data')) || [];
-    let solarMonthlyData = JSON.parse(localStorage.getItem('solar_monthly_data')) || [];
     let processedFilesHashes = JSON.parse(localStorage.getItem('processed_file_hashes')) || [];
+    let pieChartInstance, barChartInstance;
 
-    let currentSolarViewMode = 'daily';
-    let pieChartInstance, barChartInstance, solarChartInstance;
+    const CATEGORIES = [
+        'General',
+        'Groceries & Supermarket',
+        'Dining Out',
+        'Utilities & Telecom',
+        'Transportation',
+        'Shopping & E-Commerce',
+        'Insurance & Investments',
+        'Childcare & Education',
+        'Subscriptions',
+        'Transfer/Recharge'
+    ];
 
     function sanitizeDate(rawDateStr) {
         if (!rawDateStr) return null;
         let dateOnly = String(rawDateStr).trim().split(' ')[0];
-        let clean = dateOnly.replace(/\./g, '-').replace(/\//g, '-').trim();
+        let clean = dateOnly.replace(/\./g, '-').replace(/\//g, '-').replace(/年|月/g, '-').replace(/日/g, '').trim();
         let parts = clean.split('-');
         if (parts.length < 3) return null;
         let year = parseInt(parts[0], 10);
@@ -232,29 +186,28 @@
         return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     }
 
-    function cleanHeader(hdr) {
-        return hdr ? hdr.replace(/^\uFEFF/, '').replace(/["']/g, '').trim() : '';
-    }
-
     function parseNum(val) {
         if (val === undefined || val === null || val === '' || val === '-') return 0;
-        let num = parseFloat(String(val).replace(/,/g, ''));
+        let num = parseFloat(String(val).replace(/,/g, '').replace(/円/g, '').replace(/[\+]/g, ''));
         return isNaN(num) ? 0 : num;
     }
 
+    // Improved Intelligent Auto-Categorization for Credit Cards and Bank Statements
     function categorizeExpense(desc) {
         let lower = desc.toLowerCase();
-        if (lower.includes('paypayチャージ') || lower.includes('チャージ') || lower.includes('口座振替') || lower.includes('top-up')) return 'Transfer/Recharge';
-        if (lower.includes('etc') || lower.includes('高速') || lower.includes('suica') || lower.includes('タイムズ') || lower.includes('タクシー')) return 'Transportation';
-        if (lower.includes('電力') || lower.includes('水道') || lower.includes('nuro') || lower.includes('ソフトバンク') || lower.includes('ワイヤレス')) return 'Utilities';
-        if (lower.includes('マクドナルド') || lower.includes('スターバックス') || lower.includes('starbucks') || lower.includes('menu') || lower.includes('カフェ')) return 'Dining Out';
+        
+        if (lower.includes('paypayチャージ') || lower.includes('チャージ') || lower.includes('top-up') || lower.includes('振込')) return 'Transfer/Recharge';
+        if (lower.includes('ミツイスミトモカード') || lower.includes('カード ミツビシ') || lower.includes('ジヤツクス') || lower.includes('セブンbk')) return 'Transfer/Recharge';
+        if (lower.includes('etc') || lower.includes('高速') || lower.includes('suica') || lower.includes('タイムズ') || lower.includes('タクシー') || lower.includes('jr')) return 'Transportation';
+        if (lower.includes('電力') || lower.includes('水道') || lower.includes('nuro') || lower.includes('ソフトバンク') || lower.includes('ntt')) return 'Utilities & Telecom';
+        if (lower.includes('マクドナルド') || lower.includes('スターバックス') || lower.includes('starbucks') || lower.includes('カフェ') || lower.includes('ドトール')) return 'Dining Out';
+        if (lower.includes('イオン') || lower.includes('イトーヨーカドー') || lower.includes('ライフ') || lower.includes('スーパー') || lower.includes('オーケー')) return 'Groceries & Supermarket';
+        if (lower.includes('セイメイ') || lower.includes('ホケン') || lower.includes('投信') || lower.includes('ツミn')) return 'Insurance & Investments';
+        if (lower.includes('school') || lower.includes('コソダテ') || lower.includes('ジドウテアテ')) return 'Childcare & Education';
         if (lower.includes('netflix') || lower.includes('amazon') || lower.includes('apple')) return 'Subscriptions';
+        if (lower.includes('ヤフー') || lower.includes('ラゾーナ') || lower.includes('ショッピング')) return 'Shopping & E-Commerce';
+        
         return 'General';
-    }
-
-    function isPayPayRecharge(desc) {
-        let lower = desc.toLowerCase();
-        return (lower.includes('paypay') && (lower.includes('チャージ') || lower.includes('口座振替') || lower.includes('入金') || lower.includes('top-up'))) || lower.includes('paypay top-up');
     }
 
     function getFileSignature(file) {
@@ -270,51 +223,33 @@
     async function handleBatchUpload(event) {
         const files = Array.from(event.target.files);
         const status = document.getElementById('batch-status');
-        const pBar = document.getElementById('p-bar');
-        const pFill = document.getElementById('p-fill');
-
         if (files.length === 0) return;
-        if (files.length > 50) {
-            alert('Maximum 50 files allowed per batch. Processing first 50.');
-            files.length = 50;
-        }
 
-        pBar.style.display = 'block';
-        let completed = 0, skippedFiles = 0, totalExtracted = 0;
-
+        let totalExtracted = 0;
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
             const signature = getFileSignature(file);
 
-            if (processedFilesHashes.includes(signature)) {
-                skippedFiles++;
-                completed++;
-                continue;
-            }
+            if (processedFilesHashes.includes(signature)) continue;
 
-            status.textContent = `Processing (${i + 1}/${files.length}): ${file.name}...`;
-            let itemsExtracted = 0;
+            status.textContent = `Parsing (${i + 1}/${files.length}): ${file.name}...`;
+            let count = 0;
 
             if (file.name.toLowerCase().endsWith('.csv')) {
-                itemsExtracted = await processCSVFile(file);
+                count = await processCSVFile(file);
             } else if (file.name.toLowerCase().endsWith('.pdf')) {
-                itemsExtracted = await processPDFFile(file);
+                count = await processPDFFile(file);
             }
 
-            if (itemsExtracted > 0) {
+            if (count > 0) {
                 processedFilesHashes.push(signature);
-                totalExtracted += itemsExtracted;
+                totalExtracted += count;
             }
-
-            completed++;
-            pFill.style.width = `${Math.round((completed / files.length) * 100)}%`;
         }
 
         localStorage.setItem('processed_file_hashes', JSON.stringify(processedFilesHashes));
-        let reconciledCount = consolidateAndDeduplicateData();
-
-        status.textContent = `Completed! Extracted ${totalExtracted} items (${reconciledCount} Bank-PayPay recharges auto-reconciled).`;
-        setTimeout(() => { pBar.style.display = 'none'; pFill.style.width = '0%'; }, 2500);
+        reconcileTransactions();
+        status.textContent = `Done! Imported ${totalExtracted} new transaction records.`;
     }
 
     async function processPDFFile(file) {
@@ -342,23 +277,22 @@
                     let rowItems = linesMap[y].sort((a, b) => a.x - b.x);
                     let lineText = rowItems.map(i => i.str).join(' ');
 
-                    let smbcMatch = lineText.match(/^(\d{2}\/\d{2}\/\d{2})\s+(.+?)\s+([\d,]+)(?:\s+|$)/);
-                    let genericMatch = lineText.match(/(\d{4}[-\/]\d{2}[-\/]\d{2}|\d{2}[-\/]\d{2}[-\/]\d{2})\s+(.+?)\s+[¥\$]?([\d,]+)/);
-                    let match = smbcMatch || genericMatch;
+                    let dateMatch = lineText.match(/(\d{4}[-\/年]\d{1,2}[-\/月]\d{1,2}|\d{1,2}月\d{1,2}日)/);
+                    let amountMatch = lineText.match(/([\d,]+)円?/g);
 
-                    if (match) {
-                        let rawDate = match[1];
-                        let desc = match[2].trim();
-                        let amountStr = match[3];
+                    if (dateMatch && amountMatch) {
+                        let cleanDate = sanitizeDate(dateMatch[0].includes('月') ? `2026年${dateMatch[0]}` : dateMatch[0]);
+                        let desc = lineText.replace(dateMatch[0], '').replace(/[\d,]+円?[-\+]?/g, '').trim();
+                        let amount = parseNum(amountMatch[0]);
 
-                        let cleanDate = sanitizeDate(rawDate);
-                        let amount = parseNum(amountStr);
-
-                        if (cleanDate && amount > 0 && desc.length > 0 && !desc.includes('お支払い合計')) {
+                        if (cleanDate && amount > 0 && desc.length > 1) {
                             expenses.push({
+                                id: Date.now() + Math.random(),
                                 date: cleanDate,
                                 description: desc,
                                 category: categorizeExpense(desc),
+                                isManualCategory: false,
+                                reconciliationStatus: 'Unreconciled',
                                 source: file.name,
                                 amount: amount
                             });
@@ -368,7 +302,7 @@
                 }
             }
         } catch (err) {
-            console.error('PDF parsing error:', err);
+            console.error('PDF Parse Error:', err);
         }
         return extractedCount;
     }
@@ -385,85 +319,43 @@
 
                     let headerIndex = -1;
                     for (let i = 0; i < rows.length; i++) {
-                        let cleanedRow = rows[i].map(cleanHeader);
-                        if (cleanedRow.some(col => 
-                            ['年月日', '年月', 'Date', 'Date & Time', 'Month', '金額', 'Amount', 'Amount Outgoing (Yen)', '取引履歴', '利用店舗名', 'Transaction Type'].some(k => col.includes(k))
-                        )) {
+                        let rowStr = rows[i].join(' ');
+                        if (['Date', 'Date & Time', '年月日', '取引日時', 'Amount Outgoing (Yen)'].some(k => rowStr.includes(k))) {
                             headerIndex = i;
                             break;
                         }
                     }
 
                     if (headerIndex === -1) return resolve(0);
-                    let headers = rows[headerIndex].map(cleanHeader);
+                    let headers = rows[headerIndex].map(h => h.trim());
 
                     for (let i = headerIndex + 1; i < rows.length; i++) {
                         let rowArr = rows[i];
                         let row = {};
-                        headers.forEach((h, idx) => {
-                            row[h] = rowArr[idx] !== undefined ? String(rowArr[idx]).replace(/["']/g, '').trim() : '';
-                        });
+                        headers.forEach((h, idx) => { row[h] = rowArr[idx] ? String(rowArr[idx]).trim() : ''; });
 
-                        let rawDate = row['Date & Time'] || row['年月日'] || row['Date'] || row['日付'] || row['取引日時'] || '';
+                        let rawDate = row['Date & Time'] || row['年月日'] || row['Date'] || '';
                         let cleanDate = sanitizeDate(rawDate);
                         if (!cleanDate) continue;
 
-                        // Case A: Solar Panel CSV
-                        if (row['発電電力量[kWh]'] !== undefined || row['Generated'] !== undefined) {
-                            solarDailyData.push({
-                                date: cleanDate,
-                                generated: parseNum(row['発電電力量[kWh]'] || row['Generated']),
-                                consumed: parseNum(row['消費電力量[kWh]'] || row['Consumed']),
-                                purchased: parseNum(row['買電電力量[kWh]'] || row['Purchased'])
-                            });
-                            extractedCount++;
-                        } 
-                        // Case B: Official PayPay Statement CSV
-                        else if (row['Transaction Type'] !== undefined || row['Amount Outgoing (Yen)'] !== undefined) {
-                            let txType = row['Transaction Type'] || '';
-                            let amtOut = parseNum(row['Amount Outgoing (Yen)']);
-                            let amtIn = parseNum(row['Amount Incoming (Yen)']);
-                            let bizName = row['Business Name'] || 'PayPay Transaction';
-                            let method = row['Method'] || '';
+                        let txType = row['Transaction Type'] || '';
+                        let amtOut = parseNum(row['Amount Outgoing (Yen)'] || row['金額'] || row['Amount']);
+                        let amtIn = parseNum(row['Amount Incoming (Yen)']);
+                        let bizName = row['Business Name'] || row['利用店名・商品名'] || 'CSV Item';
 
-                            // Ignore cashback/earned points from spending totals
-                            if (txType === 'Points, Balance Earned') {
-                                continue;
-                            } 
-                            // Bank Top-Ups / Recharges
-                            else if (txType === 'Top-Up' || isPayPayRecharge(bizName) || isPayPayRecharge(method)) {
-                                expenses.push({
-                                    date: cleanDate,
-                                    description: `PayPay Top-Up (${method || bizName})`,
-                                    category: 'Transfer/Recharge',
-                                    source: file.name,
-                                    amount: amtIn > 0 ? amtIn : amtOut
-                                });
-                                extractedCount++;
-                            } 
-                            // Regular Merchant Purchases
-                            else if (txType === 'Payment' || amtOut > 0) {
-                                expenses.push({
-                                    date: cleanDate,
-                                    description: bizName,
-                                    category: categorizeExpense(bizName),
-                                    source: file.name,
-                                    amount: amtOut
-                                });
-                                extractedCount++;
-                            }
-                        } 
-                        // Case C: Standard Bank / Credit Card CSV
-                        else if (row['金額'] || row['Amount'] || row['出金金額'] || row['利用金額']) {
-                            let desc = row['利用店名・商品名'] || row['Description'] || row['取引内容'] || row['利用店舗名'] || 'CSV Item';
-                            let amt = parseNum(row['金額'] || row['Amount'] || row['出金金額'] || row['利用金額']);
+                        if (txType === 'Points, Balance Earned') continue;
 
+                        let amount = amtOut > 0 ? amtOut : amtIn;
+                        if (amount > 0) {
                             expenses.push({
+                                id: Date.now() + Math.random(),
                                 date: cleanDate,
-                                description: desc,
-                                category: row['カテゴリ'] || row['Category'] || categorizeExpense(desc),
+                                description: bizName,
+                                category: categorizeExpense(bizName),
+                                isManualCategory: false,
+                                reconciliationStatus: 'Unreconciled',
                                 source: file.name,
-                                amount: amt
+                                amount: amount
                             });
                             extractedCount++;
                         }
@@ -474,169 +366,48 @@
         });
     }
 
-    // Reconciliation and Deduplication logic
-    function consolidateAndDeduplicateData() {
-        const solarMap = new Map();
-        solarDailyData.forEach(item => { if (item.date) solarMap.set(item.date, item); });
-        solarDailyData = Array.from(solarMap.values());
+    // Reconciliation Function logic: cross-references PayPay Recharges & Credit Card withdrawals with Bank Statements
+    function reconcileTransactions() {
+        let bankWithdrawals = expenses.filter(e => e.source.toLowerCase().includes('bank') || e.source.toLowerCase().includes('statement'));
+        let digitalTx = expenses.filter(e => !e.source.toLowerCase().includes('bank') && !e.source.toLowerCase().includes('statement'));
 
-        // Step 1: Filter exact duplicates
-        const expenseMap = new Map();
-        expenses.forEach(item => {
-            if (item.date && item.amount) {
-                expenseMap.set(`${item.date}_${item.description}_${item.amount}_${item.source}`, item);
-            }
-        });
-        let uniqueExpenses = Array.from(expenseMap.values());
-
-        // Step 2: Cross-Reconcile Bank Withdrawals against PayPay Recharges
-        let paypayRecharges = uniqueExpenses.filter(e => isPayPayRecharge(e.description) || e.category === 'Transfer/Recharge');
-        let reconciledIndices = new Set();
-        let reconciledCount = 0;
-
-        paypayRecharges.forEach(recharge => {
-            let rDate = new Date(recharge.date);
-            
-            // Find corresponding bank transfer within 2 days matching exact amount
-            let bankMatchIndex = uniqueExpenses.findIndex((e, idx) => {
-                if (reconciledIndices.has(idx)) return false;
-                if (!e.description.toLowerCase().includes('paypay') && !e.description.toLowerCase().includes('口座振替')) return false;
-                
-                let eDate = new Date(e.date);
-                let dayDiff = Math.abs((rDate - eDate) / (1000 * 60 * 60 * 24));
-                
-                return dayDiff <= 2 && Math.abs(e.amount) === Math.abs(recharge.amount);
+        digitalTx.forEach(tx => {
+            let txDate = new Date(tx.date);
+            let match = bankWithdrawals.find(b => {
+                let bDate = new Date(b.date);
+                let diffDays = Math.abs((txDate - bDate) / (1000 * 60 * 60 * 24));
+                return diffDays <= 3 && Math.abs(b.amount - tx.amount) < 1;
             });
 
-            if (bankMatchIndex !== -1) {
-                reconciledIndices.add(bankMatchIndex);
-                reconciledCount++;
+            if (match) {
+                tx.reconciliationStatus = 'Reconciled';
+                match.reconciliationStatus = 'Reconciled';
+            } else {
+                if (tx.reconciliationStatus !== 'Reconciled') {
+                    tx.reconciliationStatus = 'Unreconciled';
+                }
             }
         });
 
-        // Keep all non-reconciled bank transfer records and non-charge expenses
-        expenses = uniqueExpenses.filter((e, idx) => !reconciledIndices.has(idx) && !isPayPayRecharge(e.description));
-
-        localStorage.setItem('solar_daily_data', JSON.stringify(solarDailyData));
         localStorage.setItem('household_expenses', JSON.stringify(expenses));
         renderExpenses();
-
-        return reconciledCount;
     }
 
-    function openSolarModal() {
-        document.getElementById('solarModal').style.display = 'flex';
-        renderSolarChart();
-    }
-
-    function closeSolarModal() {
-        document.getElementById('solarModal').style.display = 'none';
-    }
-
-    function setSolarViewMode(mode) {
-        currentSolarViewMode = mode;
-        document.getElementById('btnViewOverall').classList.toggle('active', mode === 'overall');
-        document.getElementById('btnViewYearly').classList.toggle('active', mode === 'yearly');
-        document.getElementById('btnViewMonthly').classList.toggle('active', mode === 'monthly');
-        document.getElementById('btnViewDaily').classList.toggle('active', mode === 'daily');
-        renderSolarChart();
-    }
-
-    function renderSolarChart() {
-        const selectedMonth = document.getElementById('filter-month').value || 'ALL';
-        let title = '';
-
-        let labels = [], dataGenerated = [], dataConsumed = [], dataPurchased = [];
-        let totalGen = 0, totalCon = 0, totalPur = 0;
-
-        if (currentSolarViewMode === 'daily') {
-            title = `Scope: Daily (${selectedMonth})`;
-            const filtered = solarDailyData.filter(d => selectedMonth === 'ALL' || d.date.startsWith(selectedMonth));
-            filtered.sort((a,b) => a.date.localeCompare(b.date));
-
-            filtered.forEach(d => {
-                labels.push(d.date);
-                dataGenerated.push(d.generated);
-                dataConsumed.push(d.consumed);
-                dataPurchased.push(d.purchased);
-                totalGen += d.generated; totalCon += d.consumed; totalPur += d.purchased;
-            });
-        } else if (currentSolarViewMode === 'monthly') {
-            title = `Scope: Monthly View`;
-            const monthlyAgg = {};
-            solarDailyData.forEach(d => {
-                const mKey = d.date.substring(0, 7);
-                if (!monthlyAgg[mKey]) monthlyAgg[mKey] = { generated: 0, consumed: 0, purchased: 0 };
-                monthlyAgg[mKey].generated += d.generated;
-                monthlyAgg[mKey].consumed += d.consumed;
-                monthlyAgg[mKey].purchased += d.purchased;
-            });
-
-            Object.keys(monthlyAgg).sort().forEach(m => {
-                if (selectedMonth === 'ALL' || m === selectedMonth) {
-                    labels.push(m);
-                    dataGenerated.push(monthlyAgg[m].generated);
-                    dataConsumed.push(monthlyAgg[m].consumed);
-                    dataPurchased.push(monthlyAgg[m].purchased);
-                    totalGen += monthlyAgg[m].generated; totalCon += monthlyAgg[m].consumed; totalPur += monthlyAgg[m].purchased;
-                }
-            });
-        } else if (currentSolarViewMode === 'yearly') {
-            title = `Scope: Yearly Consolidated View`;
-            const yearlyAgg = {};
-            solarDailyData.forEach(d => {
-                const yKey = d.date.substring(0, 4);
-                if (!yearlyAgg[yKey]) yearlyAgg[yKey] = { generated: 0, consumed: 0, purchased: 0 };
-                yearlyAgg[yKey].generated += d.generated;
-                yearlyAgg[yKey].consumed += d.consumed;
-                yearlyAgg[yKey].purchased += d.purchased;
-            });
-
-            Object.keys(yearlyAgg).sort().forEach(y => {
-                labels.push(y);
-                dataGenerated.push(yearlyAgg[y].generated);
-                dataConsumed.push(yearlyAgg[y].consumed);
-                dataPurchased.push(yearlyAgg[y].purchased);
-                totalGen += yearlyAgg[y].generated; totalCon += yearlyAgg[y].consumed; totalPur += yearlyAgg[y].purchased;
-            });
-        } else if (currentSolarViewMode === 'overall') {
-            title = `Scope: Overall All-Time Summary`;
-            solarDailyData.forEach(d => {
-                totalGen += d.generated;
-                totalCon += d.consumed;
-                totalPur += d.purchased;
-            });
-
-            labels = ['Overall All-Time Total'];
-            dataGenerated = [totalGen];
-            dataConsumed = [totalCon];
-            dataPurchased = [totalPur];
+    // Manual Category Change Handler
+    function updateCategory(id, newCategory) {
+        let item = expenses.find(e => e.id === id);
+        if (item) {
+            item.category = newCategory;
+            item.isManualCategory = true;
+            localStorage.setItem('household_expenses', JSON.stringify(expenses));
+            renderExpenses();
         }
+    }
 
-        document.getElementById('solar-period-title').textContent = title;
-        document.getElementById('m-generated').textContent = `${totalGen.toFixed(1)} kWh`;
-        document.getElementById('m-consumed').textContent = `${totalCon.toFixed(1)} kWh`;
-        document.getElementById('m-purchased').textContent = `${totalPur.toFixed(1)} kWh`;
-
-        if (solarChartInstance) solarChartInstance.destroy();
-
-        const ctx = document.getElementById('solarChart').getContext('2d');
-        solarChartInstance = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels.length > 0 ? labels : ['No Data'],
-                datasets: [
-                    { label: 'Electricity Generated (kWh)', data: dataGenerated, backgroundColor: '#f59e0b', borderRadius: 4 },
-                    { label: 'Electricity Consumed (kWh)', data: dataConsumed, backgroundColor: '#10b981', borderRadius: 4 },
-                    { label: 'Electricity Purchased (kWh)', data: dataPurchased, backgroundColor: '#ef4444', borderRadius: 4 }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: { y: { beginAtZero: true, title: { display: true, text: 'kWh' } } }
-            }
-        });
+    function deleteExpense(id) {
+        expenses = expenses.filter(e => e.id !== id);
+        localStorage.setItem('household_expenses', JSON.stringify(expenses));
+        renderExpenses();
     }
 
     function populateMonthDropdown() {
@@ -646,59 +417,78 @@
 
         const months = new Set();
         expenses.forEach(e => { if (e.date) months.add(e.date.substring(0, 7)); });
-        solarDailyData.forEach(s => { if (s.date) months.add(s.date.substring(0, 7)); });
 
-        const sortedMonths = Array.from(months).sort().reverse();
-        sortedMonths.forEach(m => {
+        Array.from(months).sort().reverse().forEach(m => {
             const opt = document.createElement('option');
             opt.value = m; opt.textContent = m;
             monthSelect.appendChild(opt);
         });
 
-        if (currentValue && sortedMonths.includes(currentValue)) monthSelect.value = currentValue;
-    }
-
-    function deleteExpense(index) {
-        expenses.splice(index, 1);
-        localStorage.setItem('household_expenses', JSON.stringify(expenses));
-        renderExpenses();
+        if (currentValue) monthSelect.value = currentValue;
     }
 
     function renderExpenses() {
         populateMonthDropdown();
         const selectedMonth = document.getElementById('filter-month').value || 'ALL';
+        const selectedStatus = document.getElementById('filter-status').value || 'ALL';
+        
         const list = document.getElementById('expense-list');
         list.innerHTML = '';
         let total = 0;
 
-        const filtered = expenses.filter(e => selectedMonth === 'ALL' || (e.date && e.date.startsWith(selectedMonth)));
+        const filtered = expenses.filter(e => {
+            let matchMonth = selectedMonth === 'ALL' || (e.date && e.date.startsWith(selectedMonth));
+            let matchStatus = true;
+            if (selectedStatus === 'Unreconciled') matchStatus = e.reconciliationStatus === 'Unreconciled';
+            if (selectedStatus === 'Reconciled') matchStatus = e.reconciliationStatus === 'Reconciled';
+            if (selectedStatus === 'Manual') matchStatus = e.isManualCategory === true;
+            return matchMonth && matchStatus;
+        });
+
         filtered.forEach((expense) => {
             total += parseFloat(expense.amount);
+            
+            let statusBadge = `<span class="badge badge-unreconciled">Unreconciled</span>`;
+            if (expense.reconciliationStatus === 'Reconciled') {
+                statusBadge = `<span class="badge badge-reconciled">Reconciled</span>`;
+            }
+            if (expense.isManualCategory) {
+                statusBadge += ` <span class="badge badge-manual">Edited</span>`;
+            }
+
+            let catOptions = CATEGORIES.map(c => 
+                `<option value="${c}" ${c === expense.category ? 'selected' : ''}>${c}</option>`
+            ).join('');
+
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${expense.date}</td>
                 <td>${expense.description}</td>
-                <td>${expense.category}</td>
+                <td>
+                    <select class="cat-select" onchange="updateCategory(${expense.id}, this.value)">
+                        ${catOptions}
+                    </select>
+                </td>
+                <td>${statusBadge}</td>
                 <td>${expense.source || 'Manual'}</td>
                 <td>¥${Number(expense.amount).toLocaleString()}</td>
-                <td><button onclick="deleteExpense(${expenses.indexOf(expense)})">✕</button></td>
+                <td><button style="color:var(--danger); cursor:pointer;" onclick="deleteExpense(${expense.id})">✕</button></td>
             `;
             list.appendChild(row);
         });
 
         document.getElementById('total-amount').textContent = `¥${Math.round(total).toLocaleString()}`;
-        updateExpenseCharts(selectedMonth);
+        updateExpenseCharts(filtered);
     }
 
-    function updateExpenseCharts(selectedMonth) {
-        const filtered = expenses.filter(e => selectedMonth === 'ALL' || (e.date && e.date.startsWith(selectedMonth)));
+    function updateExpenseCharts(dataList) {
         const categoryMap = {};
-        filtered.forEach(e => { categoryMap[e.category] = (categoryMap[e.category] || 0) + parseFloat(e.amount); });
+        dataList.forEach(e => { categoryMap[e.category] = (categoryMap[e.category] || 0) + parseFloat(e.amount); });
 
         if (pieChartInstance) pieChartInstance.destroy();
         pieChartInstance = new Chart(document.getElementById('pieChart').getContext('2d'), {
             type: 'pie',
-            data: { labels: Object.keys(categoryMap), datasets: [{ data: Object.values(categoryMap), backgroundColor: ['#2563eb', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'] }] },
+            data: { labels: Object.keys(categoryMap), datasets: [{ data: Object.values(categoryMap), backgroundColor: ['#2563eb', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'] }] },
             options: { responsive: true, maintainAspectRatio: false }
         });
 
@@ -708,7 +498,7 @@
         if (barChartInstance) barChartInstance.destroy();
         barChartInstance = new Chart(document.getElementById('barChart').getContext('2d'), {
             type: 'bar',
-            data: { labels: Object.keys(monthlyMap).sort(), datasets: [{ label: 'Total Expenses (¥)', data: Object.values(monthlyMap), backgroundColor: '#60a5fa' }] },
+            data: { labels: Object.keys(monthlyMap).sort(), datasets: [{ label: 'Monthly Expenses (¥)', data: Object.values(monthlyMap), backgroundColor: '#60a5fa' }] },
             options: { responsive: true, maintainAspectRatio: false }
         });
     }
