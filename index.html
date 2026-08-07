@@ -11,20 +11,17 @@
     <style>
         :root {
             --primary: #2563eb;
-            --primary-dark: #1d4ed8;
             --bg: #f1f5f9;
             --card-bg: #ffffff;
             --text: #0f172a;
             --text-secondary: #64748b;
             --border: #e2e8f0;
             --danger: #ef4444;
-            --success: #10b981;
-            --warning: #f59e0b;
             --radius: 12px;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
             background-color: var(--bg);
             color: var(--text);
             margin: 0;
@@ -60,7 +57,6 @@
         input, select, button { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.88rem; outline: none; }
         .btn-reset { background: #d97706; color: white; border: none; cursor: pointer; font-weight: 600; }
 
-        /* Badges */
         .badge { padding: 4px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
         .badge-auto { background: #dbeafe; color: #1e40af; }
         .badge-manual { background: #fef3c7; color: #92400e; }
@@ -76,34 +72,34 @@
 
 <div class="container">
     <div class="app-header">
-        <h1>📊 Expense Tracker & Smart Categorizer</h1>
+        <h1>📊 Expense Tracker & PDF Coordinate Parser</h1>
     </div>
 
     <!-- Summary Box -->
     <div class="summary-card">
-        <span>Total Expenses (Filtered Month)</span>
+        <span>Total Expenses (Filtered View)</span>
         <h2 id="total-amount" style="margin: 8px 0 0 0; font-size: 2.2rem;">¥0</h2>
     </div>
 
     <!-- Upload Section -->
     <div class="card">
-        <h3>📁 Upload Credit Card Statements (PDF) or Wallet Statements (CSV)</h3>
+        <h3>📁 Upload PDF Statements or CSV Files</h3>
         <div class="batch-drop-zone" onclick="document.getElementById('batch-files').click()">
-            <span style="font-size: 1.05rem; font-weight: 600; color: #1e40af;">Click or Drag & Drop Statement Files</span>
+            <span style="font-size: 1.05rem; font-weight: 600; color: #1e40af;">Click or Drag & Drop Credit Card PDFs / Wallet CSVs</span>
             <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 6px;">
-                Upload PDF Statements (Credit Cards, Utilities) or CSVs (PayPay, Bank Exports).
+                Uses PDF.js 2D transform coordinate alignment (transform[5] + transform[4]).
             </div>
             <input type="file" id="batch-files" accept=".csv, .pdf" multiple onchange="handleBatchUpload(event)">
         </div>
         <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 8px;" id="batch-status">Ready.</div>
     </div>
 
-    <!-- Controls & Charts -->
+    <!-- Analytics Section -->
     <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap: wrap; gap: 10px;">
             <h3 style="margin:0;">📈 Spending Dashboard</h3>
             <div>
-                <button class="btn-reset" onclick="resetAllData()">🗑️ Clear All Data</button>
+                <button class="btn-reset" onclick="resetAllData()">🗑️ Clear Cache & Data</button>
                 <label for="filter-month" style="font-size: 0.9rem; font-weight: 600; margin-left: 8px;">Month: </label>
                 <select id="filter-month" onchange="renderExpenses()"></select>
                 <label for="filter-category" style="font-size: 0.9rem; font-weight: 600; margin-left: 8px;">Category: </label>
@@ -117,22 +113,22 @@
                 <div class="chart-container"><canvas id="pieChart"></canvas></div>
             </div>
             <div>
-                <h4 style="text-align: center; color: var(--text-secondary);">Monthly Total Trend</h4>
+                <h4 style="text-align: center; color: var(--text-secondary);">Monthly Spending Trend</h4>
                 <div class="chart-container"><canvas id="barChart"></canvas></div>
             </div>
         </div>
     </div>
 
-    <!-- Expense Log Table -->
+    <!-- Expense Table -->
     <div class="card">
-        <h3>Transaction List</h3>
+        <h3>Parsed Transactions</h3>
         <table>
             <thead>
                 <tr>
                     <th>Date</th>
                     <th>Description</th>
                     <th>Category (Editable)</th>
-                    <th>Source File</th>
+                    <th>Source Document</th>
                     <th>Amount</th>
                     <th>Action</th>
                 </tr>
@@ -145,8 +141,8 @@
 <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-    let expenses = JSON.parse(localStorage.getItem('household_expenses_v3')) || [];
-    let processedFilesHashes = JSON.parse(localStorage.getItem('processed_file_hashes_v3')) || [];
+    let expenses = JSON.parse(localStorage.getItem('household_expenses_v4')) || [];
+    let processedFilesHashes = JSON.parse(localStorage.getItem('processed_file_hashes_v4')) || [];
     let pieChartInstance, barChartInstance;
 
     const CATEGORIES = [
@@ -178,64 +174,24 @@
     }
 
     function parseNum(val) {
-        if (val === undefined || val === null || val === '' || val === '-') return 0;
+        if (!val) return 0;
         let num = parseFloat(String(val).replace(/,/g, '').replace(/円/g, '').replace(/[\+]/g, ''));
         return isNaN(num) ? 0 : num;
     }
 
-    // Advanced Multi-Keyword Categorization Rule Engine
     function autoCategorize(desc) {
         let text = desc.toLowerCase();
 
-        // 1. Groceries & Supermarkets
-        if (/イオン|イトーヨーカドー|ライフ|スーパー|オーケー|マルエツ|ヤオコー|西友|seiyu|costco|コストコ|まいばすけっと|業務スーパー|肉のハナマサ/i.test(text)) {
-            return 'Groceries & Supermarket';
-        }
-
-        // 2. Dining Out & Cafes
-        if (/マクドナルド|スターバックス|starbucks|ドトール|ドトールコーヒー|カフェ|cafe|ガスト|サイゼリヤ|すき家|吉野家|松屋|スシロー|くら寿司|タリーズ|コメダ|ラーメン|居酒屋/i.test(text)) {
-            return 'Dining Out';
-        }
-
-        // 3. Transportation & Travel
-        if (/etc|高速|suica|pasmo|jr|東日本|東海|西日本|タクシー|タイムズ|times|駐車場|ガソリン|エネオス|eneos|出光|シェル|JAL|ANA|航空/i.test(text)) {
-            return 'Transportation & Travel';
-        }
-
-        // 4. Utilities & Telecom
-        if (/電力|東京電力|関西電力|中部電力|ガス|水道|ntt|ソフトバンク|softbank|au|kddi|docomo|ドコモ|nuro|ひかり|通信/i.test(text)) {
-            return 'Utilities & Telecom';
-        }
-
-        // 5. Shopping & E-Commerce
-        if (/amazon|アマゾン|rakuten|楽天|ヤフー|yahoo|メルカリ|ユニクロ|uniqlo|gu|zara|ヨドバシ|ビックカメラ|ヤマダ|無印良品|ダイソー|セリア/i.test(text)) {
-            return 'Shopping & E-Commerce';
-        }
-
-        // 6. Subscriptions & Digital
-        if (/netflix|apple|spotify|youtube|google|disney|hulu|prime|github|chatgpt|openai/i.test(text)) {
-            return 'Subscriptions & Digital';
-        }
-
-        // 7. Childcare & Education
-        if (/school|スクール|学校|保育園|幼稚園|塾|公文|学研|スイミング|習い事|教育/i.test(text)) {
-            return 'Childcare & Education';
-        }
-
-        // 8. Sports & Fitness
-        if (/アルペン|ゼビオ|スポーツ|フィットネス|ジム|アリナ|arena|スピード|speedo|ミズノ|mizuno/i.test(text)) {
-            return 'Sports & Fitness';
-        }
-
-        // 9. Healthcare & Insurance
-        if (/セイメイ|ホケン|保険|クリニック|病院|薬局|ドラッグ|マツモトキヨシ|ウエルシア|ツルハ/i.test(text)) {
-            return 'Healthcare & Insurance';
-        }
-
-        // 10. Housing & Rent
-        if (/家賃|住宅|ローン|管理費|修繕/i.test(text)) {
-            return 'Housing & Rent';
-        }
+        if (/イオン|イトーヨーカドー|ライフ|スーパー|オーケー|マルエツ|ヤオコー|西友|seiyu|costco|コストコ|まいばすけっと|業務スーパー|肉のハナマサ/i.test(text)) return 'Groceries & Supermarket';
+        if (/マクドナルド|スターバックス|starbucks|ドトール|カフェ|cafe|ガスト|サイゼリヤ|すき家|吉野家|松屋|スシロー|くら寿司|タリーズ|コメダ|居酒屋/i.test(text)) return 'Dining Out';
+        if (/etc|高速|suica|pasmo|jr|東日本|東海|西日本|タクシー|タイムズ|times|駐車場|ガソリン|エネオス|eneos|JAL|ANA/i.test(text)) return 'Transportation & Travel';
+        if (/電力|東京電力|関西電力|中部電力|ガス|水道|ntt|ソフトバンク|softbank|au|kddi|docomo|ドコモ|nuro|ひかり|通信/i.test(text)) return 'Utilities & Telecom';
+        if (/amazon|アマゾン|rakuten|楽天|ヤフー|yahoo|メルカリ|ユニクロ|uniqlo|gu|zara|ヨドバシ|ビックカメラ|ヤマダ|無印良品|ダイソー|セリア/i.test(text)) return 'Shopping & E-Commerce';
+        if (/netflix|apple|spotify|youtube|google|disney|hulu|prime|github|chatgpt|openai/i.test(text)) return 'Subscriptions & Digital';
+        if (/school|スクール|学校|保育園|幼稚園|塾|公文|学研|スイミング|習い事|教育/i.test(text)) return 'Childcare & Education';
+        if (/アルペン|ゼビオ|スポーツ|フィットネス|ジム|アリナ|arena|スピード|speedo|ミズノ|mizuno/i.test(text)) return 'Sports & Fitness';
+        if (/セイメイ|ホケン|保険|クリニック|病院|薬局|ドラッグ|マツモトキヨシ|ウエルシア|ツルハ/i.test(text)) return 'Healthcare & Insurance';
+        if (/家賃|住宅|ローン|管理費|修繕/i.test(text)) return 'Housing & Rent';
 
         return 'General';
     }
@@ -245,13 +201,13 @@
     }
 
     function resetAllData() {
-        if (confirm("Are you sure you want to clear all imported transactions?")) {
+        if (confirm("Clear all loaded data?")) {
             processedFilesHashes = [];
             expenses = [];
-            localStorage.removeItem('processed_file_hashes_v3');
-            localStorage.removeItem('household_expenses_v3');
+            localStorage.removeItem('processed_file_hashes_v4');
+            localStorage.removeItem('household_expenses_v4');
             renderExpenses();
-            document.getElementById('batch-status').textContent = 'All data cleared.';
+            document.getElementById('batch-status').textContent = 'All data reset.';
         }
     }
 
@@ -267,7 +223,7 @@
 
             if (processedFilesHashes.includes(signature)) continue;
 
-            status.textContent = `Processing (${i + 1}/${files.length}): ${file.name}...`;
+            status.textContent = `Parsing (${i + 1}/${files.length}): ${file.name}...`;
             let count = 0;
 
             if (file.name.toLowerCase().endsWith('.csv')) {
@@ -282,12 +238,13 @@
             }
         }
 
-        localStorage.setItem('processed_file_hashes_v3', JSON.stringify(processedFilesHashes));
-        localStorage.setItem('household_expenses_v3', JSON.stringify(expenses));
+        localStorage.setItem('processed_file_hashes_v4', JSON.stringify(processedFilesHashes));
+        localStorage.setItem('household_expenses_v4', JSON.stringify(expenses));
         renderExpenses();
-        status.textContent = `Done! Successfully imported ${totalExtracted} transaction items.`;
+        status.textContent = `Done! Imported ${totalExtracted} transaction entries.`;
     }
 
+    // PDF.js Y-Coordinate Row Grouping Algorithm (with pixel-tolerance)
     async function processPDFFile(file) {
         let extractedCount = 0;
         try {
@@ -298,28 +255,54 @@
                 const page = await pdf.getPage(pageNum);
                 const textContent = await page.getTextContent();
                 
-                let linesMap = {};
+                // Collect text items with transform coordinates: x = transform[4], y = transform[5]
+                let rawItems = [];
                 for (let item of textContent.items) {
                     if (!item.str || !item.str.trim()) continue;
-                    let y = Math.round(item.transform[5]);
-                    let x = Math.round(item.transform[4]);
-                    if (!linesMap[y]) linesMap[y] = [];
-                    linesMap[y].push({ x: x, str: item.str });
+                    rawItems.push({
+                        x: item.transform[4],
+                        y: item.transform[5],
+                        str: item.str.trim()
+                    });
                 }
 
-                let sortedYs = Object.keys(linesMap).map(Number).sort((a, b) => b - a);
+                // Group items into visual rows using Y-axis tolerance (tolerance = 4px)
+                // Sort by Y descending (PDF coordinates: 0,0 is bottom-left)
+                rawItems.sort((a, b) => b.y - a.y);
                 
-                for (let y of sortedYs) {
-                    let rowItems = linesMap[y].sort((a, b) => a.x - b.x);
-                    let lineText = rowItems.map(i => i.str).join(' ');
+                let visualRows = [];
+                const Y_TOLERANCE = 4.0;
+
+                for (let item of rawItems) {
+                    let matchedRow = visualRows.find(r => Math.abs(r.y - item.y) <= Y_TOLERANCE);
+                    if (matchedRow) {
+                        matchedRow.items.push(item);
+                    } else {
+                        visualRows.push({ y: item.y, items: [item] });
+                    }
+                }
+
+                // Process each assembled row
+                for (let row of visualRows) {
+                    // Sort items in line horizontally (X-ascending: Left to Right)
+                    row.items.sort((a, b) => a.x - b.x);
+                    let lineText = row.items.map(i => i.str).join(' ');
 
                     let dateMatch = lineText.match(/(\d{4}[-\/年]\d{1,2}[-\/月]\d{1,2}|\d{1,2}月\d{1,2}日)/);
-                    let amountMatch = lineText.match(/([\d,]+)円?/g);
+                    let amountMatches = lineText.match(/([\d,]{3,}|[\d]+)円?/g);
 
-                    if (dateMatch && amountMatch) {
+                    if (dateMatch && amountMatches && amountMatches.length > 0) {
                         let cleanDate = sanitizeDate(dateMatch[0].includes('月') ? `2026年${dateMatch[0]}` : dateMatch[0]);
-                        let desc = lineText.replace(dateMatch[0], '').replace(/[\d,]+円?[-\+]?/g, '').trim();
-                        let amount = parseNum(amountMatch[amountMatch.length - 1]);
+                        let rawAmount = amountMatches[amountMatches.length - 1]; // Pick last currency figure on the line
+                        let amount = parseNum(rawAmount);
+
+                        // Strip date and amount from line text to leave description
+                        let desc = lineText
+                            .replace(dateMatch[0], '')
+                            .replace(rawAmount, '')
+                            .replace(/円/g, '')
+                            .replace(/\s+/g, ' ')
+                            .trim();
 
                         if (cleanDate && amount > 0 && desc.length > 1) {
                             expenses.push({
@@ -337,7 +320,7 @@
                 }
             }
         } catch (err) {
-            console.error('PDF Parse Error:', err);
+            console.error('PDF Coordinate Parsing Error:', err);
         }
         return extractedCount;
     }
@@ -373,11 +356,8 @@
                         let cleanDate = sanitizeDate(rawDate);
                         if (!cleanDate) continue;
 
-                        let txType = row['Transaction Type'] || '';
                         let amtOut = parseNum(row['Amount Outgoing (Yen)'] || row['金額'] || row['Amount']);
                         let bizName = row['Business Name'] || row['利用店名・商品名'] || 'Transaction Item';
-
-                        if (txType === 'Points, Balance Earned') continue;
 
                         if (amtOut > 0) {
                             expenses.push({
@@ -403,14 +383,14 @@
         if (item) {
             item.category = newCategory;
             item.isManualCategory = true;
-            localStorage.setItem('household_expenses_v3', JSON.stringify(expenses));
+            localStorage.setItem('household_expenses_v4', JSON.stringify(expenses));
             renderExpenses();
         }
     }
 
     function deleteExpense(id) {
         expenses = expenses.filter(e => e.id !== id);
-        localStorage.setItem('household_expenses_v3', JSON.stringify(expenses));
+        localStorage.setItem('household_expenses_v4', JSON.stringify(expenses));
         renderExpenses();
     }
 
@@ -466,7 +446,7 @@
             ).join('');
 
             let badge = expense.isManualCategory 
-                ? `<span class="badge badge-manual">Manual</span>`
+                ? `<span class="badge badge-manual">Edited</span>`
                 : `<span class="badge badge-auto">Auto</span>`;
 
             const row = document.createElement('tr');
@@ -479,7 +459,7 @@
                     </select>
                     ${badge}
                 </td>
-                <td>${expense.source || 'Imported'}</td>
+                <td>${expense.source || 'PDF'}</td>
                 <td style="font-weight: 600;">¥${Number(expense.amount).toLocaleString()}</td>
                 <td><button style="color:var(--danger); cursor:pointer;" onclick="deleteExpense(${expense.id})">✕</button></td>
             `;
@@ -509,7 +489,7 @@
         if (barChartInstance) barChartInstance.destroy();
         barChartInstance = new Chart(document.getElementById('barChart').getContext('2d'), {
             type: 'bar',
-            data: { labels: Object.keys(monthlyMap).sort(), datasets: [{ label: 'Monthly Total Spending (¥)', data: Object.values(monthlyMap), backgroundColor: '#60a5fa' }] },
+            data: { labels: Object.keys(monthlyMap).sort(), datasets: [{ label: 'Monthly Total (¥)', data: Object.values(monthlyMap), backgroundColor: '#60a5fa' }] },
             options: { responsive: true, maintainAspectRatio: false }
         });
     }
