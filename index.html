@@ -279,6 +279,45 @@
         'General'
     ];
 
+    const JAPANESE_CATEGORY_MAP = {
+        '食費': 'Groceries & Supermarket',
+        '食料品': 'Groceries & Supermarket',
+        'スーパー': 'Groceries & Supermarket',
+        '外食': 'Dining Out',
+        '外食費': 'Dining Out',
+        'カフェ': 'Dining Out',
+        '交通費': 'Transportation & Travel',
+        '電車': 'Transportation & Travel',
+        'タクシー': 'Transportation & Travel',
+        'ガソリン': 'Transportation & Travel',
+        '高速代': 'Transportation & Travel',
+        '光熱費': 'Utilities & Telecom',
+        '水道光熱費': 'Utilities & Telecom',
+        '電気代': 'Utilities & Telecom',
+        'ガス代': 'Utilities & Telecom',
+        '通信費': 'Utilities & Telecom',
+        '携帯代': 'Utilities & Telecom',
+        '日用品': 'Shopping & E-Commerce',
+        '日用雑貨': 'Shopping & E-Commerce',
+        '買い物': 'Shopping & E-Commerce',
+        '衣服': 'Shopping & E-Commerce',
+        'ファッション': 'Shopping & E-Commerce',
+        'サブスク': 'Subscriptions & Digital',
+        'デジタル': 'Subscriptions & Digital',
+        '教育': 'Childcare & Education',
+        '教育費': 'Childcare & Education',
+        '習い事': 'Childcare & Education',
+        '学費': 'Childcare & Education',
+        'スポーツ': 'Sports & Fitness',
+        '趣味': 'Sports & Fitness',
+        '医療費': 'Healthcare & Insurance',
+        '病院': 'Healthcare & Insurance',
+        '保険': 'Healthcare & Insurance',
+        '住居費': 'Housing & Rent',
+        '家賃': 'Housing & Rent',
+        '住宅ローン': 'Housing & Rent'
+    };
+
     function sanitizeDate(rawDateStr) {
         if (!rawDateStr) return null;
         let dateOnly = String(rawDateStr).trim().split(' ')[0];
@@ -303,19 +342,32 @@
         return isNaN(num) ? 0 : num;
     }
 
-    function categorizeExpense(desc) {
-        let text = desc.toLowerCase();
+    function normalizeCategory(rawCat) {
+        if (!rawCat) return null;
+        let trimmed = String(rawCat).trim();
+        if (CATEGORIES.includes(trimmed)) return trimmed;
+        for (let jpKey in JAPANESE_CATEGORY_MAP) {
+            if (trimmed.includes(jpKey)) return JAPANESE_CATEGORY_MAP[jpKey];
+        }
+        return null;
+    }
 
-        if (/イオン|イトーヨーカドー|ライフ|スーパー|オーケー|マルエツ|ヤオコー|西友|seiyu|costco|コストコ|まいばすけっと|業務スーパー|肉のハナマサ/i.test(text)) return 'Groceries & Supermarket';
-        if (/マクドナルド|スターバックス|starbucks|ドトール|カフェ|cafe|ガスト|サイゼリヤ|すき家|吉野家|松屋|スシロー|くら寿司|タリーズ|コメダ|居酒屋/i.test(text)) return 'Dining Out';
-        if (/etc|高速|suica|pasmo|jr|東日本|東海|西日本|タクシー|タイムズ|times|駐車場|ガソリン|エネオス|eneos|JAL|ANA/i.test(text)) return 'Transportation & Travel';
-        if (/電力|東京電力|関西電力|中部電力|ガス|水道|ntt|ソフトバンク|softbank|au|kddi|docomo|ドコモ|nuro|ひかり|通信/i.test(text)) return 'Utilities & Telecom';
-        if (/amazon|アマゾン|rakuten|楽天|ヤフー|yahoo|メルカリ|ユニクロ|uniqlo|gu|zara|ヨドバシ|ビックカメラ|ヤマダ|無印良品|ダイソー|セリア/i.test(text)) return 'Shopping & E-Commerce';
-        if (/netflix|apple|spotify|youtube|google|disney|hulu|prime|github|chatgpt|openai/i.test(text)) return 'Subscriptions & Digital';
-        if (/school|スクール|学校|保育園|幼稚園|塾|公文|学研|スイミング|習い事|教育/i.test(text)) return 'Childcare & Education';
-        if (/アルペン|ゼビオ|スポーツ|フィットネス|ジム|アリナ|arena|スピード|speedo|ミズノ|mizuno/i.test(text)) return 'Sports & Fitness';
-        if (/セイメイ|ホケン|保険|クリニック|病院|薬局|ドラッグ|マツモトキヨシ|ウエルシア|ツルハ/i.test(text)) return 'Healthcare & Insurance';
-        if (/家賃|住宅|ローン|管理費|修繕/i.test(text)) return 'Housing & Rent';
+    function categorizeExpense(desc, rawCat) {
+        let mappedFromRaw = normalizeCategory(rawCat);
+        if (mappedFromRaw) return mappedFromRaw;
+
+        let text = (desc || '').toLowerCase();
+
+        if (/イオン|イトーヨーカドー|ライフ|スーパー|オーケー|マルエツ|ヤオコー|西友|seiyu|costco|コストコ|まいばすけっと|業務スーパー|肉のハナマサ|サミット|いなげや|ベイシア|成城石井|東急ストア|ビッグ・エー|カスミ|万代|サンディ|ロピア|セブン|ファミマ|ローソン|7-11|7-eleven|familymart|family\s*mart|lawson|ミニストップ|デイリーヤマザキ|ポプラ/i.test(text)) return 'Groceries & Supermarket';
+        if (/マクドナルド|スターバックス|starbucks|ドトール|カフェ|cafe|ガスト|サイゼリヤ|すき家|吉野家|松屋|スシロー|くら寿司|はま寿司|かっぱ寿司|タリーズ|コメダ|居酒屋|レストラン|ラーメン|カレー|ステーキ|ケンタッキー|kfc|モスバーガー|サンマルク|串カツ|大戸屋|王将/i.test(text)) return 'Dining Out';
+        if (/etc|高速|suica|pasmo|icoca|jr|東日本|東海|西日本|東京メトロ|都営|鉄道|バス|タクシー|taxi|タイムズ|times|駐車場|ガソリン|エネオス|eneos|出光|コスモ|シェル|JAL|ANA|jetstar|peach|レンタカー/i.test(text)) return 'Transportation & Travel';
+        if (/電力|東京電力|関西電力|中部電力|九州電力|東北電力|中国電力|四国電力|北海道電力|ガス|東京ガス|大阪ガス|水道|ntt|ソフトバンク|softbank|au|kddi|docomo|ドコモ|nuro|ひかり|通信|nhk|楽天モバイル|uq|y!mobile/i.test(text)) return 'Utilities & Telecom';
+        if (/amazon|アマゾン|rakuten|楽天|ヤフー|yahoo|メルカリ|mercari|ユニクロ|uniqlo|gu|zara|ヨドバシ|ビックカメラ|ヤマダ|ノジマ|ケーズ|無印良品|muji|ダイソー|セリア|キャンドゥ|ロフト|loft|ハンズ|hands|zozo|ゾゾ/i.test(text)) return 'Shopping & E-Commerce';
+        if (/netflix|apple|spotify|youtube|google|disney|hulu|prime|github|chatgpt|openai|icloud|nintendo|playstation|steam/i.test(text)) return 'Subscriptions & Digital';
+        if (/school|スクール|学校|保育園|幼稚園|小学校|中学校|高校|大学|塾|公文|kumon|学研|スイミング|習い事|教育|教材|学費/i.test(text)) return 'Childcare & Education';
+        if (/アルペン|ゼビオ|スポーツ|フィットネス|ジム|エニタイム|lava|アリナ|arena|スピード|speedo|ミズノ|mizuno|アディダス|ナイキ|プーマ/i.test(text)) return 'Sports & Fitness';
+        if (/セイメイ|ホケン|保険|クリニック|病院|診療|薬局|ドラッグ|マツモトキヨシ|マツキヨ|ウエルシア|ツルハ|サンドラッグ|ココカラ|スギ薬局/i.test(text)) return 'Healthcare & Insurance';
+        if (/家賃|住宅|ローン|管理費|修繕|マンション|不動産/i.test(text)) return 'Housing & Rent';
 
         return 'General';
     }
@@ -423,14 +475,21 @@
                         let rawAmount = amountMatches[amountMatches.length - 1];
                         let amount = parseNum(rawAmount);
 
-                        let desc = lineText.replace(dateMatch[0], '').replace(rawAmount, '').replace(/円/g, '').replace(/\s+/g, ' ').trim();
+                        let desc = lineText
+                            .replace(dateMatch[0], '')
+                            .replace(rawAmount, '')
+                            .replace(/円/g, '')
+                            .replace(/\b1回払い\b|\bリボ払い\b|\b分割\b/g, '')
+                            .replace(/\s+/g, ' ')
+                            .trim();
 
                         if (cleanDate && amount > 0 && desc.length > 1 && !desc.includes('お支払い合計')) {
+                            let mappedCategory = categorizeExpense(desc, lineText);
                             expenses.push({
                                 id: Date.now() + Math.random(),
                                 date: cleanDate,
                                 description: desc,
-                                category: categorizeExpense(desc),
+                                category: mappedCategory,
                                 categorySource: 'auto',
                                 source: file.name,
                                 amount: amount
@@ -457,11 +516,24 @@
                     if (!rows || rows.length === 0) return resolve(0);
 
                     let headerIndex = -1;
+                    const possibleDateHeaders = ['年月日', '年月', 'Date', 'Month', '日付', '利用日', '利用年月日', '取引日時', '処理日'];
+                    const possibleAmountHeaders = ['金額', 'Amount', 'Amount Outgoing (Yen)', '利用金額(円)', '支払金額', '利用金額', '請求金額', '出金'];
+
                     for (let i = 0; i < rows.length; i++) {
                         let cleanedRow = rows[i].map(cleanHeader);
-                        if (cleanedRow.some(col => ['年月日', '年月', 'Date', 'Month', '金額', 'Amount', '取引日時'].includes(col))) {
+                        if (cleanedRow.some(col => possibleDateHeaders.includes(col)) && cleanedRow.some(col => possibleAmountHeaders.includes(col))) {
                             headerIndex = i;
                             break;
+                        }
+                    }
+
+                    if (headerIndex === -1) {
+                        for (let i = 0; i < rows.length; i++) {
+                            let cleanedRow = rows[i].map(cleanHeader);
+                            if (cleanedRow.some(col => possibleDateHeaders.includes(col) || possibleAmountHeaders.includes(col))) {
+                                headerIndex = i;
+                                break;
+                            }
                         }
                     }
 
@@ -475,7 +547,7 @@
                             row[h] = rowArr[idx] !== undefined ? String(rowArr[idx]).replace(/["']/g, '').trim() : '';
                         });
 
-                        let rawDate = row['年月日'] || row['Date'] || row['日付'] || row['Date & Time'] || '';
+                        let rawDate = row['年月日'] || row['Date'] || row['日付'] || row['利用日'] || row['利用年月日'] || row['Date & Time'] || row['取引日時'] || '';
                         let cleanDate = sanitizeDate(rawDate);
 
                         // SOLAR DATA PARSING LOGIC (UNCHANGED)
@@ -489,21 +561,21 @@
                             extractedCount++;
                         } 
                         // EXPENSE CSV PARSING LOGIC WITH AUTO CATEGORY MATCHING
-                        else if (cleanDate && (row['金額'] || row['Amount'] || row['Amount Outgoing (Yen)'])) {
-                            let amt = parseNum(row['金額'] || row['Amount'] || row['Amount Outgoing (Yen)']);
-                            let desc = row['利用店名・商品名'] || row['Description'] || row['Business Name'] || 'CSV Transaction';
+                        else if (cleanDate) {
+                            let rawAmt = row['金額'] || row['Amount'] || row['Amount Outgoing (Yen)'] || row['利用金額(円)'] || row['支払金額'] || row['利用金額'] || row['請求金額'] || '0';
+                            let amt = parseNum(rawAmt);
+                            let desc = row['利用店名・商品名'] || row['Description'] || row['Business Name'] || row['利用先'] || row['加盟店名'] || row['摘要'] || row['内容'] || 'CSV Transaction';
                             
-                            // Check if explicit category exists in CSV row
-                            let csvCategory = row['カテゴリ'] || row['Category'] || row['ジャンル'] || '';
-                            let finalCategory = csvCategory.trim() !== '' ? csvCategory.trim() : categorizeExpense(desc);
-                            let catSrc = csvCategory.trim() !== '' ? 'csv' : 'auto';
+                            let rawCsvCategory = row['カテゴリ'] || row['Category'] || row['ジャンル'] || row['分類'] || row['項目'] || row['費目'] || '';
+                            let mappedCategory = categorizeExpense(desc, rawCsvCategory);
+                            let catSrc = rawCsvCategory.trim() !== '' ? 'csv' : 'auto';
 
                             if (amt > 0) {
                                 expenses.push({
                                     id: Date.now() + Math.random(),
                                     date: cleanDate,
                                     description: desc,
-                                    category: finalCategory,
+                                    category: mappedCategory,
                                     categorySource: catSrc,
                                     source: file.name,
                                     amount: amt
