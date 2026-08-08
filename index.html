@@ -426,54 +426,65 @@
         }
     }
 
+    // Convert Japanese full-width characters (ＥＴＣ, ネットフリックス) to standard half-width
     function normalizeJapaneseText(str) {
         if (!str) return '';
         return str.replace(/[Ａ-Ｚａ-ｚ０-９]/g, function(s) {
             return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
-        }).replace(/ /g, ' ').replace(/\|/g, ' ').trim();
+        }).replace(/ /g, ' ').trim();
     }
 
+    // Keyword Categorization Engine
     function autoCategorize(description) {
         const desc = normalizeJapaneseText(description).toLowerCase();
 
+        // 1. User-defined Custom Rules First
         for (let rule of customRules) {
             if (desc.includes(rule.keyword.toLowerCase())) {
                 return { mainCategory: rule.mainCategory, subCategory: rule.subCategory };
             }
         }
 
+        // 2. Japanese Supermarkets & Convenience Stores
         if (/スーパー|イオン|イトーヨーカドー|ライフ|オーケー|ヤオコー|西友|コストコ|まいばすけっと|業務スーパー|サミット|ロピア|セブン|ファミマ|ローソン|オリジン|supermarket|grocery/i.test(desc)) {
             return { mainCategory: 'Food & Dining', subCategory: 'Groceries' };
         }
 
+        // 3. Restaurants & Cafes
         if (/マクドナルド|スターバックス|ドトール|カフェ|ガスト|サイゼリヤ|すき家|吉野家|松屋|スシロー|居酒屋|レストラン|ラーメン|はま寿司|ポポラマーマ|gordon|restaurant|cafe/i.test(desc)) {
             return { mainCategory: 'Food & Dining', subCategory: 'Restaurants & Dining Out' };
         }
 
+        // 4. Delivery Services
         if (/ウーバーイーツ|出前館|uber\s*eats|delivery/i.test(desc)) {
             return { mainCategory: 'Food & Dining', subCategory: 'Delivery Services' };
         }
 
+        // 5. Housing & Utilities & Telecom
         if (/電力|東京電力|電気|ガス|東京ガス|水道|東京都水道局|nuro|ソフトバンク|softbank|ワイヤレスゲート|新聞|power|electric/i.test(desc)) {
             if (/ガス|水道|スイドウ/.test(desc)) return { mainCategory: 'Housing & Utilities', subCategory: 'Water & Gas' };
             if (/nuro|ソフトバンク|softbank|ワイヤレスゲート|simcard/i.test(desc)) return { mainCategory: 'Housing & Utilities', subCategory: 'Internet & Mobile' };
             return { mainCategory: 'Housing & Utilities', subCategory: 'Electricity' };
         }
 
-        if (/suica|pasmo|icoca|jr|電車|バス|タクシー|高速|etc|首都高|関東支社|東京支社|八王子支社|パラカ|タイムズ|列車|metro|train/i.test(desc)) {
+        // 6. Transportation & Expressways (ETC, Tolls, Suica)
+        if (/suica|pasmo|icoca|jr|電車|バス|タクシー|高速|etc|首都高|関東支社|東京支社|八王子支社|パラカ|タイムズ|列車|metro|train|simcard/i.test(desc)) {
             if (/etc|首都高|支社|パラカ|タイムズ/.test(desc)) return { mainCategory: 'Transportation', subCategory: 'Fuel & Parking' };
             return { mainCategory: 'Transportation', subCategory: 'Trains & Bus' };
         }
 
-        if (/スイミング|水泳|arena|speedo|mizuno|スポーツ|ジム|フィットネス|swim|pool|school/i.test(desc)) {
+        // 7. Sports & Swimming
+        if (/スイミング|水泳|arena|speedo|mizuno|スポーツ|ジム|フィットネス|swim|pool/i.test(desc)) {
             return { mainCategory: 'Education & Sports', subCategory: 'Swimming & Sports Club' };
         }
 
+        // 8. Hotels & Travel
         if (/hotel|jamahkiri|アトレ|ラゾーナ|ニトリ|amazon|アマゾン/i.test(desc)) {
             if (/hotel|jamahkiri/i.test(desc)) return { mainCategory: 'Leisure & Travel', subCategory: 'Hotels & Accommodation' };
             return { mainCategory: 'Shopping & Household', subCategory: 'Home Goods & Supplies' };
         }
 
+        // 9. Digital Subscriptions
         if (/ネットフリックス|netflix|apple|google/i.test(desc)) {
             return { mainCategory: 'Leisure & Travel', subCategory: 'Hobbies & Entertainment' };
         }
@@ -495,6 +506,7 @@
         document.getElementById('rule-keyword').value = '';
         renderRules();
 
+        // Re-apply rules to existing items
         expenseData.forEach(item => {
             let cat = autoCategorize(item.description);
             if (cat.mainCategory !== 'Miscellaneous') {
@@ -526,6 +538,7 @@
         });
     }
 
+    // Bulk Category Modifier
     function applyBulkCategorization() {
         const selectedBoxes = document.querySelectorAll('.item-checkbox:checked');
         if (selectedBoxes.length === 0) {
@@ -579,6 +592,7 @@
         let day = parseInt(parts[2], 10);
         if (isNaN(year) || isNaN(month) || isNaN(day) || month < 1 || month > 12) return null;
         
+        // Handles YY/MM/DD (e.g. 25/10/03 -> 2025-10-03)
         if (year < 100) year += 2000;
         return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     }
@@ -615,6 +629,7 @@
         saveAndRender();
     }
 
+    // File Upload Handler (PayPay CSV & SMBC PDF)
     async function handleFileUpload(event) {
         const files = Array.from(event.target.files);
         const status = document.getElementById('expense-upload-status');
@@ -650,6 +665,7 @@
         status.textContent = `Import complete! Added ${totalExtracted} new records (${duplicateCount} duplicate records skipped).`;
     }
 
+    // PayPay CSV Extraction Logic
     function processExpenseCSV(file) {
         return new Promise((resolve) => {
             Papa.parse(file, {
@@ -662,6 +678,7 @@
                     let extracted = [];
                     let headerIndex = -1;
                     
+                    // Recognized CSV Headers (English & Japanese PayPay Export formats)
                     const dateHeaders = ['Date & Time', 'Date', '日付', '取引日時', '利用日', '利用年月日'];
 
                     for (let i = 0; i < rows.length; i++) {
@@ -681,16 +698,21 @@
                             row[h] = rowArr[idx] !== undefined ? String(rowArr[idx]).trim() : '';
                         });
 
+                        // Extract Date
                         let rawDate = row['Date & Time'] || row['Date'] || row['取引日時'] || row['日付'] || row['利用日'] || row['利用年月日'];
                         let cleanDate = sanitizeDate(rawDate);
 
+                        // Extract Description
                         let description = row['Business Name'] || row['加盟店名/支払い先'] || row['内容'] || row['利用店名・商品名'] || row['Transaction Type'] || row['取引種別'] || 'PayPay Payment';
                         description = normalizeJapaneseText(description);
 
+                        // Extract Amount Outgoing (Skip Top-Ups / Balance Earned)
                         let rawAmountOut = row['Amount Outgoing (Yen)'] || row['金額（出金）'] || row['Amount'] || row['金額'] || row['利用金額(円)'];
                         let amount = parseNum(rawAmountOut);
 
                         let typeStr = (row['Transaction Type'] || row['取引種別'] || '').toLowerCase();
+                        
+                        // Ignore Top-Ups / Money Received into wallet balance
                         if (typeStr.includes('top-up') || typeStr.includes('チャージ') || typeStr.includes('points') || typeStr.includes('ポイント')) {
                             amount = 0;
                         }
@@ -714,126 +736,61 @@
         });
     }
 
-    // Improved SMBC Direct PDF Parsing Algorithm
+    // SMBC PDF Extraction Logic
     async function processExpensePDF(file) {
         let extracted = [];
         try {
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-            let pageLines = [];
+            let extractedLines = [];
 
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
                 const textContent = await page.getTextContent();
-                
-                // Group text fragments into visual horizontal lines (y-tolerance: 6px)
-                let linesByY = [];
-                textContent.items.forEach(item => {
-                    let text = item.str.trim();
-                    if (!text) return;
-                    let y = item.transform[5];
-                    let x = item.transform[4];
+                let lineMap = {};
 
-                    let existingLine = linesByY.find(l => Math.abs(l.y - y) < 6);
-                    if (existingLine) {
-                        existingLine.items.push({ x, text });
-                    } else {
-                        linesByY.push({ y, items: [{ x, text }] });
-                    }
+                // Map items vertically by Y-coordinate layout spacing
+                textContent.items.forEach(item => {
+                    let y = Math.round(item.transform[5]); 
+                    if (!lineMap[y]) lineMap[y] = [];
+                    lineMap[y].push(item.str);
                 });
 
-                // Sort lines vertically top-to-bottom
-                linesByY.sort((a, b) => b.y - a.y);
-
-                linesByY.forEach(lineObj => {
-                    // Sort items horizontally left-to-right
-                    lineObj.items.sort((a, b) => a.x - b.x);
-                    let lineStr = lineObj.items.map(it => it.text).join(' ').replace(/\|/g, ' ').trim();
-                    if (lineStr) pageLines.push(lineStr);
+                Object.keys(lineMap).sort((a, b) => b - a).forEach(y => {
+                    let lineText = lineMap[y].join(' ').trim();
+                    if (lineText) extractedLines.push(lineText);
                 });
             }
 
-            let currentYear = new Date().getFullYear();
-            let cleanedLines = pageLines.filter(l => 
-                !l.startsWith('http') && 
-                !l.includes('明細照会') && 
-                !l.includes('SMBC') && 
-                !l.includes('お取扱内容') && 
-                !l.includes('対象期間')
-            );
+            // Handles SMBC statements: YY/MM/DD Merchant Name Amount
+            // Example: "25/10/03 ＥＴＣ首都高 590" or "2026/06/07 かんたん告知の医療保険 3,540"
+            const smbcLineRegex = /(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})\s+([^\d\n]+?)\s+([\d,]+)/;
 
-            let idx = 0;
-            while (idx < cleanedLines.length) {
-                let line = cleanedLines[idx];
+            extractedLines.forEach(line => {
+                let match = line.match(smbcLineRegex);
+                if (match) {
+                    let cleanDate = sanitizeDate(match[1]);
+                    let description = normalizeJapaneseText(match[2]);
+                    let amount = parseNum(match[3]);
 
-                // Detect Year Section Headers (e.g., "2026年2月" or "2026年")
-                let ym = line.match(/(\d{4})年/);
-                if (ym && (line.includes('月') || line.length <= 10)) {
-                    currentYear = parseInt(ym[1], 10);
-                    idx++;
-                    continue;
-                }
-
-                // Detect Japanese Date (e.g. "2月27日")
-                let dm = line.match(/(\d{1,2})月(\d{1,2})日/);
-                if (dm) {
-                    let m = String(dm[1]).padStart(2, '0');
-                    let d = String(dm[2]).padStart(2, '0');
-                    let dateStr = `${currentYear}-${m}-${d}`;
-
-                    let descParts = [];
-
-                    // Inline description text after/before date
-                    let rest = line.replace(dm[0], '').trim();
-                    if (rest) descParts.push(rest);
-
-                    // Previous line description check
-                    if (idx > 0) {
-                        let prev = cleanedLines[idx - 1];
-                        if (!prev.match(/\d{1,2}月\d{1,2}日/) && !prev.match(/[\d,]+円/) && !prev.includes('年') && !prev.includes('残高') && !prev.includes('入金') && !prev.includes('出金')) {
-                            descParts.unshift(prev);
-                        }
+                    // Exclude summary total lines from transaction list
+                    if (description.includes("お支払い合計額") || description.includes("お支払金額総合計") || description.includes("最低支払額")) {
+                        return;
                     }
 
-                    // Look ahead for amounts and multi-line descriptions
-                    let amount = null;
-                    let isIncome = false;
-
-                    let j = idx + 1;
-                    while (j < cleanedLines.length && j < idx + 4) {
-                        let nxt = cleanedLines[j];
-                        if (nxt.match(/\d{1,2}月\d{1,2}日/) || nxt.match(/\d{4}年/)) break;
-
-                        let am = nxt.match(/([\d,]+)\s*円/);
-                        if (am) {
-                            let amtVal = parseNum(am[1]);
-                            if (nxt.includes('+')) isIncome = true;
-                            amount = amtVal;
-                            break;
-                        } else {
-                            if (!nxt.startsWith('http') && !nxt.includes('三井住友銀行')) {
-                                descParts.push(nxt);
-                            }
-                        }
-                        j++;
-                    }
-
-                    let fullDesc = normalizeJapaneseText(descParts.join(' '));
-
-                    if (amount !== null && amount > 0 && !isIncome && fullDesc) {
-                        let cats = autoCategorize(fullDesc);
+                    if (cleanDate && amount > 0 && description) {
+                        let cats = autoCategorize(description);
                         extracted.push({
                             id: (Date.now() + Math.random()).toString(),
-                            date: dateStr,
+                            date: cleanDate,
                             mainCategory: cats.mainCategory,
                             subCategory: cats.subCategory,
-                            description: fullDesc,
+                            description: description,
                             amount: amount
                         });
                     }
                 }
-                idx++;
-            }
+            });
         } catch (err) {
             console.error("PDF Parsing Error:", err);
         }
