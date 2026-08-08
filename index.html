@@ -7,7 +7,6 @@
     <!-- External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- PDF.js library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         :root {
@@ -99,10 +98,7 @@
             cursor: pointer;
             transition: all 0.2s ease;
         }
-        .batch-drop-zone:hover {
-            border-color: var(--primary);
-            background: #eff6ff;
-        }
+        .batch-drop-zone:hover { border-color: var(--primary); background: #eff6ff; }
         .batch-drop-zone input { display: none; }
 
         select, button, input[type="text"], input[type="number"], input[type="date"] {
@@ -126,23 +122,18 @@
         .btn-toggle { background: transparent; color: var(--text-muted); border: none; cursor: pointer; font-weight: 600; padding: 6px 14px; border-radius: var(--radius-sm); font-size: 0.8rem; }
         .btn-toggle.active { background: var(--surface); color: var(--text-main); box-shadow: var(--shadow-subtle); }
 
-        .expense-form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 12px;
-            align-items: end;
-        }
-
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; align-items: end; }
         .chart-container { position: relative; height: 420px; width: 100%; margin-top: 8px; }
 
         .table-responsive { overflow-x: auto; margin-top: 8px; }
         table { width: 100%; border-collapse: separate; border-spacing: 0; }
         th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
-        th { background: #f8fafc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; position: sticky; top: 0; }
+        th { background: #f8fafc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
         tbody tr:hover { background: #f8fafc; }
         
         .cat-tag { background: #eff6ff; color: #1d4ed8; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.78rem; display: inline-block; }
         .subcat-tag { background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 4px; font-weight: 500; font-size: 0.78rem; display: inline-block; margin-left: 4px; }
+        .rule-chip { background: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; margin: 4px; }
     </style>
 </head>
 <body>
@@ -161,18 +152,16 @@
 
     <!-- Manual Expense Entry -->
     <div class="card">
-        <div class="card-header">
-            <h3 class="card-title">➕ Add New Expense</h3>
-        </div>
+        <div class="card-header"><h3 class="card-title">➕ Add New Expense</h3></div>
         <form id="expense-form" onsubmit="handleAddExpense(event)">
-            <div class="expense-form-grid">
+            <div class="form-grid">
                 <div>
                     <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">DATE</label>
                     <input type="date" id="exp-date" required style="width: 100%;">
                 </div>
                 <div>
                     <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">MAIN CATEGORY</label>
-                    <select id="exp-main-category" onchange="updateSubCategoryDropdown()" style="width: 100%;"></select>
+                    <select id="exp-main-category" onchange="updateSubCategoryDropdown('exp-main-category', 'exp-sub-category')" style="width: 100%;"></select>
                 </div>
                 <div>
                     <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">SUB CATEGORY</label>
@@ -193,18 +182,45 @@
         </form>
     </div>
 
+    <!-- Custom Categorization Rules Manager (LOGIC 1) -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">⚙️ Logic 1: Custom Rule Manager</h3>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">Set keyword triggers to assign main categories and subcategories</span>
+        </div>
+        <form id="rule-form" onsubmit="handleAddRule(event)">
+            <div class="form-grid">
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">KEYWORD / CONTAINS</label>
+                    <input type="text" id="rule-keyword" placeholder="e.g. Amazon, Seven Eleven" required style="width: 100%;">
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">ASSIGN MAIN CATEGORY</label>
+                    <select id="rule-main-category" onchange="updateSubCategoryDropdown('rule-main-category', 'rule-sub-category')" style="width: 100%;"></select>
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">ASSIGN SUB CATEGORY</label>
+                    <select id="rule-sub-category" style="width: 100%;"></select>
+                </div>
+                <div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; height: 37px; justify-content: center;">Add Rule</button>
+                </div>
+            </div>
+        </form>
+        <div style="margin-top: 16px;" id="custom-rules-list"></div>
+    </div>
+
     <!-- Upload Statements -->
     <div class="card">
         <div class="card-header">
             <h3 class="card-title">📁 Import Statements (CSV & PDF)</h3>
-            <span style="font-size: 0.8rem; color: var(--text-muted);">Supports bank statements & credit card exports</span>
         </div>
         <div class="batch-drop-zone" onclick="document.getElementById('statement-files').click()">
             <span style="font-size: 2rem; display: block; margin-bottom: 8px;">📄 / 📊</span>
             <span style="font-size: 0.95rem; font-weight: 600; color: var(--text-main);">Click or Drag & Drop CSV / PDF statement files here</span>
             <input type="file" id="statement-files" accept=".csv, .pdf" multiple onchange="handleFileUpload(event)">
         </div>
-        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 10px; font-weight: 500;" id="expense-upload-status">Ready to import CSV or PDF statement files. Smart auto-categorization will be applied.</div>
+        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 10px; font-weight: 500;" id="expense-upload-status">Ready to import.</div>
     </div>
 
     <!-- KPI Summary Cards -->
@@ -234,22 +250,32 @@
             </div>
             <span id="expense-period-title" style="font-weight: 600; color: var(--text-muted); font-size: 0.85rem;"></span>
         </div>
-
         <div class="chart-container">
             <canvas id="expenseChart"></canvas>
         </div>
     </div>
 
-    <!-- Data Table -->
+    <!-- Data Table & Bulk Categorization (LOGIC 2) -->
     <div class="card">
         <div class="card-header">
             <h3 class="card-title">Expense Transactions</h3>
-            <button class="btn btn-secondary" onclick="clearExpenseData()">🧹 Clear All Expenses</button>
+            <button class="btn btn-secondary" onclick="clearExpenseData()">🧹 Clear All</button>
         </div>
+
+        <!-- LOGIC 2: Bulk Category Modifier Interface -->
+        <div style="background: #f1f5f9; padding: 12px 16px; border-radius: var(--radius-md); margin-bottom: 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-main);">⚡ Logic 2: Bulk Category Modifier</span>
+            <select id="bulk-main-category" onchange="updateSubCategoryDropdown('bulk-main-category', 'bulk-sub-category')"></select>
+            <select id="bulk-sub-category"></select>
+            <button class="btn btn-primary" onclick="applyBulkCategorization()">Update Selected Items</button>
+            <span id="selected-count-label" style="font-size: 0.8rem; color: var(--text-muted);">0 items selected</span>
+        </div>
+
         <div class="table-responsive">
             <table>
                 <thead>
                     <tr>
+                        <th><input type="checkbox" id="select-all-checkbox" onchange="toggleSelectAll(this)"></th>
                         <th>Date</th>
                         <th>Main Category</th>
                         <th>Sub Category</th>
@@ -265,7 +291,6 @@
 </div>
 
 <script>
-    // Initialize PDF.js with CDN worker source
     if (typeof pdfjsLib !== 'undefined') {
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     }
@@ -281,65 +306,167 @@
     };
 
     let expenseData = JSON.parse(localStorage.getItem('household_expenses_data')) || [];
+    let customRules = JSON.parse(localStorage.getItem('household_custom_rules')) || [
+        { id: '1', keyword: 'suica', mainCategory: 'Transportation', subCategory: 'Trains & Bus' },
+        { id: '2', keyword: 'supermarket', mainCategory: 'Food & Dining', subCategory: 'Groceries' }
+    ];
+    let processedFilesHashes = JSON.parse(localStorage.getItem('processed_file_hashes')) || [];
+
     let currentExpenseViewMode = 'daily';
     let expenseChartInstance;
 
     document.getElementById('exp-date').valueAsDate = new Date();
 
-    function initCategoryDropdowns() {
-        const mainSelect = document.getElementById('exp-main-category');
-        mainSelect.innerHTML = '';
-        Object.keys(CATEGORY_MAP).forEach(mainCat => {
-            const opt = document.createElement('option');
-            opt.value = mainCat;
-            opt.textContent = mainCat;
-            mainSelect.appendChild(opt);
-        });
-        updateSubCategoryDropdown();
+    function getTransactionHash(item) {
+        return `${item.date}_${item.description}_${item.amount}`;
     }
 
-    function updateSubCategoryDropdown() {
-        const mainCat = document.getElementById('exp-main-category').value;
-        const subSelect = document.getElementById('exp-sub-category');
+    function initCategoryDropdowns() {
+        const dropIds = ['exp-main-category', 'rule-main-category', 'bulk-main-category'];
+        dropIds.forEach(id => {
+            const select = document.getElementById(id);
+            select.innerHTML = '';
+            Object.keys(CATEGORY_MAP).forEach(mainCat => {
+                const opt = document.createElement('option');
+                opt.value = mainCat; opt.textContent = mainCat;
+                select.appendChild(opt);
+            });
+        });
+
+        updateSubCategoryDropdown('exp-main-category', 'exp-sub-category');
+        updateSubCategoryDropdown('rule-main-category', 'rule-sub-category');
+        updateSubCategoryDropdown('bulk-main-category', 'bulk-sub-category');
+    }
+
+    function updateSubCategoryDropdown(mainId, subId) {
+        const mainCat = document.getElementById(mainId).value;
+        const subSelect = document.getElementById(subId);
         subSelect.innerHTML = '';
         
         const subCats = CATEGORY_MAP[mainCat] || ["General Expense"];
         subCats.forEach(sub => {
             const opt = document.createElement('option');
-            opt.value = sub;
-            opt.textContent = sub;
+            opt.value = sub; opt.textContent = sub;
             subSelect.appendChild(opt);
         });
     }
 
+    // LOGIC 1: Keyword Categorization Engine
     function autoCategorize(description) {
         const desc = description.toLowerCase();
 
-        if (desc.includes('supermarket') || desc.includes('grocery') || desc.includes('aeon') || desc.includes('ライフ') || desc.includes('食品')) {
+        // 1. User-defined Custom Rules First
+        for (let rule of customRules) {
+            if (desc.includes(rule.keyword.toLowerCase())) {
+                return { mainCategory: rule.mainCategory, subCategory: rule.subCategory };
+            }
+        }
+
+        // 2. Default System Regex Fallbacks
+        if (/スーパー|イオン|イトーヨーカドー|ライフ|オーケー|ヤオコー|西友|コストコ|まいばすけっと|業務スーパー|サミット|ロピア|セブン|ファミマ|ローソン|supermarket|grocery/i.test(desc)) {
             return { mainCategory: 'Food & Dining', subCategory: 'Groceries' };
         }
-        if (desc.includes('restaurant') || desc.includes('mcdonald') || desc.includes('starbucks') || desc.includes('cafe')) {
+        if (/マクドナルド|スターバックス|ドトール|カフェ|ガスト|サイゼリヤ|すき家|吉野家|松屋|スシロー|居酒屋|レストラン|ラーメン|restaurant|cafe/i.test(desc)) {
             return { mainCategory: 'Food & Dining', subCategory: 'Restaurants & Dining Out' };
         }
-        if (desc.includes('power') || desc.includes('electric') || desc.includes('電力') || desc.includes('gas') || desc.includes('東京ガス')) {
-            return { mainCategory: 'Housing & Utilities', subCategory: desc.includes('gas') ? 'Water & Gas' : 'Electricity' };
+        if (/電力|東京電力|電気|ガス|東京ガス|水道|power|electric/i.test(desc)) {
+            return { mainCategory: 'Housing & Utilities', subCategory: desc.includes('ガス') || desc.includes('水道') ? 'Water & Gas' : 'Electricity' };
         }
-        if (desc.includes('suica') || desc.includes('pasmo') || desc.includes('jr') || desc.includes('train') || desc.includes('metro')) {
+        if (/suica|pasmo|icoca|jr|電車|バス|タクシー|高速|etc|列車|metro|train/i.test(desc)) {
             return { mainCategory: 'Transportation', subCategory: 'Trains & Bus' };
         }
-        if (desc.includes('swim') || desc.includes('arena') || desc.includes('speedo') || desc.includes('mizuno') || desc.includes('pool')) {
+        if (/スイミング|水泳|arena|speedo|mizuno|スポーツ|ジム|フィットネス|swim|pool/i.test(desc)) {
             return { mainCategory: 'Education & Sports', subCategory: 'Swimming & Sports Club' };
-        }
-        if (desc.includes('hotel') || desc.includes('inn') || desc.includes('resort') || desc.includes('ski')) {
-            return { mainCategory: 'Leisure & Travel', subCategory: 'Hotels & Accommodation' };
         }
 
         return { mainCategory: 'Miscellaneous', subCategory: 'General Expense' };
     }
 
+    function handleAddRule(event) {
+        event.preventDefault();
+        const keyword = document.getElementById('rule-keyword').value.trim();
+        const mainCategory = document.getElementById('rule-main-category').value;
+        const subCategory = document.getElementById('rule-sub-category').value;
+
+        if (!keyword) return;
+
+        customRules.push({ id: Date.now().toString(), keyword, mainCategory, subCategory });
+        localStorage.setItem('household_custom_rules', JSON.stringify(customRules));
+        
+        document.getElementById('rule-keyword').value = '';
+        renderRules();
+
+        // Re-apply rules to existing items
+        expenseData.forEach(item => {
+            let cat = autoCategorize(item.description);
+            if (cat.mainCategory !== 'Miscellaneous') {
+                item.mainCategory = cat.mainCategory;
+                item.subCategory = cat.subCategory;
+            }
+        });
+        saveAndRender();
+    }
+
+    function deleteRule(id) {
+        customRules = customRules.filter(r => r.id !== id);
+        localStorage.setItem('household_custom_rules', JSON.stringify(customRules));
+        renderRules();
+    }
+
+    function renderRules() {
+        const container = document.getElementById('custom-rules-list');
+        container.innerHTML = '<strong>Active Rules: </strong>';
+        if (customRules.length === 0) {
+            container.innerHTML += '<span style="font-size:0.8rem; color: var(--text-muted);">None</span>';
+            return;
+        }
+        customRules.forEach(r => {
+            const chip = document.createElement('span');
+            chip.className = 'rule-chip';
+            chip.innerHTML = `"${r.keyword}" ➔ ${r.mainCategory} (${r.subCategory}) <button onclick="deleteRule('${r.id}')" style="border:none; background:transparent; cursor:pointer; font-weight:bold; color:#92400e;">✕</button>`;
+            container.appendChild(chip);
+        });
+    }
+
+    // LOGIC 2: Bulk Category Modifier
+    function applyBulkCategorization() {
+        const selectedBoxes = document.querySelectorAll('.item-checkbox:checked');
+        if (selectedBoxes.length === 0) {
+            alert('Please select at least one transaction from the table.');
+            return;
+        }
+
+        const mainCategory = document.getElementById('bulk-main-category').value;
+        const subCategory = document.getElementById('bulk-sub-category').value;
+
+        const selectedIds = Array.from(selectedBoxes).map(cb => cb.dataset.id);
+
+        expenseData.forEach(item => {
+            if (selectedIds.includes(item.id)) {
+                item.mainCategory = mainCategory;
+                item.subCategory = subCategory;
+            }
+        });
+
+        saveAndRender();
+        document.getElementById('select-all-checkbox').checked = false;
+        updateSelectedCount();
+    }
+
+    function toggleSelectAll(masterCb) {
+        const checkboxes = document.querySelectorAll('.item-checkbox');
+        checkboxes.forEach(cb => cb.checked = masterCb.checked);
+        updateSelectedCount();
+    }
+
+    function updateSelectedCount() {
+        const count = document.querySelectorAll('.item-checkbox:checked').length;
+        document.getElementById('selected-count-label').textContent = `${count} items selected`;
+    }
+
     function parseNum(val) {
         if (val === undefined || val === null || val === '') return 0;
-        let num = parseFloat(String(val).replace(/,/g, '').replace(/円/g, '').replace(/¥/g, '').replace(/￥/g, ''));
+        let num = parseFloat(String(val).replace(/,/g, '').replace(/円/g, '').replace(/¥/g, ''));
         return isNaN(num) ? 0 : Math.abs(num);
     }
 
@@ -372,8 +499,13 @@
         if (!date || !description || amount <= 0) return;
 
         const newItem = { id: Date.now().toString(), date, mainCategory, subCategory, description, amount };
-        expenseData.push(newItem);
-        saveAndRender();
+        const hash = getTransactionHash(newItem);
+
+        if (!processedFilesHashes.includes(hash)) {
+            processedFilesHashes.push(hash);
+            expenseData.push(newItem);
+            saveAndRender();
+        }
 
         document.getElementById('exp-description').value = '';
         document.getElementById('exp-amount').value = '';
@@ -384,119 +516,121 @@
         saveAndRender();
     }
 
+    // Statement Processing & Hash Deduplication
     async function handleFileUpload(event) {
         const files = Array.from(event.target.files);
         const status = document.getElementById('expense-upload-status');
         if (files.length === 0) return;
 
         let totalExtracted = 0;
+        let duplicateCount = 0;
+
         for (let file of files) {
             status.textContent = `Processing ${file.name}...`;
             const fname = file.name.toLowerCase();
+            let newItems = [];
+
             if (fname.endsWith('.csv')) {
-                totalExtracted += await processExpenseCSV(file);
+                newItems = await processExpenseCSV(file);
             } else if (fname.endsWith('.pdf')) {
-                totalExtracted += await processExpensePDF(file);
+                newItems = await processExpensePDF(file);
             }
+
+            newItems.forEach(item => {
+                const hash = getTransactionHash(item);
+                if (processedFilesHashes.includes(hash)) {
+                    duplicateCount++;
+                } else {
+                    processedFilesHashes.push(hash);
+                    expenseData.push(item);
+                    totalExtracted++;
+                }
+            });
         }
 
         saveAndRender();
-        status.textContent = `Import complete! Added ${totalExtracted} expense records.`;
+        status.textContent = `Import complete! Added ${totalExtracted} new records (${duplicateCount} duplicate records skipped).`;
     }
 
     function processExpenseCSV(file) {
         return new Promise((resolve) => {
-            let extractedCount = 0;
             Papa.parse(file, {
                 header: false,
                 skipEmptyLines: true,
                 complete: function(results) {
                     let rows = results.data;
-                    if (!rows || rows.length === 0) return resolve(0);
+                    if (!rows || rows.length === 0) return resolve([]);
 
+                    let extracted = [];
                     let headerIndex = -1;
                     const dateHeaders = ['Date', '日付', '利用日', '利用年月日'];
 
                     for (let i = 0; i < rows.length; i++) {
                         let cleanedRow = rows[i].map(cleanHeader);
                         if (cleanedRow.some(col => dateHeaders.includes(col))) {
-                            headerIndex = i;
-                            break;
+                            headerIndex = i; break;
                         }
                     }
 
-                    if (headerIndex === -1) return resolve(0);
+                    if (headerIndex === -1) return resolve([]);
                     let headers = rows[headerIndex].map(cleanHeader);
 
                     for (let i = headerIndex + 1; i < rows.length; i++) {
                         let rowArr = rows[i];
                         let row = {};
                         headers.forEach((h, idx) => {
-                            row[h] = rowArr[idx] !== undefined ? String(rowArr[idx]).replace(/["']/g, '').trim() : '';
+                            row[h] = rowArr[idx] !== undefined ? String(rowArr[idx]).trim() : '';
                         });
 
-                        let rawDate = row['Date'] || row['日付'] || row['利用日'] || row['利用年月日'] || '';
-                        let cleanDate = sanitizeDate(rawDate);
-                        let description = row['Description'] || row['内容'] || row['利用店名・商品名'] || row['摘要'] || 'General Expense';
-                        let amount = parseNum(row['Amount'] || row['金額'] || row['利用金額(円)'] || row['支出金額']);
+                        let cleanDate = sanitizeDate(row['Date'] || row['日付'] || row['利用日'] || row['利用年月日']);
+                        let description = row['Description'] || row['内容'] || row['利用店名・商品名'] || 'General Expense';
+                        let amount = parseNum(row['Amount'] || row['金額'] || row['利用金額(円)']);
 
                         let cats = autoCategorize(description);
-                        let mainCategory = row['MainCategory'] || row['メインカテゴリ'] || cats.mainCategory;
-                        let subCategory = row['SubCategory'] || row['サブカテゴリ'] || cats.subCategory;
 
                         if (cleanDate && amount > 0) {
-                            expenseData.push({
+                            extracted.push({
                                 id: (Date.now() + Math.random()).toString(),
                                 date: cleanDate,
-                                mainCategory: mainCategory,
-                                subCategory: subCategory,
+                                mainCategory: cats.mainCategory,
+                                subCategory: cats.subCategory,
                                 description: description,
                                 amount: amount
                             });
-                            extractedCount++;
                         }
                     }
-                    resolve(extractedCount);
+                    resolve(extracted);
                 }
             });
         });
     }
 
+    // PDF Coordinate Extractor Engine (solves Japanese multi-column table collapsing)
     async function processExpensePDF(file) {
-        let extractedCount = 0;
+        let extracted = [];
         try {
             const arrayBuffer = await file.arrayBuffer();
-            
-            // Disable worker if fetching worker script fails (prevents CORS issues on local files)
-            const loadingTask = pdfjsLib.getDocument({
-                data: arrayBuffer,
-                disableWorker: false
-            });
-            
-            const pdf = await loadingTask.promise;
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             let extractedLines = [];
 
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
                 const textContent = await page.getTextContent();
-                
-                // Group text items by y-coordinate position to rebuild actual table lines
                 let lineMap = {};
+
+                // Transform matrix[5] represents vertical Y-coordinate layout spacing
                 textContent.items.forEach(item => {
                     let y = Math.round(item.transform[5]); 
                     if (!lineMap[y]) lineMap[y] = [];
                     lineMap[y].push(item.str);
                 });
 
-                // Sort line keys top to bottom
-                let sortedY = Object.keys(lineMap).sort((a,b) => b - a);
-                sortedY.forEach(y => {
+                Object.keys(lineMap).sort((a, b) => b - a).forEach(y => {
                     let lineText = lineMap[y].join(' ').trim();
                     if (lineText) extractedLines.push(lineText);
                 });
             }
 
-            // Flexible regex matching: Date (YYYY-MM-DD or YYYY/MM/DD), text/description, and Amount
             const pdfLineRegex = /(\d{4}[-\/\.]\d{1,2}[-\/\.]\d{1,2})\s+(.*?)\s+([¥￥]?\s*[\d,]+)\s*$/;
 
             extractedLines.forEach(line => {
@@ -506,9 +640,9 @@
                     let description = match[2].trim();
                     let amount = parseNum(match[3]);
 
-                    if (cleanDate && amount > 0 && description.length > 0) {
+                    if (cleanDate && amount > 0) {
                         let cats = autoCategorize(description);
-                        expenseData.push({
+                        extracted.push({
                             id: (Date.now() + Math.random()).toString(),
                             date: cleanDate,
                             mainCategory: cats.mainCategory,
@@ -516,34 +650,28 @@
                             description: description,
                             amount: amount
                         });
-                        extractedCount++;
                     }
                 }
             });
         } catch (err) {
             console.error("PDF Parsing Error:", err);
-            document.getElementById('expense-upload-status').textContent = `Error reading PDF (${file.name}). Ensure it is not password-protected.`;
         }
-        return extractedCount;
+        return extracted;
     }
 
     function saveAndRender() {
-        const uniqueMap = new Map();
-        expenseData.forEach(item => {
-            const key = `${item.date}_${item.description}_${item.amount}`;
-            if (!uniqueMap.has(key)) {
-                uniqueMap.set(key, item);
-            }
-        });
-        expenseData = Array.from(uniqueMap.values());
         localStorage.setItem('household_expenses_data', JSON.stringify(expenseData));
+        localStorage.setItem('household_custom_rules', JSON.stringify(customRules));
+        localStorage.setItem('processed_file_hashes', JSON.stringify(processedFilesHashes));
         renderDashboard();
     }
 
     function clearExpenseData() {
-        if (confirm("Are you sure you want to clear all expense records?")) {
+        if (confirm("Clear all records and hash history?")) {
             expenseData = [];
+            processedFilesHashes = [];
             localStorage.removeItem('household_expenses_data');
+            localStorage.removeItem('processed_file_hashes');
             renderDashboard();
         }
     }
@@ -581,17 +709,12 @@
         
         let filtered = expenseData.filter(d => selectedMonth === 'ALL' || d.date.startsWith(selectedMonth));
         
-        let totalSpend = 0;
-        filtered.forEach(d => totalSpend += d.amount);
-
+        let totalSpend = filtered.reduce((sum, item) => sum + item.amount, 0);
         const uniqueDays = new Set(filtered.map(d => d.date)).size || 1;
-        const dailyAvg = Math.round(totalSpend / uniqueDays);
 
         document.getElementById('m-total-spending').textContent = `¥${totalSpend.toLocaleString()}`;
         document.getElementById('m-transaction-count').textContent = filtered.length;
-        document.getElementById('m-daily-avg').textContent = `¥${dailyAvg.toLocaleString()}`;
-
-        document.getElementById('expense-period-title').textContent = `Scope: ${selectedMonth === 'ALL' ? 'All Data' : selectedMonth}`;
+        document.getElementById('m-daily-avg').textContent = `¥${Math.round(totalSpend / uniqueDays).toLocaleString()}`;
 
         renderChart(filtered);
         renderTable(filtered);
@@ -599,88 +722,49 @@
 
     function renderChart(data) {
         if (expenseChartInstance) expenseChartInstance.destroy();
-
         const ctx = document.getElementById('expenseChart').getContext('2d');
 
         if (currentExpenseViewMode === 'daily') {
             const dailyAgg = {};
-            data.forEach(d => {
-                dailyAgg[d.date] = (dailyAgg[d.date] || 0) + d.amount;
-            });
-
+            data.forEach(d => dailyAgg[d.date] = (dailyAgg[d.date] || 0) + d.amount);
             const sortedDates = Object.keys(dailyAgg).sort();
-            const amounts = sortedDates.map(d => dailyAgg[d]);
 
             expenseChartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: sortedDates.length > 0 ? sortedDates : ['No Data'],
-                    datasets: [{
-                        label: 'Daily Expense (¥)',
-                        data: amounts,
-                        backgroundColor: '#2563eb',
-                        borderRadius: 4
-                    }]
+                    labels: sortedDates,
+                    datasets: [{ label: 'Daily Spending (¥)', data: sortedDates.map(d => dailyAgg[d]), backgroundColor: '#2563eb' }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: true, title: { display: true, text: '¥ (JPY)' } } }
-                }
+                options: { responsive: true, maintainAspectRatio: false }
             });
 
         } else if (currentExpenseViewMode === 'main_category') {
             const catAgg = {};
-            data.forEach(d => {
-                catAgg[d.mainCategory || 'Miscellaneous'] = (catAgg[d.mainCategory || 'Miscellaneous'] || 0) + d.amount;
-            });
-
-            const categories = Object.keys(catAgg);
-            const amounts = categories.map(c => catAgg[c]);
+            data.forEach(d => catAgg[d.mainCategory] = (catAgg[d.mainCategory] || 0) + d.amount);
 
             expenseChartInstance = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
-                    labels: categories.length > 0 ? categories : ['No Data'],
-                    datasets: [{
-                        data: amounts,
-                        backgroundColor: ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#64748b']
-                    }]
+                    labels: Object.keys(catAgg),
+                    datasets: [{ data: Object.values(catAgg), backgroundColor: ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'] }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { title: { display: true, text: 'Main Category Breakdown' } }
-                }
+                options: { responsive: true, maintainAspectRatio: false }
             });
 
         } else if (currentExpenseViewMode === 'sub_category') {
             const subAgg = {};
             data.forEach(d => {
-                const label = `${d.mainCategory || 'Misc'} > ${d.subCategory || 'General'}`;
+                const label = `${d.mainCategory} > ${d.subCategory}`;
                 subAgg[label] = (subAgg[label] || 0) + d.amount;
             });
-
-            const subCategories = Object.keys(subAgg);
-            const amounts = subCategories.map(s => subAgg[s]);
 
             expenseChartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: subCategories.length > 0 ? subCategories : ['No Data'],
-                    datasets: [{
-                        label: 'Spending (¥)',
-                        data: amounts,
-                        backgroundColor: '#8b5cf6',
-                        borderRadius: 4
-                    }]
+                    labels: Object.keys(subAgg),
+                    datasets: [{ label: 'Subcategory Spending (¥)', data: Object.values(subAgg), backgroundColor: '#8b5cf6' }]
                 },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: { x: { beginAtZero: true, title: { display: true, text: '¥ (JPY)' } } }
-                }
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
             });
 
         } else if (currentExpenseViewMode === 'monthly') {
@@ -690,25 +774,13 @@
                 monthAgg[m] = (monthAgg[m] || 0) + d.amount;
             });
 
-            const sortedMonths = Object.keys(monthAgg).sort();
-            const amounts = sortedMonths.map(m => monthAgg[m]);
-
             expenseChartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: sortedMonths.length > 0 ? sortedMonths : ['No Data'],
-                    datasets: [{
-                        label: 'Monthly Total Expense (¥)',
-                        data: amounts,
-                        backgroundColor: '#3b82f6',
-                        borderRadius: 4
-                    }]
+                    labels: Object.keys(monthAgg).sort(),
+                    datasets: [{ label: 'Monthly Expense (¥)', data: Object.keys(monthAgg).sort().map(m => monthAgg[m]), backgroundColor: '#3b82f6' }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: true, title: { display: true, text: '¥ (JPY)' } } }
-                }
+                options: { responsive: true, maintainAspectRatio: false }
             });
         }
     }
@@ -722,13 +794,14 @@
         sortedData.forEach(item => {
             const row = document.createElement('tr');
             row.innerHTML = `
+                <td><input type="checkbox" class="item-checkbox" data-id="${item.id}" onchange="updateSelectedCount()"></td>
                 <td style="font-weight: 500;">${item.date}</td>
-                <td><span class="cat-tag">${item.mainCategory || 'Miscellaneous'}</span></td>
-                <td><span class="subcat-tag">${item.subCategory || 'General Expense'}</span></td>
+                <td><span class="cat-tag">${item.mainCategory}</span></td>
+                <td><span class="subcat-tag">${item.subCategory}</span></td>
                 <td>${item.description}</td>
-                <td style="font-weight: 700; color: var(--text-main);">¥${item.amount.toLocaleString()}</td>
+                <td style="font-weight: 700;">¥${item.amount.toLocaleString()}</td>
                 <td>
-                    <button onclick="deleteExpense('${item.id}')" style="background: transparent; border: none; color: #ef4444; cursor: pointer; padding: 0; font-size: 0.85rem;">🗑️ Delete</button>
+                    <button onclick="deleteExpense('${item.id}')" style="background: transparent; border: none; color: #ef4444; cursor: pointer;">🗑️ Delete</button>
                 </td>
             `;
             tbody.appendChild(row);
@@ -736,6 +809,7 @@
     }
 
     initCategoryDropdowns();
+    renderRules();
     renderDashboard();
 </script>
 </body>
