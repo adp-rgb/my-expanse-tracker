@@ -128,9 +128,20 @@
         .table-responsive { overflow-x: auto; margin-top: 8px; }
         table { width: 100%; border-collapse: separate; border-spacing: 0; }
         th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
-        th { background: #f8fafc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        th { background: #f8fafc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; vertical-align: top; }
         tbody tr:hover { background: #f8fafc; }
         
+        .column-filter-input, .column-filter-select {
+            display: block;
+            width: 100%;
+            margin-top: 6px;
+            font-size: 0.75rem;
+            padding: 4px 6px;
+            font-weight: normal;
+            text-transform: none;
+            letter-spacing: normal;
+        }
+
         .cat-tag { background: #eff6ff; color: #1d4ed8; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.78rem; display: inline-block; }
         .subcat-tag { background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 4px; font-weight: 500; font-size: 0.78rem; display: inline-block; margin-left: 4px; }
         .rule-chip { background: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; margin: 4px; }
@@ -276,10 +287,26 @@
                 <thead>
                     <tr>
                         <th><input type="checkbox" id="select-all-checkbox" onchange="toggleSelectAll(this)"></th>
-                        <th>Date</th>
-                        <th>Main Category</th>
-                        <th>Sub Category</th>
-                        <th>Description</th>
+                        <th>
+                            Date
+                            <input type="text" id="col-filter-date" class="column-filter-input" placeholder="Filter Date..." oninput="renderTableDataOnly()">
+                        </th>
+                        <th>
+                            Main Category
+                            <select id="col-filter-main-cat" class="column-filter-select" onchange="updateTableSubCatFilterOptions(); renderTableDataOnly();">
+                                <option value="ALL">All</option>
+                            </select>
+                        </th>
+                        <th>
+                            Sub Category
+                            <select id="col-filter-sub-cat" class="column-filter-select" onchange="renderTableDataOnly()">
+                                <option value="ALL">All</option>
+                            </select>
+                        </th>
+                        <th>
+                            Description
+                            <input type="text" id="col-filter-desc" class="column-filter-input" placeholder="Filter Description..." oninput="renderTableDataOnly()">
+                        </th>
                         <th>Amount (¥)</th>
                         <th>Action</th>
                     </tr>
@@ -338,6 +365,7 @@
         updateSubCategoryDropdown('exp-main-category', 'exp-sub-category');
         updateSubCategoryDropdown('rule-main-category', 'rule-sub-category');
         updateSubCategoryDropdown('bulk-main-category', 'bulk-sub-category');
+        populateTableColumnFilterOptions();
     }
 
     function updateSubCategoryDropdown(mainId, subId) {
@@ -351,6 +379,51 @@
             opt.value = sub; opt.textContent = sub;
             subSelect.appendChild(opt);
         });
+    }
+
+    function populateTableColumnFilterOptions() {
+        const mainCatFilter = document.getElementById('col-filter-main-cat');
+        if (!mainCatFilter) return;
+        const currentVal = mainCatFilter.value || 'ALL';
+        mainCatFilter.innerHTML = '<option value="ALL">All</option>';
+
+        Object.keys(CATEGORY_MAP).forEach(mainCat => {
+            const opt = document.createElement('option');
+            opt.value = mainCat; opt.textContent = mainCat;
+            mainCatFilter.appendChild(opt);
+        });
+        mainCatFilter.value = currentVal;
+        updateTableSubCatFilterOptions();
+    }
+
+    function updateTableSubCatFilterOptions() {
+        const mainCatVal = document.getElementById('col-filter-main-cat').value;
+        const subCatFilter = document.getElementById('col-filter-sub-cat');
+        if (!subCatFilter) return;
+
+        const currentSubVal = subCatFilter.value || 'ALL';
+        subCatFilter.innerHTML = '<option value="ALL">All</option>';
+
+        let optionsToDisplay = [];
+        if (mainCatVal !== 'ALL' && CATEGORY_MAP[mainCatVal]) {
+            optionsToDisplay = CATEGORY_MAP[mainCatVal];
+        } else {
+            let allSubs = new Set();
+            Object.values(CATEGORY_MAP).forEach(list => list.forEach(s => allSubs.add(s)));
+            optionsToDisplay = Array.from(allSubs);
+        }
+
+        optionsToDisplay.forEach(sub => {
+            const opt = document.createElement('option');
+            opt.value = sub; opt.textContent = sub;
+            subCatFilter.appendChild(opt);
+        });
+
+        if (optionsToDisplay.includes(currentSubVal)) {
+            subCatFilter.value = currentSubVal;
+        } else {
+            subCatFilter.value = 'ALL';
+        }
     }
 
     // Convert Japanese full-width characters (ＥＴＣ, ネットフリックス) to standard half-width
@@ -851,10 +924,30 @@
     }
 
     function renderTable(data) {
+        renderTableDataOnly(data);
+    }
+
+    function renderTableDataOnly(dataset) {
+        const selectedMonth = document.getElementById('month-filter').value || 'ALL';
+        let baseData = dataset || expenseData.filter(d => selectedMonth === 'ALL' || d.date.startsWith(selectedMonth));
+
+        const dateFilterVal = (document.getElementById('col-filter-date')?.value || '').toLowerCase().trim();
+        const mainCatFilterVal = document.getElementById('col-filter-main-cat')?.value || 'ALL';
+        const subCatFilterVal = document.getElementById('col-filter-sub-cat')?.value || 'ALL';
+        const descFilterVal = (document.getElementById('col-filter-desc')?.value || '').toLowerCase().trim();
+
+        let filtered = baseData.filter(item => {
+            if (dateFilterVal && !item.date.toLowerCase().includes(dateFilterVal)) return false;
+            if (mainCatFilterVal !== 'ALL' && item.mainCategory !== mainCatFilterVal) return false;
+            if (subCatFilterVal !== 'ALL' && item.subCategory !== subCatFilterVal) return false;
+            if (descFilterVal && !item.description.toLowerCase().includes(descFilterVal)) return false;
+            return true;
+        });
+
         const tbody = document.getElementById('expense-table-body');
         tbody.innerHTML = '';
 
-        const sortedData = [...data].sort((a,b) => b.date.localeCompare(a.date));
+        const sortedData = [...filtered].sort((a,b) => b.date.localeCompare(a.date));
 
         sortedData.forEach(item => {
             const row = document.createElement('tr');
@@ -871,6 +964,9 @@
             `;
             tbody.appendChild(row);
         });
+
+        document.getElementById('select-all-checkbox').checked = false;
+        updateSelectedCount();
     }
 
     initCategoryDropdowns();
