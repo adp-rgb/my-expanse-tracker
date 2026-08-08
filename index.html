@@ -224,11 +224,11 @@
     <!-- Upload Statements -->
     <div class="card">
         <div class="card-header">
-            <h3 class="card-title">📁 Import Statements (PayPay CSV & SMBC PDF)</h3>
+            <h3 class="card-title">📁 Import Statements (PayPay / AEON Card CSV & SMBC PDF)</h3>
         </div>
         <div class="batch-drop-zone" onclick="document.getElementById('statement-files').click()">
             <span style="font-size: 2rem; display: block; margin-bottom: 8px;">📄 / 📊</span>
-            <span style="font-size: 0.95rem; font-weight: 600; color: var(--text-main);">Click or Drag & Drop PayPay CSV / SMBC PDF statement files here</span>
+            <span style="font-size: 0.95rem; font-weight: 600; color: var(--text-main);">Click or Drag & Drop CSV / PDF statement files here</span>
             <input type="file" id="statement-files" accept=".csv, .pdf" multiple onchange="handleFileUpload(event)">
         </div>
         <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 10px; font-weight: 500;" id="expense-upload-status">Ready to import.</div>
@@ -354,6 +354,7 @@
         const dropIds = ['exp-main-category', 'rule-main-category', 'bulk-main-category'];
         dropIds.forEach(id => {
             const select = document.getElementById(id);
+            if (!select) return;
             select.innerHTML = '';
             Object.keys(CATEGORY_MAP).forEach(mainCat => {
                 const opt = document.createElement('option');
@@ -369,11 +370,12 @@
     }
 
     function updateSubCategoryDropdown(mainId, subId) {
-        const mainCat = document.getElementById(mainId).value;
+        const mainEl = document.getElementById(mainId);
         const subSelect = document.getElementById(subId);
-        subSelect.innerHTML = '';
+        if (!mainEl || !subSelect) return;
         
-        const subCats = CATEGORY_MAP[mainCat] || ["General Expense"];
+        subSelect.innerHTML = '';
+        const subCats = CATEGORY_MAP[mainEl.value] || ["General Expense"];
         subCats.forEach(sub => {
             const opt = document.createElement('option');
             opt.value = sub; opt.textContent = sub;
@@ -397,10 +399,11 @@
     }
 
     function updateTableSubCatFilterOptions() {
-        const mainCatVal = document.getElementById('col-filter-main-cat').value;
+        const mainCatFilter = document.getElementById('col-filter-main-cat');
         const subCatFilter = document.getElementById('col-filter-sub-cat');
-        if (!subCatFilter) return;
+        if (!mainCatFilter || !subCatFilter) return;
 
+        const mainCatVal = mainCatFilter.value;
         const currentSubVal = subCatFilter.value || 'ALL';
         subCatFilter.innerHTML = '<option value="ALL">All</option>';
 
@@ -426,7 +429,6 @@
         }
     }
 
-    // Convert Japanese full-width characters (ＥＴＣ, ネットフリックス) to standard half-width
     function normalizeJapaneseText(str) {
         if (!str) return '';
         return str.replace(/[Ａ-Ｚａ-ｚ０-９]/g, function(s) {
@@ -434,57 +436,47 @@
         }).replace(/ /g, ' ').trim();
     }
 
-    // Keyword Categorization Engine
     function autoCategorize(description) {
         const desc = normalizeJapaneseText(description).toLowerCase();
 
-        // 1. User-defined Custom Rules First
         for (let rule of customRules) {
             if (desc.includes(rule.keyword.toLowerCase())) {
                 return { mainCategory: rule.mainCategory, subCategory: rule.subCategory };
             }
         }
 
-        // 2. Japanese Supermarkets & Convenience Stores
-        if (/スーパー|イオン|イトーヨーカドー|ライフ|オーケー|ヤオコー|西友|コストコ|まいばすけっと|業務スーパー|サミット|ロピア|セブン|ファミマ|ローソン|オリジン|supermarket|grocery/i.test(desc)) {
+        if (/スーパー|イオン|イトーヨーカドー|ダイエー|ライフ|オーケー|ヤオコー|西友|コストコ|まいばすけっと|業務スーパー|サミット|ロピア|セブン|ファミマ|ローソン|オリジン|supermarket|grocery/i.test(desc)) {
             return { mainCategory: 'Food & Dining', subCategory: 'Groceries' };
         }
 
-        // 3. Restaurants & Cafes
         if (/マクドナルド|スターバックス|ドトール|カフェ|ガスト|サイゼリヤ|すき家|吉野家|松屋|スシロー|居酒屋|レストラン|ラーメン|はま寿司|ポポラマーマ|gordon|restaurant|cafe/i.test(desc)) {
             return { mainCategory: 'Food & Dining', subCategory: 'Restaurants & Dining Out' };
         }
 
-        // 4. Delivery Services
         if (/ウーバーイーツ|出前館|uber\s*eats|delivery/i.test(desc)) {
             return { mainCategory: 'Food & Dining', subCategory: 'Delivery Services' };
         }
 
-        // 5. Housing & Utilities & Telecom
         if (/電力|東京電力|電気|ガス|東京ガス|水道|東京都水道局|nuro|ソフトバンク|softbank|ワイヤレスゲート|新聞|power|electric/i.test(desc)) {
             if (/ガス|水道|スイドウ/.test(desc)) return { mainCategory: 'Housing & Utilities', subCategory: 'Water & Gas' };
             if (/nuro|ソフトバンク|softbank|ワイヤレスゲート|simcard/i.test(desc)) return { mainCategory: 'Housing & Utilities', subCategory: 'Internet & Mobile' };
             return { mainCategory: 'Housing & Utilities', subCategory: 'Electricity' };
         }
 
-        // 6. Transportation & Expressways (ETC, Tolls, Suica)
-        if (/suica|pasmo|icoca|jr|電車|バス|タクシー|高速|etc|首都高|関東支社|東京支社|八王子支社|パラカ|タイムズ|列車|metro|train|simcard/i.test(desc)) {
+        if (/suica|pasmo|icoca|jr|電車|バス|タクシー|高速|etc|首都高|関東支社|東京支社|八王子支社|パラカ|タイムズ|列車|metro|train/i.test(desc)) {
             if (/etc|首都高|支社|パラカ|タイムズ/.test(desc)) return { mainCategory: 'Transportation', subCategory: 'Fuel & Parking' };
             return { mainCategory: 'Transportation', subCategory: 'Trains & Bus' };
         }
 
-        // 7. Sports & Swimming
         if (/スイミング|水泳|arena|speedo|mizuno|スポーツ|ジム|フィットネス|swim|pool/i.test(desc)) {
             return { mainCategory: 'Education & Sports', subCategory: 'Swimming & Sports Club' };
         }
 
-        // 8. Hotels & Travel
         if (/hotel|jamahkiri|アトレ|ラゾーナ|ニトリ|amazon|アマゾン/i.test(desc)) {
             if (/hotel|jamahkiri/i.test(desc)) return { mainCategory: 'Leisure & Travel', subCategory: 'Hotels & Accommodation' };
             return { mainCategory: 'Shopping & Household', subCategory: 'Home Goods & Supplies' };
         }
 
-        // 9. Digital Subscriptions
         if (/ネットフリックス|netflix|apple|google/i.test(desc)) {
             return { mainCategory: 'Leisure & Travel', subCategory: 'Hobbies & Entertainment' };
         }
@@ -506,7 +498,6 @@
         document.getElementById('rule-keyword').value = '';
         renderRules();
 
-        // Re-apply rules to existing items
         expenseData.forEach(item => {
             let cat = autoCategorize(item.description);
             if (cat.mainCategory !== 'Miscellaneous') {
@@ -525,6 +516,7 @@
 
     function renderRules() {
         const container = document.getElementById('custom-rules-list');
+        if (!container) return;
         container.innerHTML = '<strong>Active Rules: </strong>';
         if (customRules.length === 0) {
             container.innerHTML += '<span style="font-size:0.8rem; color: var(--text-muted);">None</span>';
@@ -538,7 +530,6 @@
         });
     }
 
-    // Bulk Category Modifier
     function applyBulkCategorization() {
         const selectedBoxes = document.querySelectorAll('.item-checkbox:checked');
         if (selectedBoxes.length === 0) {
@@ -571,7 +562,8 @@
 
     function updateSelectedCount() {
         const count = document.querySelectorAll('.item-checkbox:checked').length;
-        document.getElementById('selected-count-label').textContent = `${count} items selected`;
+        const label = document.getElementById('selected-count-label');
+        if (label) label.textContent = `${count} items selected`;
     }
 
     function parseNum(val) {
@@ -586,7 +578,6 @@
         let dateOnly = String(rawDateStr).trim().split(' ')[0];
         let clean = dateOnly.replace(/\./g, '-').replace(/\//g, '-').replace(/年|月/g, '-').replace(/日/g, '').trim();
         
-        // Handles 6-digit YYMMDD format (e.g. 240714 -> 24-07-14)
         if (/^\d{6}$/.test(clean)) {
             clean = clean.substring(0, 2) + '-' + clean.substring(2, 4) + '-' + clean.substring(4, 6);
         }
@@ -598,13 +589,12 @@
         let day = parseInt(parts[2], 10);
         if (isNaN(year) || isNaN(month) || isNaN(day) || month < 1 || month > 12) return null;
         
-        // Handles YY/MM/DD (e.g. 25/10/03 -> 2025-10-03)
         if (year < 100) year += 2000;
         return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     }
 
     function cleanHeader(hdr) {
-        return hdr ? hdr.replace(/^\uFEFF/, '').replace(/["']/g, '').trim() : '';
+        return hdr ? String(hdr).replace(/^\uFEFF/, '').replace(/["']/g, '').trim() : '';
     }
 
     function handleAddExpense(event) {
@@ -635,7 +625,25 @@
         saveAndRender();
     }
 
-    // File Upload Handler (PayPay CSV & SMBC PDF)
+    function readFileAsTextWithEncoding(file) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                let text = e.target.result;
+                if (text.includes('')) {
+                    const readerSJIS = new FileReader();
+                    readerSJIS.onload = function(eSJIS) {
+                        resolve(eSJIS.target.result);
+                    };
+                    readerSJIS.readAsText(file, 'Shift_JIS');
+                } else {
+                    resolve(text);
+                }
+            };
+            reader.readAsText(file, 'UTF-8');
+        });
+    }
+
     async function handleFileUpload(event) {
         const files = Array.from(event.target.files);
         const status = document.getElementById('expense-upload-status');
@@ -671,10 +679,10 @@
         status.textContent = `Import complete! Added ${totalExtracted} new records (${duplicateCount} duplicate records skipped).`;
     }
 
-    // PayPay CSV Extraction Logic
-    function processExpenseCSV(file) {
+    async function processExpenseCSV(file) {
+        const fileContent = await readFileAsTextWithEncoding(file);
         return new Promise((resolve) => {
-            Papa.parse(file, {
+            Papa.parse(fileContent, {
                 header: false,
                 skipEmptyLines: true,
                 complete: function(results) {
@@ -684,7 +692,6 @@
                     let extracted = [];
                     let headerIndex = -1;
                     
-                    // Recognized CSV Headers (English & Japanese PayPay Export formats)
                     const dateHeaders = ['Date & Time', 'Date', '日付', '取引日時', '利用日', '利用年月日', 'ご利用日'];
 
                     for (let i = 0; i < rows.length; i++) {
@@ -704,21 +711,17 @@
                             row[h] = rowArr[idx] !== undefined ? String(rowArr[idx]).trim() : '';
                         });
 
-                        // Extract Date
                         let rawDate = row['Date & Time'] || row['Date'] || row['取引日時'] || row['日付'] || row['利用日'] || row['利用年月日'] || row['ご利用日'];
                         let cleanDate = sanitizeDate(rawDate);
 
-                        // Extract Description
                         let description = row['Business Name'] || row['加盟店名/支払い先'] || row['内容'] || row['利用店名・商品名'] || row['Transaction Type'] || row['取引種別'] || row['ご利用先'] || 'PayPay Payment';
                         description = normalizeJapaneseText(description);
 
-                        // Extract Amount Outgoing (Skip Top-Ups / Balance Earned)
-                        let rawAmountOut = row['Amount Outgoing (Yen)'] || row['金額（出金）'] || row['Amount'] || row['金額'] || row['利用金額(円)'] || row['ご利用金額'];
+                        let rawAmountOut = row['ご利用金額'] || row['お買上金額'] || row['Amount Outgoing (Yen)'] || row['金額（出金）'] || row['Amount'] || row['金額'] || row['利用金額(円)'];
                         let amount = parseNum(rawAmountOut);
 
                         let typeStr = (row['Transaction Type'] || row['取引種別'] || '').toLowerCase();
                         
-                        // Ignore Top-Ups / Money Received into wallet balance
                         if (typeStr.includes('top-up') || typeStr.includes('チャージ') || typeStr.includes('points') || typeStr.includes('ポイント')) {
                             amount = 0;
                         }
@@ -742,7 +745,6 @@
         });
     }
 
-    // SMBC PDF Extraction Logic
     async function processExpensePDF(file) {
         let extracted = [];
         try {
@@ -755,7 +757,6 @@
                 const textContent = await page.getTextContent();
                 let lineMap = {};
 
-                // Map items vertically by Y-coordinate layout spacing
                 textContent.items.forEach(item => {
                     let y = Math.round(item.transform[5]); 
                     if (!lineMap[y]) lineMap[y] = [];
@@ -768,8 +769,6 @@
                 });
             }
 
-            // Handles SMBC statements: YY/MM/DD Merchant Name Amount
-            // Example: "25/10/03 ＥＴＣ首都高 590" or "2026/06/07 かんたん告知の医療保険 3,540"
             const smbcLineRegex = /(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})\s+([^\d\n]+?)\s+([\d,]+)/;
 
             extractedLines.forEach(line => {
@@ -779,7 +778,6 @@
                     let description = normalizeJapaneseText(match[2]);
                     let amount = parseNum(match[3]);
 
-                    // Exclude summary total lines from transaction list
                     if (description.includes("お支払い合計額") || description.includes("お支払金額総合計") || description.includes("最低支払額")) {
                         return;
                     }
@@ -822,6 +820,7 @@
 
     function populateMonthFilter() {
         const monthSelect = document.getElementById('month-filter');
+        if (!monthSelect) return;
         const curMonth = monthSelect.value;
         monthSelect.innerHTML = '<option value="ALL">All Months</option>';
 
@@ -849,7 +848,7 @@
 
     function renderDashboard() {
         populateMonthFilter();
-        const selectedMonth = document.getElementById('month-filter').value || 'ALL';
+        const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
         
         let filtered = expenseData.filter(d => selectedMonth === 'ALL' || d.date.startsWith(selectedMonth));
         
@@ -934,7 +933,7 @@
     }
 
     function renderTableDataOnly(dataset) {
-        const selectedMonth = document.getElementById('month-filter').value || 'ALL';
+        const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
         let baseData = dataset || expenseData.filter(d => selectedMonth === 'ALL' || d.date.startsWith(selectedMonth));
 
         const dateFilterVal = (document.getElementById('col-filter-date')?.value || '').toLowerCase().trim();
@@ -951,6 +950,7 @@
         });
 
         const tbody = document.getElementById('expense-table-body');
+        if (!tbody) return;
         tbody.innerHTML = '';
 
         const sortedData = [...filtered].sort((a,b) => b.date.localeCompare(a.date));
@@ -971,13 +971,16 @@
             tbody.appendChild(row);
         });
 
-        document.getElementById('select-all-checkbox').checked = false;
+        const selectAll = document.getElementById('select-all-checkbox');
+        if (selectAll) selectAll.checked = false;
         updateSelectedCount();
     }
 
-    initCategoryDropdowns();
-    renderRules();
-    renderDashboard();
+    document.addEventListener('DOMContentLoaded', () => {
+        initCategoryDropdowns();
+        renderRules();
+        renderDashboard();
+    });
 </script>
 </body>
 </html>
