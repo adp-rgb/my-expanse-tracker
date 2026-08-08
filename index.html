@@ -7,7 +7,7 @@
     <!-- External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- PDF.js library for PDF parsing -->
+    <!-- PDF.js library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         :root {
@@ -37,7 +37,6 @@
 
         .container { max-width: 1200px; margin: 0 auto; }
 
-        /* App Header */
         .app-navbar {
             display: flex;
             justify-content: space-between;
@@ -57,7 +56,6 @@
         }
         .app-brand h1 { font-size: 1.35rem; font-weight: 700; color: var(--text-main); margin: 0; letter-spacing: -0.02em; }
 
-        /* Card Elements */
         .card {
             background: var(--surface);
             border-radius: var(--radius-lg);
@@ -76,7 +74,6 @@
         }
         .card-title { margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-main); }
 
-        /* Metrics Grid */
         .metrics-grid { 
             display: grid; 
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); 
@@ -93,7 +90,6 @@
         .metric-card span { font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
         .metric-card div { font-size: 1.85rem; font-weight: 800; margin-top: 6px; letter-spacing: -0.02em; }
 
-        /* Drop Zone */
         .batch-drop-zone {
             border: 2px dashed var(--border-hover);
             padding: 32px 20px;
@@ -109,7 +105,6 @@
         }
         .batch-drop-zone input { display: none; }
 
-        /* Controls */
         select, button, input[type="text"], input[type="number"], input[type="date"] {
             font-family: inherit;
             padding: 8px 14px;
@@ -131,7 +126,6 @@
         .btn-toggle { background: transparent; color: var(--text-muted); border: none; cursor: pointer; font-weight: 600; padding: 6px 14px; border-radius: var(--radius-sm); font-size: 0.8rem; }
         .btn-toggle.active { background: var(--surface); color: var(--text-main); box-shadow: var(--shadow-subtle); }
 
-        /* Form Layout */
         .expense-form-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -139,10 +133,8 @@
             align-items: end;
         }
 
-        /* Chart Canvas Area */
         .chart-container { position: relative; height: 420px; width: 100%; margin-top: 8px; }
 
-        /* Table Styling */
         .table-responsive { overflow-x: auto; margin-top: 8px; }
         table { width: 100%; border-collapse: separate; border-spacing: 0; }
         th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
@@ -156,7 +148,6 @@
 <body>
 
 <div class="container">
-    <!-- Navbar -->
     <div class="app-navbar">
         <div class="app-brand">
             <div class="app-brand-icon">💳</div>
@@ -202,7 +193,7 @@
         </form>
     </div>
 
-    <!-- Upload CSVs and PDFs -->
+    <!-- Upload Statements -->
     <div class="card">
         <div class="card-header">
             <h3 class="card-title">📁 Import Statements (CSV & PDF)</h3>
@@ -213,7 +204,7 @@
             <span style="font-size: 0.95rem; font-weight: 600; color: var(--text-main);">Click or Drag & Drop CSV / PDF statement files here</span>
             <input type="file" id="statement-files" accept=".csv, .pdf" multiple onchange="handleFileUpload(event)">
         </div>
-        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 10px;" id="expense-upload-status">Ready to import CSV or PDF statement files. Automated smart categorization will be applied.</div>
+        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 10px; font-weight: 500;" id="expense-upload-status">Ready to import CSV or PDF statement files. Smart auto-categorization will be applied.</div>
     </div>
 
     <!-- KPI Summary Cards -->
@@ -274,10 +265,11 @@
 </div>
 
 <script>
-    // Set pdf.js worker url
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    // Initialize PDF.js with CDN worker source
+    if (typeof pdfjsLib !== 'undefined') {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
 
-    // 2-Tier Categorization Schema
     const CATEGORY_MAP = {
         "Food & Dining": ["Groceries", "Restaurants & Dining Out", "Cafes & Bakeries", "Delivery Services"],
         "Housing & Utilities": ["Electricity", "Water & Gas", "Rent & Mortgage", "Internet & Mobile"],
@@ -323,7 +315,7 @@
     function autoCategorize(description) {
         const desc = description.toLowerCase();
 
-        if (desc.includes('supermarket') || desc.includes('grocery') || desc.includes('Aeon') || desc.includes('ライフ') || desc.includes('食品')) {
+        if (desc.includes('supermarket') || desc.includes('grocery') || desc.includes('aeon') || desc.includes('ライフ') || desc.includes('食品')) {
             return { mainCategory: 'Food & Dining', subCategory: 'Groceries' };
         }
         if (desc.includes('restaurant') || desc.includes('mcdonald') || desc.includes('starbucks') || desc.includes('cafe')) {
@@ -347,7 +339,7 @@
 
     function parseNum(val) {
         if (val === undefined || val === null || val === '') return 0;
-        let num = parseFloat(String(val).replace(/,/g, '').replace(/円/g, ''));
+        let num = parseFloat(String(val).replace(/,/g, '').replace(/円/g, '').replace(/¥/g, '').replace(/￥/g, ''));
         return isNaN(num) ? 0 : Math.abs(num);
     }
 
@@ -400,15 +392,16 @@
         let totalExtracted = 0;
         for (let file of files) {
             status.textContent = `Processing ${file.name}...`;
-            if (file.name.endsWith('.csv')) {
+            const fname = file.name.toLowerCase();
+            if (fname.endsWith('.csv')) {
                 totalExtracted += await processExpenseCSV(file);
-            } else if (file.name.endsWith('.pdf')) {
+            } else if (fname.endsWith('.pdf')) {
                 totalExtracted += await processExpensePDF(file);
             }
         }
 
         saveAndRender();
-        status.textContent = `Import complete! Added ${totalExtracted} expense records with auto-categorization.`;
+        status.textContent = `Import complete! Added ${totalExtracted} expense records.`;
     }
 
     function processExpenseCSV(file) {
@@ -473,40 +466,63 @@
         let extractedCount = 0;
         try {
             const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-            let fullText = '';
+            
+            // Disable worker if fetching worker script fails (prevents CORS issues on local files)
+            const loadingTask = pdfjsLib.getDocument({
+                data: arrayBuffer,
+                disableWorker: false
+            });
+            
+            const pdf = await loadingTask.promise;
+            let extractedLines = [];
 
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
-                const tokenProps = await page.getTextContent();
-                const pageText = tokenProps.items.map(item => item.str).join(' ');
-                fullText += pageText + '\n';
+                const textContent = await page.getTextContent();
+                
+                // Group text items by y-coordinate position to rebuild actual table lines
+                let lineMap = {};
+                textContent.items.forEach(item => {
+                    let y = Math.round(item.transform[5]); 
+                    if (!lineMap[y]) lineMap[y] = [];
+                    lineMap[y].push(item.str);
+                });
+
+                // Sort line keys top to bottom
+                let sortedY = Object.keys(lineMap).sort((a,b) => b - a);
+                sortedY.forEach(y => {
+                    let lineText = lineMap[y].join(' ').trim();
+                    if (lineText) extractedLines.push(lineText);
+                });
             }
 
-            // Regular expression matching dates (YYYY-MM-DD or YYYY/MM/DD), text, and money amounts
-            const lineRegex = /(\d{4}[-\/\.]\d{1,2}[-\/\.]\d{1,2})\s+([^\d]+?)\s+[¥￥]?\s*([\d,]+)/g;
-            let match;
+            // Flexible regex matching: Date (YYYY-MM-DD or YYYY/MM/DD), text/description, and Amount
+            const pdfLineRegex = /(\d{4}[-\/\.]\d{1,2}[-\/\.]\d{1,2})\s+(.*?)\s+([¥￥]?\s*[\d,]+)\s*$/;
 
-            while ((match = lineRegex.exec(fullText)) !== null) {
-                let cleanDate = sanitizeDate(match[1]);
-                let description = match[2].trim();
-                let amount = parseNum(match[3]);
+            extractedLines.forEach(line => {
+                let match = line.match(pdfLineRegex);
+                if (match) {
+                    let cleanDate = sanitizeDate(match[1]);
+                    let description = match[2].trim();
+                    let amount = parseNum(match[3]);
 
-                if (cleanDate && amount > 0 && description.length > 1) {
-                    let cats = autoCategorize(description);
-                    expenseData.push({
-                        id: (Date.now() + Math.random()).toString(),
-                        date: cleanDate,
-                        mainCategory: cats.mainCategory,
-                        subCategory: cats.subCategory,
-                        description: description,
-                        amount: amount
-                    });
-                    extractedCount++;
+                    if (cleanDate && amount > 0 && description.length > 0) {
+                        let cats = autoCategorize(description);
+                        expenseData.push({
+                            id: (Date.now() + Math.random()).toString(),
+                            date: cleanDate,
+                            mainCategory: cats.mainCategory,
+                            subCategory: cats.subCategory,
+                            description: description,
+                            amount: amount
+                        });
+                        extractedCount++;
+                    }
                 }
-            }
+            });
         } catch (err) {
             console.error("PDF Parsing Error:", err);
+            document.getElementById('expense-upload-status').textContent = `Error reading PDF (${file.name}). Ensure it is not password-protected.`;
         }
         return extractedCount;
     }
