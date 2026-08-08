@@ -1,1020 +1,257 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Household Expense Tracker</title>
-    <!-- External Libraries -->
-    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <style>
-        :root {
-            --primary: #2563eb;
-            --surface: #ffffff;
-            --background: #f8fafc;
-            --border: #e2e8f0;
-            --border-hover: #cbd5e1;
-            --text-main: #0f172a;
-            --text-muted: #64748b;
-            --radius-lg: 16px;
-            --radius-md: 10px;
-            --radius-sm: 6px;
-            --shadow-subtle: 0 1px 3px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.02);
-        }
-
-        * { box-sizing: border-box; }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, "Helvetica Neue", Arial, sans-serif;
-            background-color: var(--background);
-            color: var(--text-main);
-            margin: 0;
-            padding: 32px 20px;
-            -webkit-font-smoothing: antialiased;
-        }
-
-        .container { max-width: 1200px; margin: 0 auto; }
-
-        .app-navbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 28px;
-            padding-bottom: 16px;
-            border-bottom: 1px solid var(--border);
-        }
-        .app-brand { display: flex; align-items: center; gap: 12px; }
-        .app-brand-icon {
-            width: 42px; height: 42px; 
-            background: linear-gradient(135deg, #2563eb, #1d4ed8);
-            border-radius: var(--radius-md); 
-            display: flex; align-items: center; justify-content: center;
-            color: white; font-size: 1.35rem; 
-            box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
-        }
-        .app-brand h1 { font-size: 1.35rem; font-weight: 700; color: var(--text-main); margin: 0; letter-spacing: -0.02em; }
-
-        .card {
-            background: var(--surface);
-            border-radius: var(--radius-lg);
-            border: 1px solid var(--border);
-            padding: 24px;
-            margin-bottom: 24px;
-            box-shadow: var(--shadow-subtle);
-        }
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-        .card-title { margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-main); }
-
-        .metrics-grid { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); 
-            gap: 16px; 
-            margin-bottom: 24px; 
-        }
-        .metric-card { 
-            background: var(--surface); 
-            border: 1px solid var(--border); 
-            padding: 20px; 
-            border-radius: var(--radius-lg); 
-            box-shadow: var(--shadow-subtle);
-        }
-        .metric-card span { font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
-        .metric-card div { font-size: 1.85rem; font-weight: 800; margin-top: 6px; letter-spacing: -0.02em; }
-
-        .batch-drop-zone {
-            border: 2px dashed var(--border-hover);
-            padding: 32px 20px;
-            text-align: center;
-            border-radius: var(--radius-md);
-            background: #fafafa;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        .batch-drop-zone:hover { border-color: var(--primary); background: #eff6ff; }
-        .batch-drop-zone input { display: none; }
-
-        select, button, input[type="text"], input[type="number"], input[type="date"] {
-            font-family: inherit;
-            padding: 8px 14px;
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            font-size: 0.85rem;
-            outline: none;
-            background: var(--surface);
-        }
-        select:focus, input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
-
-        .btn { font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
-        .btn-primary { background: var(--primary); color: white; border: none; }
-        .btn-primary:hover { background: #1d4ed8; }
-        .btn-secondary { background: var(--surface); border-color: var(--border); color: var(--text-main); }
-        .btn-secondary:hover { background: #f1f5f9; }
-
-        .btn-toggle-group { display: flex; gap: 4px; background: #f1f5f9; padding: 4px; border-radius: var(--radius-md); border: 1px solid var(--border); flex-wrap: wrap; }
-        .btn-toggle { background: transparent; color: var(--text-muted); border: none; cursor: pointer; font-weight: 600; padding: 6px 14px; border-radius: var(--radius-sm); font-size: 0.8rem; }
-        .btn-toggle.active { background: var(--surface); color: var(--text-main); box-shadow: var(--shadow-subtle); }
-
-        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; align-items: end; }
-        .chart-container { position: relative; height: 420px; width: 100%; margin-top: 8px; }
-
-        .table-responsive { overflow-x: auto; margin-top: 8px; }
-        table { width: 100%; border-collapse: separate; border-spacing: 0; }
-        th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
-        th { background: #f8fafc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; vertical-align: top; }
-        tbody tr:hover { background: #f8fafc; }
-        
-        .column-filter-input, .column-filter-select {
-            display: block;
-            width: 100%;
-            margin-top: 6px;
-            font-size: 0.75rem;
-            padding: 4px 6px;
-            font-weight: normal;
-            text-transform: none;
-            letter-spacing: normal;
-        }
-
-        .cat-tag { background: #eff6ff; color: #1d4ed8; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.78rem; display: inline-block; }
-        .subcat-tag { background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 4px; font-weight: 500; font-size: 0.78rem; display: inline-block; margin-left: 4px; }
-        .rule-chip { background: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; margin: 4px; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SMBC Bank Statement Parser</title>
+  <!-- PDF.js Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 20px;
+      color: #333;
+    }
+    .upload-box {
+      border: 2px dashed #006633;
+      background-color: #f4fbf7;
+      padding: 30px;
+      text-align: center;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-bottom: 20px;
+    }
+    .upload-box:hover {
+      background-color: #e8f7ef;
+    }
+    #fileInput {
+      display: none;
+    }
+    .privacy-badge {
+      display: inline-block;
+      background-color: #e0f2fe;
+      color: #0369a1;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 15px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #e2e8f0;
+      padding: 10px 14px;
+      text-align: left;
+    }
+    th {
+      background-color: #f8fafc;
+      font-weight: 600;
+    }
+    .amount-deposit {
+      color: #16a34a;
+      font-weight: 600;
+    }
+    .amount-withdrawal {
+      color: #dc2626;
+      font-weight: 600;
+    }
+    .stats {
+      display: flex;
+      gap: 20px;
+      margin-top: 15px;
+    }
+    .stat-card {
+      flex: 1;
+      background: #f8fafc;
+      padding: 15px;
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+    }
+  </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="app-navbar">
-        <div class="app-brand">
-            <div class="app-brand-icon">💳</div>
-            <h1>Household Expense Tracker</h1>
-        </div>
-        <div>
-            <label for="month-filter" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-right: 6px;">Filter Month:</label>
-            <select id="month-filter" onchange="renderDashboard()"></select>
-        </div>
+  <h2>SMBC Bank Statement Parser</h2>
+  <span class="privacy-badge">🔒 Privacy Guaranteed: Local In-Browser Processing Only</span>
+
+  <div class="upload-box" onclick="document.getElementById('fileInput').click()">
+    <p><strong>Click to upload SMBC PDF</strong> or drag and drop</p>
+    <small>Personal details (names, account numbers) are automatically filtered out locally.</small>
+    <input type="file" id="fileInput" accept="application/pdf">
+  </div>
+
+  <div id="statsContainer" class="stats" style="display: none;">
+    <div class="stat-card">
+      <small>Total Deposits</small>
+      <div id="totalDeposits" class="amount-deposit">¥0</div>
     </div>
-
-    <!-- Manual Expense Entry -->
-    <div class="card">
-        <div class="card-header"><h3 class="card-title">➕ Add New Expense</h3></div>
-        <form id="expense-form" onsubmit="handleAddExpense(event)">
-            <div class="form-grid">
-                <div>
-                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">DATE</label>
-                    <input type="date" id="exp-date" required style="width: 100%;">
-                </div>
-                <div>
-                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">MAIN CATEGORY</label>
-                    <select id="exp-main-category" onchange="updateSubCategoryDropdown('exp-main-category', 'exp-sub-category')" style="width: 100%;"></select>
-                </div>
-                <div>
-                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">SUB CATEGORY</label>
-                    <select id="exp-sub-category" style="width: 100%;"></select>
-                </div>
-                <div>
-                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">DESCRIPTION</label>
-                    <input type="text" id="exp-description" placeholder="Vendor or item details" required style="width: 100%;">
-                </div>
-                <div>
-                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">AMOUNT (¥)</label>
-                    <input type="number" id="exp-amount" placeholder="0" min="0" step="1" required style="width: 100%;">
-                </div>
-                <div>
-                    <button type="submit" class="btn btn-primary" style="width: 100%; height: 37px; justify-content: center;">Add Record</button>
-                </div>
-            </div>
-        </form>
+    <div class="stat-card">
+      <small>Total Withdrawals</small>
+      <div id="totalWithdrawals" class="amount-withdrawal">¥0</div>
     </div>
-
-    <!-- Custom Categorization Rules Manager -->
-    <div class="card">
-        <div class="card-header">
-            <h3 class="card-title">⚙️ Logic 1: Custom Rule Manager</h3>
-            <span style="font-size: 0.8rem; color: var(--text-muted);">Set keyword triggers to assign main categories and subcategories</span>
-        </div>
-        <form id="rule-form" onsubmit="handleAddRule(event)">
-            <div class="form-grid">
-                <div>
-                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">KEYWORD / CONTAINS</label>
-                    <input type="text" id="rule-keyword" placeholder="e.g. Amazon, Seven Eleven" required style="width: 100%;">
-                </div>
-                <div>
-                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">ASSIGN MAIN CATEGORY</label>
-                    <select id="rule-main-category" onchange="updateSubCategoryDropdown('rule-main-category', 'rule-sub-category')" style="width: 100%;"></select>
-                </div>
-                <div>
-                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">ASSIGN SUB CATEGORY</label>
-                    <select id="rule-sub-category" style="width: 100%;"></select>
-                </div>
-                <div>
-                    <button type="submit" class="btn btn-primary" style="width: 100%; height: 37px; justify-content: center;">Add Rule</button>
-                </div>
-            </div>
-        </form>
-        <div style="margin-top: 16px;" id="custom-rules-list"></div>
+    <div class="stat-card">
+      <small>Transactions Parsed</small>
+      <div id="totalCount">0</div>
     </div>
+  </div>
 
-    <!-- Upload Statements -->
-    <div class="card">
-        <div class="card-header">
-            <h3 class="card-title">📁 Import Statements (PayPay CSV & SMBC PDF)</h3>
-        </div>
-        <div class="batch-drop-zone" onclick="document.getElementById('statement-files').click()">
-            <span style="font-size: 2rem; display: block; margin-bottom: 8px;">📄 / 📊</span>
-            <span style="font-size: 0.95rem; font-weight: 600; color: var(--text-main);">Click or Drag & Drop PayPay CSV / SMBC PDF statement files here</span>
-            <input type="file" id="statement-files" accept=".csv, .pdf" multiple onchange="handleFileUpload(event)">
-        </div>
-        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 10px; font-weight: 500;" id="expense-upload-status">Ready to import.</div>
-    </div>
+  <table id="transactionTable" style="display: none;">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Description</th>
+        <th>Type</th>
+        <th>Amount</th>
+      </tr>
+    </thead>
+    <tbody id="transactionBody"></tbody>
+  </table>
 
-    <!-- KPI Summary Cards -->
-    <div class="metrics-grid">
-        <div class="metric-card" style="border-top: 4px solid var(--primary);">
-            <span>Total Spending</span>
-            <div id="m-total-spending" style="color: var(--primary);">¥0</div>
-        </div>
-        <div class="metric-card" style="border-top: 4px solid #10b981;">
-            <span>Transaction Count</span>
-            <div id="m-transaction-count" style="color: #10b981;">0</div>
-        </div>
-        <div class="metric-card" style="border-top: 4px solid #f59e0b;">
-            <span>Daily Average</span>
-            <div id="m-daily-avg" style="color: #f59e0b;">¥0</div>
-        </div>
-    </div>
+  <script>
+    // Initialize PDF.js worker
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-    <!-- Analytics Chart View -->
-    <div class="card">
-        <div class="card-header">
-            <div class="btn-toggle-group">
-                <button id="btnViewDaily" class="btn-toggle active" onclick="setExpenseViewMode('daily')">Daily Trend</button>
-                <button id="btnViewMainCat" class="btn-toggle" onclick="setExpenseViewMode('main_category')">Main Categories</button>
-                <button id="btnViewSubCat" class="btn-toggle" onclick="setExpenseViewMode('sub_category')">Subcategory Breakdown</button>
-                <button id="btnViewMonthly" class="btn-toggle" onclick="setExpenseViewMode('monthly')">Monthly Comparison</button>
-            </div>
-            <span id="expense-period-title" style="font-weight: 600; color: var(--text-muted); font-size: 0.85rem;"></span>
-        </div>
-        <div class="chart-container">
-            <canvas id="expenseChart"></canvas>
-        </div>
-    </div>
-
-    <!-- Data Table & Bulk Categorization -->
-    <div class="card">
-        <div class="card-header">
-            <h3 class="card-title">Expense Transactions</h3>
-            <button class="btn btn-secondary" onclick="clearExpenseData()">🧹 Clear All</button>
-        </div>
-
-        <!-- Bulk Category Modifier Interface -->
-        <div style="background: #f1f5f9; padding: 12px 16px; border-radius: var(--radius-md); margin-bottom: 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-            <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-main);">⚡ Logic 2: Bulk Category Modifier</span>
-            <select id="bulk-main-category" onchange="updateSubCategoryDropdown('bulk-main-category', 'bulk-sub-category')"></select>
-            <select id="bulk-sub-category"></select>
-            <button class="btn btn-primary" onclick="applyBulkCategorization()">Update Selected Items</button>
-            <span id="selected-count-label" style="font-size: 0.8rem; color: var(--text-muted);">0 items selected</span>
-        </div>
-
-        <div class="table-responsive">
-            <table>
-                <thead>
-                    <tr>
-                        <th><input type="checkbox" id="select-all-checkbox" onchange="toggleSelectAll(this)"></th>
-                        <th>
-                            Date
-                            <input type="text" id="col-filter-date" class="column-filter-input" placeholder="Filter Date..." oninput="renderTableDataOnly()">
-                        </th>
-                        <th>
-                            Main Category
-                            <select id="col-filter-main-cat" class="column-filter-select" onchange="updateTableSubCatFilterOptions(); renderTableDataOnly();">
-                                <option value="ALL">All</option>
-                            </select>
-                        </th>
-                        <th>
-                            Sub Category
-                            <select id="col-filter-sub-cat" class="column-filter-select" onchange="renderTableDataOnly()">
-                                <option value="ALL">All</option>
-                            </select>
-                        </th>
-                        <th>
-                            Description
-                            <input type="text" id="col-filter-desc" class="column-filter-input" placeholder="Filter Description..." oninput="renderTableDataOnly()">
-                        </th>
-                        <th>Amount (¥)</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="expense-table-body"></tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<script>
-    if (typeof pdfjsLib !== 'undefined') {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    }
-
-    const CATEGORY_MAP = {
-        "Food & Dining": ["Groceries", "Restaurants & Dining Out", "Cafes & Bakeries", "Delivery Services"],
-        "Housing & Utilities": ["Electricity", "Water & Gas", "Rent & Mortgage", "Internet & Mobile"],
-        "Transportation": ["Trains & Bus", "Taxi & Rideshare", "Fuel & Parking", "Vehicle Maintenance"],
-        "Education & Sports": ["Swimming & Sports Club", "Tuition & School", "Books & Study Materials"],
-        "Shopping & Household": ["Clothing & Apparel", "Home Goods & Supplies", "Electronics & Tech"],
-        "Leisure & Travel": ["Hotels & Accommodation", "Attractions & Trips", "Hobbies & Entertainment"],
-        "Miscellaneous": ["General Expense", "Services & Fees"]
-    };
-
-    let expenseData = JSON.parse(localStorage.getItem('household_expenses_data')) || [];
-    let customRules = JSON.parse(localStorage.getItem('household_custom_rules')) || [
-        { id: '1', keyword: 'suica', mainCategory: 'Transportation', subCategory: 'Trains & Bus' },
-        { id: '2', keyword: 'supermarket', mainCategory: 'Food & Dining', subCategory: 'Groceries' },
-        { id: '3', keyword: 'etc', mainCategory: 'Transportation', subCategory: 'Fuel & Parking' },
-        { id: '4', keyword: '首都高', mainCategory: 'Transportation', subCategory: 'Fuel & Parking' }
-    ];
-    let processedFilesHashes = JSON.parse(localStorage.getItem('processed_file_hashes')) || [];
-
-    let currentExpenseViewMode = 'daily';
-    let expenseChartInstance;
-
-    document.getElementById('exp-date').valueAsDate = new Date();
-
-    function getTransactionHash(item) {
-        return `${item.date}_${item.description}_${item.amount}`;
-    }
-
-    function initCategoryDropdowns() {
-        const dropIds = ['exp-main-category', 'rule-main-category', 'bulk-main-category'];
-        dropIds.forEach(id => {
-            const select = document.getElementById(id);
-            select.innerHTML = '';
-            Object.keys(CATEGORY_MAP).forEach(mainCat => {
-                const opt = document.createElement('option');
-                opt.value = mainCat; opt.textContent = mainCat;
-                select.appendChild(opt);
-            });
-        });
-
-        updateSubCategoryDropdown('exp-main-category', 'exp-sub-category');
-        updateSubCategoryDropdown('rule-main-category', 'rule-sub-category');
-        updateSubCategoryDropdown('bulk-main-category', 'bulk-sub-category');
-        populateTableColumnFilterOptions();
-    }
-
-    function updateSubCategoryDropdown(mainId, subId) {
-        const mainCat = document.getElementById(mainId).value;
-        const subSelect = document.getElementById(subId);
-        subSelect.innerHTML = '';
-        
-        const subCats = CATEGORY_MAP[mainCat] || ["General Expense"];
-        subCats.forEach(sub => {
-            const opt = document.createElement('option');
-            opt.value = sub; opt.textContent = sub;
-            subSelect.appendChild(opt);
-        });
-    }
-
-    function populateTableColumnFilterOptions() {
-        const mainCatFilter = document.getElementById('col-filter-main-cat');
-        if (!mainCatFilter) return;
-        const currentVal = mainCatFilter.value || 'ALL';
-        mainCatFilter.innerHTML = '<option value="ALL">All</option>';
-
-        Object.keys(CATEGORY_MAP).forEach(mainCat => {
-            const opt = document.createElement('option');
-            opt.value = mainCat; opt.textContent = mainCat;
-            mainCatFilter.appendChild(opt);
-        });
-        mainCatFilter.value = currentVal;
-        updateTableSubCatFilterOptions();
-    }
-
-    function updateTableSubCatFilterOptions() {
-        const mainCatVal = document.getElementById('col-filter-main-cat').value;
-        const subCatFilter = document.getElementById('col-filter-sub-cat');
-        if (!subCatFilter) return;
-
-        const currentSubVal = subCatFilter.value || 'ALL';
-        subCatFilter.innerHTML = '<option value="ALL">All</option>';
-
-        let optionsToDisplay = [];
-        if (mainCatVal !== 'ALL' && CATEGORY_MAP[mainCatVal]) {
-            optionsToDisplay = CATEGORY_MAP[mainCatVal];
-        } else {
-            let allSubs = new Set();
-            Object.values(CATEGORY_MAP).forEach(list => list.forEach(s => allSubs.add(s)));
-            optionsToDisplay = Array.from(allSubs);
-        }
-
-        optionsToDisplay.forEach(sub => {
-            const opt = document.createElement('option');
-            opt.value = sub; opt.textContent = sub;
-            subCatFilter.appendChild(opt);
-        });
-
-        if (optionsToDisplay.includes(currentSubVal)) {
-            subCatFilter.value = currentSubVal;
-        } else {
-            subCatFilter.value = 'ALL';
-        }
-    }
-
-    function normalizeJapaneseText(str) {
-        if (!str) return '';
-        return str.replace(/[Ａ-Ｚａ-ｚ０-９]/g, function(s) {
-            return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
-        }).replace(/ /g, ' ').replace(/\|/g, ' ').trim();
-    }
-
-    function autoCategorize(description) {
-        const desc = normalizeJapaneseText(description).toLowerCase();
-
-        for (let rule of customRules) {
-            if (desc.includes(rule.keyword.toLowerCase())) {
-                return { mainCategory: rule.mainCategory, subCategory: rule.subCategory };
-            }
-        }
-
-        if (/スーパー|イオン|イトーヨーカドー|ライフ|オーケー|ヤオコー|西友|コストコ|まいばすけっと|業務スーパー|サミット|ロピア|セブン|ファミマ|ローソン|オリジン|supermarket|grocery/i.test(desc)) {
-            return { mainCategory: 'Food & Dining', subCategory: 'Groceries' };
-        }
-
-        if (/マクドナルド|スターバックス|ドトール|カフェ|ガスト|サイゼリヤ|すき家|吉野家|松屋|スシロー|居酒屋|レストラン|ラーメン|はま寿司|ポポラマーマ|gordon|restaurant|cafe/i.test(desc)) {
-            return { mainCategory: 'Food & Dining', subCategory: 'Restaurants & Dining Out' };
-        }
-
-        if (/ウーバーイーツ|出前館|uber\s*eats|delivery/i.test(desc)) {
-            return { mainCategory: 'Food & Dining', subCategory: 'Delivery Services' };
-        }
-
-        if (/電力|東京電力|電気|ガス|東京ガス|水道|東京都水道局|nuro|ソフトバンク|softbank|ワイヤレスゲート|新聞|power|electric/i.test(desc)) {
-            if (/ガス|水道|スイドウ/.test(desc)) return { mainCategory: 'Housing & Utilities', subCategory: 'Water & Gas' };
-            if (/nuro|ソフトバンク|softbank|ワイヤレスゲート|simcard/i.test(desc)) return { mainCategory: 'Housing & Utilities', subCategory: 'Internet & Mobile' };
-            return { mainCategory: 'Housing & Utilities', subCategory: 'Electricity' };
-        }
-
-        if (/suica|pasmo|icoca|jr|電車|バス|タクシー|高速|etc|首都高|関東支社|東京支社|八王子支社|パラカ|タイムズ|列車|metro|train/i.test(desc)) {
-            if (/etc|首都高|支社|パラカ|タイムズ/.test(desc)) return { mainCategory: 'Transportation', subCategory: 'Fuel & Parking' };
-            return { mainCategory: 'Transportation', subCategory: 'Trains & Bus' };
-        }
-
-        if (/スイミング|水泳|arena|speedo|mizuno|スポーツ|ジム|フィットネス|swim|pool|school/i.test(desc)) {
-            return { mainCategory: 'Education & Sports', subCategory: 'Swimming & Sports Club' };
-        }
-
-        if (/hotel|jamahkiri|アトレ|ラゾーナ|ニトリ|amazon|アマゾン/i.test(desc)) {
-            if (/hotel|jamahkiri/i.test(desc)) return { mainCategory: 'Leisure & Travel', subCategory: 'Hotels & Accommodation' };
-            return { mainCategory: 'Shopping & Household', subCategory: 'Home Goods & Supplies' };
-        }
-
-        if (/ネットフリックス|netflix|apple|google/i.test(desc)) {
-            return { mainCategory: 'Leisure & Travel', subCategory: 'Hobbies & Entertainment' };
-        }
-
-        return { mainCategory: 'Miscellaneous', subCategory: 'General Expense' };
-    }
-
-    function handleAddRule(event) {
-        event.preventDefault();
-        const keyword = document.getElementById('rule-keyword').value.trim();
-        const mainCategory = document.getElementById('rule-main-category').value;
-        const subCategory = document.getElementById('rule-sub-category').value;
-
-        if (!keyword) return;
-
-        customRules.push({ id: Date.now().toString(), keyword, mainCategory, subCategory });
-        localStorage.setItem('household_custom_rules', JSON.stringify(customRules));
-        
-        document.getElementById('rule-keyword').value = '';
-        renderRules();
-
-        expenseData.forEach(item => {
-            let cat = autoCategorize(item.description);
-            if (cat.mainCategory !== 'Miscellaneous') {
-                item.mainCategory = cat.mainCategory;
-                item.subCategory = cat.subCategory;
-            }
-        });
-        saveAndRender();
-    }
-
-    function deleteRule(id) {
-        customRules = customRules.filter(r => r.id !== id);
-        localStorage.setItem('household_custom_rules', JSON.stringify(customRules));
-        renderRules();
-    }
-
-    function renderRules() {
-        const container = document.getElementById('custom-rules-list');
-        container.innerHTML = '<strong>Active Rules: </strong>';
-        if (customRules.length === 0) {
-            container.innerHTML += '<span style="font-size:0.8rem; color: var(--text-muted);">None</span>';
-            return;
-        }
-        customRules.forEach(r => {
-            const chip = document.createElement('span');
-            chip.className = 'rule-chip';
-            chip.innerHTML = `"${r.keyword}" ➔ ${r.mainCategory} (${r.subCategory}) <button onclick="deleteRule('${r.id}')" style="border:none; background:transparent; cursor:pointer; font-weight:bold; color:#92400e;">✕</button>`;
-            container.appendChild(chip);
-        });
-    }
-
-    function applyBulkCategorization() {
-        const selectedBoxes = document.querySelectorAll('.item-checkbox:checked');
-        if (selectedBoxes.length === 0) {
-            alert('Please select at least one transaction from the table.');
-            return;
-        }
-
-        const mainCategory = document.getElementById('bulk-main-category').value;
-        const subCategory = document.getElementById('bulk-sub-category').value;
-
-        const selectedIds = Array.from(selectedBoxes).map(cb => cb.dataset.id);
-
-        expenseData.forEach(item => {
-            if (selectedIds.includes(item.id)) {
-                item.mainCategory = mainCategory;
-                item.subCategory = subCategory;
-            }
-        });
-
-        saveAndRender();
-        document.getElementById('select-all-checkbox').checked = false;
-        updateSelectedCount();
-    }
-
-    function toggleSelectAll(masterCb) {
-        const checkboxes = document.querySelectorAll('.item-checkbox');
-        checkboxes.forEach(cb => cb.checked = masterCb.checked);
-        updateSelectedCount();
-    }
-
-    function updateSelectedCount() {
-        const count = document.querySelectorAll('.item-checkbox:checked').length;
-        document.getElementById('selected-count-label').textContent = `${count} items selected`;
-    }
-
-    function parseNum(val) {
-        if (val === undefined || val === null || val === '') return 0;
-        let cleaned = String(val).replace(/,/g, '').replace(/円/g, '').replace(/¥/g, '').replace(/-/g, '').trim();
-        let num = parseFloat(cleaned);
-        return isNaN(num) ? 0 : Math.abs(num);
-    }
-
-    function sanitizeDate(rawDateStr) {
-        if (!rawDateStr) return null;
-        let dateOnly = String(rawDateStr).trim().split(' ')[0];
-        let clean = dateOnly.replace(/\./g, '-').replace(/\//g, '-').replace(/年|月/g, '-').replace(/日/g, '').trim();
-        let parts = clean.split('-');
-        if (parts.length < 3) return null;
-        let year = parseInt(parts[0], 10);
-        let month = parseInt(parts[1], 10);
-        let day = parseInt(parts[2], 10);
-        if (isNaN(year) || isNaN(month) || isNaN(day) || month < 1 || month > 12) return null;
-        
-        if (year < 100) year += 2000;
-        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    }
-
-    function cleanHeader(hdr) {
-        return hdr ? hdr.replace(/^\uFEFF/, '').replace(/["']/g, '').trim() : '';
-    }
-
-    function handleAddExpense(event) {
-        event.preventDefault();
-        const date = document.getElementById('exp-date').value;
-        const mainCategory = document.getElementById('exp-main-category').value;
-        const subCategory = document.getElementById('exp-sub-category').value;
-        const description = document.getElementById('exp-description').value.trim();
-        const amount = parseNum(document.getElementById('exp-amount').value);
-
-        if (!date || !description || amount <= 0) return;
-
-        const newItem = { id: Date.now().toString(), date, mainCategory, subCategory, description, amount };
-        const hash = getTransactionHash(newItem);
-
-        if (!processedFilesHashes.includes(hash)) {
-            processedFilesHashes.push(hash);
-            expenseData.push(newItem);
-            saveAndRender();
-        }
-
-        document.getElementById('exp-description').value = '';
-        document.getElementById('exp-amount').value = '';
-    }
-
-    function deleteExpense(id) {
-        expenseData = expenseData.filter(item => item.id !== id);
-        saveAndRender();
-    }
+    document.getElementById('fileInput').addEventListener('change', handleFileUpload);
 
     async function handleFileUpload(event) {
-        const files = Array.from(event.target.files);
-        const status = document.getElementById('expense-upload-status');
-        if (files.length === 0) return;
+      const file = event.target.files[0];
+      if (!file) return;
 
-        let totalExtracted = 0;
-        let duplicateCount = 0;
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      
+      let rawLines = [];
 
-        for (let file of files) {
-            status.textContent = `Processing ${file.name}...`;
-            const fname = file.name.toLowerCase();
-            let newItems = [];
-
-            if (fname.endsWith('.csv')) {
-                newItems = await processExpenseCSV(file);
-            } else if (fname.endsWith('.pdf')) {
-                newItems = await processExpensePDF(file);
-            }
-
-            newItems.forEach(item => {
-                const hash = getTransactionHash(item);
-                if (processedFilesHashes.includes(hash)) {
-                    duplicateCount++;
-                } else {
-                    processedFilesHashes.push(hash);
-                    expenseData.push(item);
-                    totalExtracted++;
-                }
-            });
-        }
-
-        saveAndRender();
-        status.textContent = `Import complete! Added ${totalExtracted} new records (${duplicateCount} duplicate records skipped).`;
-    }
-
-    function processExpenseCSV(file) {
-        return new Promise((resolve) => {
-            Papa.parse(file, {
-                header: false,
-                skipEmptyLines: true,
-                complete: function(results) {
-                    let rows = results.data;
-                    if (!rows || rows.length === 0) return resolve([]);
-
-                    let extracted = [];
-                    let headerIndex = -1;
-                    
-                    const dateHeaders = ['Date & Time', 'Date', '日付', '取引日時', '利用日', '利用年月日'];
-
-                    for (let i = 0; i < rows.length; i++) {
-                        let cleanedRow = rows[i].map(cleanHeader);
-                        if (cleanedRow.some(col => dateHeaders.includes(col))) {
-                            headerIndex = i; break;
-                        }
-                    }
-
-                    if (headerIndex === -1) return resolve([]);
-                    let headers = rows[headerIndex].map(cleanHeader);
-
-                    for (let i = headerIndex + 1; i < rows.length; i++) {
-                        let rowArr = rows[i];
-                        let row = {};
-                        headers.forEach((h, idx) => {
-                            row[h] = rowArr[idx] !== undefined ? String(rowArr[idx]).trim() : '';
-                        });
-
-                        let rawDate = row['Date & Time'] || row['Date'] || row['取引日時'] || row['日付'] || row['利用日'] || row['利用年月日'];
-                        let cleanDate = sanitizeDate(rawDate);
-
-                        let description = row['Business Name'] || row['加盟店名/支払い先'] || row['内容'] || row['利用店名・商品名'] || row['Transaction Type'] || row['取引種別'] || 'PayPay Payment';
-                        description = normalizeJapaneseText(description);
-
-                        let rawAmountOut = row['Amount Outgoing (Yen)'] || row['金額（出金）'] || row['Amount'] || row['金額'] || row['利用金額(円)'];
-                        let amount = parseNum(rawAmountOut);
-
-                        let typeStr = (row['Transaction Type'] || row['取引種別'] || '').toLowerCase();
-                        if (typeStr.includes('top-up') || typeStr.includes('チャージ') || typeStr.includes('points') || typeStr.includes('ポイント')) {
-                            amount = 0;
-                        }
-
-                        let cats = autoCategorize(description);
-
-                        if (cleanDate && amount > 0) {
-                            extracted.push({
-                                id: (Date.now() + Math.random()).toString(),
-                                date: cleanDate,
-                                mainCategory: cats.mainCategory,
-                                subCategory: cats.subCategory,
-                                description: description,
-                                amount: amount
-                            });
-                        }
-                    }
-                    resolve(extracted);
-                }
-            });
-        });
-    }
-
-    // Improved SMBC Direct PDF Parsing Algorithm
-    async function processExpensePDF(file) {
-        let extracted = [];
-        try {
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-            let pageLines = [];
-
-            for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const textContent = await page.getTextContent();
-                
-                // Group text fragments into visual horizontal lines (y-tolerance: 6px)
-                let linesByY = [];
-                textContent.items.forEach(item => {
-                    let text = item.str.trim();
-                    if (!text) return;
-                    let y = item.transform[5];
-                    let x = item.transform[4];
-
-                    let existingLine = linesByY.find(l => Math.abs(l.y - y) < 6);
-                    if (existingLine) {
-                        existingLine.items.push({ x, text });
-                    } else {
-                        linesByY.push({ y, items: [{ x, text }] });
-                    }
-                });
-
-                // Sort lines vertically top-to-bottom
-                linesByY.sort((a, b) => b.y - a.y);
-
-                linesByY.forEach(lineObj => {
-                    // Sort items horizontally left-to-right
-                    lineObj.items.sort((a, b) => a.x - b.x);
-                    let lineStr = lineObj.items.map(it => it.text).join(' ').replace(/\|/g, ' ').trim();
-                    if (lineStr) pageLines.push(lineStr);
-                });
-            }
-
-            let currentYear = new Date().getFullYear();
-            let cleanedLines = pageLines.filter(l => 
-                !l.startsWith('http') && 
-                !l.includes('明細照会') && 
-                !l.includes('SMBC') && 
-                !l.includes('お取扱内容') && 
-                !l.includes('対象期間')
-            );
-
-            let idx = 0;
-            while (idx < cleanedLines.length) {
-                let line = cleanedLines[idx];
-
-                // Detect Year Section Headers (e.g., "2026年2月" or "2026年")
-                let ym = line.match(/(\d{4})年/);
-                if (ym && (line.includes('月') || line.length <= 10)) {
-                    currentYear = parseInt(ym[1], 10);
-                    idx++;
-                    continue;
-                }
-
-                // Detect Japanese Date (e.g. "2月27日")
-                let dm = line.match(/(\d{1,2})月(\d{1,2})日/);
-                if (dm) {
-                    let m = String(dm[1]).padStart(2, '0');
-                    let d = String(dm[2]).padStart(2, '0');
-                    let dateStr = `${currentYear}-${m}-${d}`;
-
-                    let descParts = [];
-
-                    // Inline description text after/before date
-                    let rest = line.replace(dm[0], '').trim();
-                    if (rest) descParts.push(rest);
-
-                    // Previous line description check
-                    if (idx > 0) {
-                        let prev = cleanedLines[idx - 1];
-                        if (!prev.match(/\d{1,2}月\d{1,2}日/) && !prev.match(/[\d,]+円/) && !prev.includes('年') && !prev.includes('残高') && !prev.includes('入金') && !prev.includes('出金')) {
-                            descParts.unshift(prev);
-                        }
-                    }
-
-                    // Look ahead for amounts and multi-line descriptions
-                    let amount = null;
-                    let isIncome = false;
-
-                    let j = idx + 1;
-                    while (j < cleanedLines.length && j < idx + 4) {
-                        let nxt = cleanedLines[j];
-                        if (nxt.match(/\d{1,2}月\d{1,2}日/) || nxt.match(/\d{4}年/)) break;
-
-                        let am = nxt.match(/([\d,]+)\s*円/);
-                        if (am) {
-                            let amtVal = parseNum(am[1]);
-                            if (nxt.includes('+')) isIncome = true;
-                            amount = amtVal;
-                            break;
-                        } else {
-                            if (!nxt.startsWith('http') && !nxt.includes('三井住友銀行')) {
-                                descParts.push(nxt);
-                            }
-                        }
-                        j++;
-                    }
-
-                    let fullDesc = normalizeJapaneseText(descParts.join(' '));
-
-                    if (amount !== null && amount > 0 && !isIncome && fullDesc) {
-                        let cats = autoCategorize(fullDesc);
-                        extracted.push({
-                            id: (Date.now() + Math.random()).toString(),
-                            date: dateStr,
-                            mainCategory: cats.mainCategory,
-                            subCategory: cats.subCategory,
-                            description: fullDesc,
-                            amount: amount
-                        });
-                    }
-                }
-                idx++;
-            }
-        } catch (err) {
-            console.error("PDF Parsing Error:", err);
-        }
-        return extracted;
-    }
-
-    function saveAndRender() {
-        localStorage.setItem('household_expenses_data', JSON.stringify(expenseData));
-        localStorage.setItem('household_custom_rules', JSON.stringify(customRules));
-        localStorage.setItem('processed_file_hashes', JSON.stringify(processedFilesHashes));
-        renderDashboard();
-    }
-
-    function clearExpenseData() {
-        if (confirm("Clear all records and hash history?")) {
-            expenseData = [];
-            processedFilesHashes = [];
-            localStorage.removeItem('household_expenses_data');
-            localStorage.removeItem('processed_file_hashes');
-            renderDashboard();
-        }
-    }
-
-    function populateMonthFilter() {
-        const monthSelect = document.getElementById('month-filter');
-        const curMonth = monthSelect.value;
-        monthSelect.innerHTML = '<option value="ALL">All Months</option>';
-
-        const months = new Set();
-        expenseData.forEach(s => { if (s.date) months.add(s.date.substring(0, 7)); });
-
-        const sortedMonths = Array.from(months).sort().reverse();
-        sortedMonths.forEach(m => {
-            const opt = document.createElement('option');
-            opt.value = m; opt.textContent = m;
-            monthSelect.appendChild(opt);
-        });
-
-        if (curMonth && sortedMonths.includes(curMonth)) monthSelect.value = curMonth;
-    }
-
-    function setExpenseViewMode(mode) {
-        currentExpenseViewMode = mode;
-        document.getElementById('btnViewDaily').classList.toggle('active', mode === 'daily');
-        document.getElementById('btnViewMainCat').classList.toggle('active', mode === 'main_category');
-        document.getElementById('btnViewSubCat').classList.toggle('active', mode === 'sub_category');
-        document.getElementById('btnViewMonthly').classList.toggle('active', mode === 'monthly');
-        renderDashboard();
-    }
-
-    function renderDashboard() {
-        populateMonthFilter();
-        const selectedMonth = document.getElementById('month-filter').value || 'ALL';
+      // Extract raw text lines across all pages
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const pageLines = content.items
+          .map(item => item.str.trim())
+          .filter(str => str.length > 0);
         
-        let filtered = expenseData.filter(d => selectedMonth === 'ALL' || d.date.startsWith(selectedMonth));
-        
-        let totalSpend = filtered.reduce((sum, item) => sum + item.amount, 0);
-        const uniqueDays = new Set(filtered.map(d => d.date)).size || 1;
+        rawLines.push(...pageLines);
+      }
 
-        document.getElementById('m-total-spending').textContent = `¥${totalSpend.toLocaleString()}`;
-        document.getElementById('m-transaction-count').textContent = filtered.length;
-        document.getElementById('m-daily-avg').textContent = `¥${Math.round(totalSpend / uniqueDays).toLocaleString()}`;
-
-        renderChart(filtered);
-        renderTable(filtered);
+      const transactions = parseSmbcTransactions(rawLines);
+      renderTable(transactions);
     }
 
-    function renderChart(data) {
-        if (expenseChartInstance) expenseChartInstance.destroy();
-        const ctx = document.getElementById('expenseChart').getContext('2d');
+    function parseSmbcTransactions(lines) {
+      const transactions = [];
+      
+      const dateRegex = /(\d{1,2}月\d{1,2}日)/;
+      const amountRegex = /([\d,]+)\s*円\s*([+-]?)/;
+      const yearRegex = /^\d{4}年\d{1,2}月$/;
 
-        if (currentExpenseViewMode === 'daily') {
-            const dailyAgg = {};
-            data.forEach(d => dailyAgg[d.date] = (dailyAgg[d.date] || 0) + d.amount);
-            const sortedDates = Object.keys(dailyAgg).sort();
+      // PII & Header blacklist words to exclude non-transaction metadata
+      const blacklist = [
+        "明細照会", "SMBC", "照会口座", "川崎支店", "残高別普通", 
+        "入金合計", "出金", "お取扱内容", "日付", "お引き出し", 
+        "お預け入れ", "残高", "対象期間", "印刷されたタイミング", 
+        "三井住友銀行", "さま", "https://", "1/3", "2/3", "3/3"
+      ];
 
-            expenseChartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: sortedDates,
-                    datasets: [{ label: 'Daily Spending (¥)', data: sortedDates.map(d => dailyAgg[d]), backgroundColor: '#2563eb' }]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
+      for (let i = 0; i < lines.length; i++) {
+        let line = lines[i].replace(/^\|\s*/, '').trim();
+
+        // Skip headers and PII metadata lines
+        if (blacklist.some(keyword => line.includes(keyword))) continue;
+
+        // Detect transaction date
+        const dateMatch = line.match(dateRegex);
+        if (dateMatch) {
+          const dateStr = dateMatch[1];
+          let inlineDesc = line.replace(dateStr, '').replace(/^\|\s*/, '').trim();
+
+          let description = inlineDesc;
+          let amount = null;
+          let type = "withdrawal";
+
+          // Look ahead to capture multi-line descriptions and amounts
+          for (let j = i + 1; j < Math.min(i + 6, lines.length); j++) {
+            let nextLine = lines[j].replace(/^\|\s*/, '').trim();
+
+            if (blacklist.some(keyword => nextLine.includes(keyword))) continue;
+
+            const amountMatch = nextLine.match(amountRegex);
+            if (amountMatch) {
+              amount = parseInt(amountMatch[1].replace(/,/g, ''), 10);
+              const sign = amountMatch[2];
+
+              if (sign === '+' || nextLine.includes('+')) {
+                type = 'deposit';
+              } else {
+                type = 'withdrawal';
+              }
+              break;
+            } else if (!dateRegex.test(nextLine) && !yearRegex.test(nextLine)) {
+              if (!description) {
+                description = nextLine;
+              } else if (!description.includes(nextLine)) {
+                description += " " + nextLine;
+              }
+            }
+          }
+
+          if (amount !== null) {
+            transactions.push({
+              date: dateStr,
+              description: description || "Unknown",
+              type,
+              amount
             });
-
-        } else if (currentExpenseViewMode === 'main_category') {
-            const catAgg = {};
-            data.forEach(d => catAgg[d.mainCategory] = (catAgg[d.mainCategory] || 0) + d.amount);
-
-            expenseChartInstance = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: Object.keys(catAgg),
-                    datasets: [{ data: Object.values(catAgg), backgroundColor: ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#64748b'] }]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
-
-        } else if (currentExpenseViewMode === 'sub_category') {
-            const subAgg = {};
-            data.forEach(d => {
-                const label = `${d.mainCategory} > ${d.subCategory}`;
-                subAgg[label] = (subAgg[label] || 0) + d.amount;
-            });
-
-            expenseChartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: Object.keys(subAgg),
-                    datasets: [{ label: 'Subcategory Spending (¥)', data: Object.values(subAgg), backgroundColor: '#8b5cf6' }]
-                },
-                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
-            });
-
-        } else if (currentExpenseViewMode === 'monthly') {
-            const monthAgg = {};
-            expenseData.forEach(d => {
-                const m = d.date.substring(0, 7);
-                monthAgg[m] = (monthAgg[m] || 0) + d.amount;
-            });
-
-            expenseChartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: Object.keys(monthAgg).sort(),
-                    datasets: [{ label: 'Monthly Expense (¥)', data: Object.keys(monthAgg).sort().map(m => monthAgg[m]), backgroundColor: '#3b82f6' }]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
+          }
         }
+      }
+
+      return transactions;
     }
 
-    function renderTable(data) {
-        renderTableDataOnly(data);
+    function renderTable(transactions) {
+      const tbody = document.getElementById('transactionBody');
+      tbody.innerHTML = '';
+
+      let depositsSum = 0;
+      let withdrawalsSum = 0;
+
+      transactions.forEach(tx => {
+        const row = document.createElement('tr');
+        
+        if (tx.type === 'deposit') {
+          depositsSum += tx.amount;
+        } else {
+          withdrawalsSum += tx.amount;
+        }
+
+        row.innerHTML = `
+          <td>${tx.date}</td>
+          <td>${escapeHtml(tx.description)}</td>
+          <td><span class="${tx.type === 'deposit' ? 'amount-deposit' : 'amount-withdrawal'}">${tx.type.toUpperCase()}</span></td>
+          <td class="${tx.type === 'deposit' ? 'amount-deposit' : 'amount-withdrawal'}">
+            ${tx.type === 'deposit' ? '+' : '-'}¥${tx.amount.toLocaleString()}
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      document.getElementById('totalDeposits').textContent = `¥${depositsSum.toLocaleString()}`;
+      document.getElementById('totalWithdrawals').textContent = `¥${withdrawalsSum.toLocaleString()}`;
+      document.getElementById('totalCount').textContent = transactions.length;
+
+      document.getElementById('statsContainer').style.display = 'flex';
+      document.getElementById('transactionTable').style.display = 'table';
     }
 
-    function renderTableDataOnly(dataset) {
-        const selectedMonth = document.getElementById('month-filter').value || 'ALL';
-        let baseData = dataset || expenseData.filter(d => selectedMonth === 'ALL' || d.date.startsWith(selectedMonth));
-
-        const dateFilterVal = (document.getElementById('col-filter-date')?.value || '').toLowerCase().trim();
-        const mainCatFilterVal = document.getElementById('col-filter-main-cat')?.value || 'ALL';
-        const subCatFilterVal = document.getElementById('col-filter-sub-cat')?.value || 'ALL';
-        const descFilterVal = (document.getElementById('col-filter-desc')?.value || '').toLowerCase().trim();
-
-        let filtered = baseData.filter(item => {
-            if (dateFilterVal && !item.date.toLowerCase().includes(dateFilterVal)) return false;
-            if (mainCatFilterVal !== 'ALL' && item.mainCategory !== mainCatFilterVal) return false;
-            if (subCatFilterVal !== 'ALL' && item.subCategory !== subCatFilterVal) return false;
-            if (descFilterVal && !item.description.toLowerCase().includes(descFilterVal)) return false;
-            return true;
-        });
-
-        const tbody = document.getElementById('expense-table-body');
-        tbody.innerHTML = '';
-
-        const sortedData = [...filtered].sort((a,b) => b.date.localeCompare(a.date));
-
-        sortedData.forEach(item => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td><input type="checkbox" class="item-checkbox" data-id="${item.id}" onchange="updateSelectedCount()"></td>
-                <td style="font-weight: 500;">${item.date}</td>
-                <td><span class="cat-tag">${item.mainCategory}</span></td>
-                <td><span class="subcat-tag">${item.subCategory}</span></td>
-                <td>${item.description}</td>
-                <td style="font-weight: 700;">¥${item.amount.toLocaleString()}</td>
-                <td>
-                    <button onclick="deleteExpense('${item.id}')" style="background: transparent; border: none; color: #ef4444; cursor: pointer;">🗑️ Delete</button>
-                </td>
-            `;
-            tbody.appendChild(row);
-        });
-
-        document.getElementById('select-all-checkbox').checked = false;
-        updateSelectedCount();
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
-
-    initCategoryDropdowns();
-    renderRules();
-    renderDashboard();
-</script>
+  </script>
 </body>
 </html>
