@@ -7,6 +7,8 @@
     <!-- External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- PDF.js library for PDF parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         :root {
             --primary: #2563eb;
@@ -132,7 +134,7 @@
         /* Form Layout */
         .expense-form-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
             gap: 12px;
             align-items: end;
         }
@@ -146,6 +148,9 @@
         th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
         th { background: #f8fafc; color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; position: sticky; top: 0; }
         tbody tr:hover { background: #f8fafc; }
+        
+        .cat-tag { background: #eff6ff; color: #1d4ed8; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.78rem; display: inline-block; }
+        .subcat-tag { background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 4px; font-weight: 500; font-size: 0.78rem; display: inline-block; margin-left: 4px; }
     </style>
 </head>
 <body>
@@ -175,21 +180,16 @@
                     <input type="date" id="exp-date" required style="width: 100%;">
                 </div>
                 <div>
-                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">CATEGORY</label>
-                    <select id="exp-category" style="width: 100%;">
-                        <option value="Food & Groceries">Food & Groceries</option>
-                        <option value="Utilities">Utilities</option>
-                        <option value="Transportation">Transportation</option>
-                        <option value="Shopping & Supplies">Shopping & Supplies</option>
-                        <option value="Entertainment & Leisure">Entertainment & Leisure</option>
-                        <option value="Education & Sports">Education & Sports</option>
-                        <option value="Housing & Rent">Housing & Rent</option>
-                        <option value="Miscellaneous">Miscellaneous</option>
-                    </select>
+                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">MAIN CATEGORY</label>
+                    <select id="exp-main-category" onchange="updateSubCategoryDropdown()" style="width: 100%;"></select>
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">SUB CATEGORY</label>
+                    <select id="exp-sub-category" style="width: 100%;"></select>
                 </div>
                 <div>
                     <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">DESCRIPTION</label>
-                    <input type="text" id="exp-description" placeholder="Item or vendor details" required style="width: 100%;">
+                    <input type="text" id="exp-description" placeholder="Vendor or item details" required style="width: 100%;">
                 </div>
                 <div>
                     <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">AMOUNT (¥)</label>
@@ -202,18 +202,18 @@
         </form>
     </div>
 
-    <!-- Upload CSVs -->
+    <!-- Upload CSVs and PDFs -->
     <div class="card">
         <div class="card-header">
-            <h3 class="card-title">📁 Import Bank & Credit CSVs</h3>
-            <span style="font-size: 0.8rem; color: var(--text-muted);">Supports standard statement exports</span>
+            <h3 class="card-title">📁 Import Statements (CSV & PDF)</h3>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">Supports bank statements & credit card exports</span>
         </div>
-        <div class="batch-drop-zone" onclick="document.getElementById('csv-files').click()">
-            <span style="font-size: 2rem; display: block; margin-bottom: 8px;">📄</span>
-            <span style="font-size: 0.95rem; font-weight: 600; color: var(--text-main);">Click or Drag & Drop CSV files here</span>
-            <input type="file" id="csv-files" accept=".csv" multiple onchange="handleCSVUpload(event)">
+        <div class="batch-drop-zone" onclick="document.getElementById('statement-files').click()">
+            <span style="font-size: 2rem; display: block; margin-bottom: 8px;">📄 / 📊</span>
+            <span style="font-size: 0.95rem; font-weight: 600; color: var(--text-main);">Click or Drag & Drop CSV / PDF statement files here</span>
+            <input type="file" id="statement-files" accept=".csv, .pdf" multiple onchange="handleFileUpload(event)">
         </div>
-        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 10px;" id="expense-upload-status">Ready to import CSV expense files. Duplicate records are merged automatically.</div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 10px;" id="expense-upload-status">Ready to import CSV or PDF statement files. Automated smart categorization will be applied.</div>
     </div>
 
     <!-- KPI Summary Cards -->
@@ -237,7 +237,8 @@
         <div class="card-header">
             <div class="btn-toggle-group">
                 <button id="btnViewDaily" class="btn-toggle active" onclick="setExpenseViewMode('daily')">Daily Trend</button>
-                <button id="btnViewCategory" class="btn-toggle" onclick="setExpenseViewMode('category')">Category Breakdown</button>
+                <button id="btnViewMainCat" class="btn-toggle" onclick="setExpenseViewMode('main_category')">Main Categories</button>
+                <button id="btnViewSubCat" class="btn-toggle" onclick="setExpenseViewMode('sub_category')">Subcategory Breakdown</button>
                 <button id="btnViewMonthly" class="btn-toggle" onclick="setExpenseViewMode('monthly')">Monthly Comparison</button>
             </div>
             <span id="expense-period-title" style="font-weight: 600; color: var(--text-muted); font-size: 0.85rem;"></span>
@@ -259,7 +260,8 @@
                 <thead>
                     <tr>
                         <th>Date</th>
-                        <th>Category</th>
+                        <th>Main Category</th>
+                        <th>Sub Category</th>
                         <th>Description</th>
                         <th>Amount (¥)</th>
                         <th>Action</th>
@@ -272,11 +274,76 @@
 </div>
 
 <script>
+    // Set pdf.js worker url
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    // 2-Tier Categorization Schema
+    const CATEGORY_MAP = {
+        "Food & Dining": ["Groceries", "Restaurants & Dining Out", "Cafes & Bakeries", "Delivery Services"],
+        "Housing & Utilities": ["Electricity", "Water & Gas", "Rent & Mortgage", "Internet & Mobile"],
+        "Transportation": ["Trains & Bus", "Taxi & Rideshare", "Fuel & Parking", "Vehicle Maintenance"],
+        "Education & Sports": ["Swimming & Sports Club", "Tuition & School", "Books & Study Materials"],
+        "Shopping & Household": ["Clothing & Apparel", "Home Goods & Supplies", "Electronics & Tech"],
+        "Leisure & Travel": ["Hotels & Accommodation", "Attractions & Trips", "Hobbies & Entertainment"],
+        "Miscellaneous": ["General Expense", "Services & Fees"]
+    };
+
     let expenseData = JSON.parse(localStorage.getItem('household_expenses_data')) || [];
     let currentExpenseViewMode = 'daily';
     let expenseChartInstance;
 
     document.getElementById('exp-date').valueAsDate = new Date();
+
+    function initCategoryDropdowns() {
+        const mainSelect = document.getElementById('exp-main-category');
+        mainSelect.innerHTML = '';
+        Object.keys(CATEGORY_MAP).forEach(mainCat => {
+            const opt = document.createElement('option');
+            opt.value = mainCat;
+            opt.textContent = mainCat;
+            mainSelect.appendChild(opt);
+        });
+        updateSubCategoryDropdown();
+    }
+
+    function updateSubCategoryDropdown() {
+        const mainCat = document.getElementById('exp-main-category').value;
+        const subSelect = document.getElementById('exp-sub-category');
+        subSelect.innerHTML = '';
+        
+        const subCats = CATEGORY_MAP[mainCat] || ["General Expense"];
+        subCats.forEach(sub => {
+            const opt = document.createElement('option');
+            opt.value = sub;
+            opt.textContent = sub;
+            subSelect.appendChild(opt);
+        });
+    }
+
+    function autoCategorize(description) {
+        const desc = description.toLowerCase();
+
+        if (desc.includes('supermarket') || desc.includes('grocery') || desc.includes('Aeon') || desc.includes('ライフ') || desc.includes('食品')) {
+            return { mainCategory: 'Food & Dining', subCategory: 'Groceries' };
+        }
+        if (desc.includes('restaurant') || desc.includes('mcdonald') || desc.includes('starbucks') || desc.includes('cafe')) {
+            return { mainCategory: 'Food & Dining', subCategory: 'Restaurants & Dining Out' };
+        }
+        if (desc.includes('power') || desc.includes('electric') || desc.includes('電力') || desc.includes('gas') || desc.includes('東京ガス')) {
+            return { mainCategory: 'Housing & Utilities', subCategory: desc.includes('gas') ? 'Water & Gas' : 'Electricity' };
+        }
+        if (desc.includes('suica') || desc.includes('pasmo') || desc.includes('jr') || desc.includes('train') || desc.includes('metro')) {
+            return { mainCategory: 'Transportation', subCategory: 'Trains & Bus' };
+        }
+        if (desc.includes('swim') || desc.includes('arena') || desc.includes('speedo') || desc.includes('mizuno') || desc.includes('pool')) {
+            return { mainCategory: 'Education & Sports', subCategory: 'Swimming & Sports Club' };
+        }
+        if (desc.includes('hotel') || desc.includes('inn') || desc.includes('resort') || desc.includes('ski')) {
+            return { mainCategory: 'Leisure & Travel', subCategory: 'Hotels & Accommodation' };
+        }
+
+        return { mainCategory: 'Miscellaneous', subCategory: 'General Expense' };
+    }
 
     function parseNum(val) {
         if (val === undefined || val === null || val === '') return 0;
@@ -305,13 +372,14 @@
     function handleAddExpense(event) {
         event.preventDefault();
         const date = document.getElementById('exp-date').value;
-        const category = document.getElementById('exp-category').value;
+        const mainCategory = document.getElementById('exp-main-category').value;
+        const subCategory = document.getElementById('exp-sub-category').value;
         const description = document.getElementById('exp-description').value.trim();
         const amount = parseNum(document.getElementById('exp-amount').value);
 
         if (!date || !description || amount <= 0) return;
 
-        const newItem = { id: Date.now().toString(), date, category, description, amount };
+        const newItem = { id: Date.now().toString(), date, mainCategory, subCategory, description, amount };
         expenseData.push(newItem);
         saveAndRender();
 
@@ -324,7 +392,7 @@
         saveAndRender();
     }
 
-    async function handleCSVUpload(event) {
+    async function handleFileUpload(event) {
         const files = Array.from(event.target.files);
         const status = document.getElementById('expense-upload-status');
         if (files.length === 0) return;
@@ -332,12 +400,15 @@
         let totalExtracted = 0;
         for (let file of files) {
             status.textContent = `Processing ${file.name}...`;
-            const extracted = await processExpenseCSV(file);
-            totalExtracted += extracted;
+            if (file.name.endsWith('.csv')) {
+                totalExtracted += await processExpenseCSV(file);
+            } else if (file.name.endsWith('.pdf')) {
+                totalExtracted += await processExpensePDF(file);
+            }
         }
 
         saveAndRender();
-        status.textContent = `Import complete! Added ${totalExtracted} expense records.`;
+        status.textContent = `Import complete! Added ${totalExtracted} expense records with auto-categorization.`;
     }
 
     function processExpenseCSV(file) {
@@ -375,13 +446,17 @@
                         let cleanDate = sanitizeDate(rawDate);
                         let description = row['Description'] || row['内容'] || row['利用店名・商品名'] || row['摘要'] || 'General Expense';
                         let amount = parseNum(row['Amount'] || row['金額'] || row['利用金額(円)'] || row['支出金額']);
-                        let category = row['Category'] || row['カテゴリ'] || 'Miscellaneous';
+
+                        let cats = autoCategorize(description);
+                        let mainCategory = row['MainCategory'] || row['メインカテゴリ'] || cats.mainCategory;
+                        let subCategory = row['SubCategory'] || row['サブカテゴリ'] || cats.subCategory;
 
                         if (cleanDate && amount > 0) {
                             expenseData.push({
                                 id: (Date.now() + Math.random()).toString(),
                                 date: cleanDate,
-                                category: category,
+                                mainCategory: mainCategory,
+                                subCategory: subCategory,
                                 description: description,
                                 amount: amount
                             });
@@ -394,8 +469,49 @@
         });
     }
 
+    async function processExpensePDF(file) {
+        let extractedCount = 0;
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let fullText = '';
+
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const tokenProps = await page.getTextContent();
+                const pageText = tokenProps.items.map(item => item.str).join(' ');
+                fullText += pageText + '\n';
+            }
+
+            // Regular expression matching dates (YYYY-MM-DD or YYYY/MM/DD), text, and money amounts
+            const lineRegex = /(\d{4}[-\/\.]\d{1,2}[-\/\.]\d{1,2})\s+([^\d]+?)\s+[¥￥]?\s*([\d,]+)/g;
+            let match;
+
+            while ((match = lineRegex.exec(fullText)) !== null) {
+                let cleanDate = sanitizeDate(match[1]);
+                let description = match[2].trim();
+                let amount = parseNum(match[3]);
+
+                if (cleanDate && amount > 0 && description.length > 1) {
+                    let cats = autoCategorize(description);
+                    expenseData.push({
+                        id: (Date.now() + Math.random()).toString(),
+                        date: cleanDate,
+                        mainCategory: cats.mainCategory,
+                        subCategory: cats.subCategory,
+                        description: description,
+                        amount: amount
+                    });
+                    extractedCount++;
+                }
+            }
+        } catch (err) {
+            console.error("PDF Parsing Error:", err);
+        }
+        return extractedCount;
+    }
+
     function saveAndRender() {
-        // Consolidate duplicates by ID or unique property match
         const uniqueMap = new Map();
         expenseData.forEach(item => {
             const key = `${item.date}_${item.description}_${item.amount}`;
@@ -437,7 +553,8 @@
     function setExpenseViewMode(mode) {
         currentExpenseViewMode = mode;
         document.getElementById('btnViewDaily').classList.toggle('active', mode === 'daily');
-        document.getElementById('btnViewCategory').classList.toggle('active', mode === 'category');
+        document.getElementById('btnViewMainCat').classList.toggle('active', mode === 'main_category');
+        document.getElementById('btnViewSubCat').classList.toggle('active', mode === 'sub_category');
         document.getElementById('btnViewMonthly').classList.toggle('active', mode === 'monthly');
         renderDashboard();
     }
@@ -496,10 +613,10 @@
                 }
             });
 
-        } else if (currentExpenseViewMode === 'category') {
+        } else if (currentExpenseViewMode === 'main_category') {
             const catAgg = {};
             data.forEach(d => {
-                catAgg[d.category] = (catAgg[d.category] || 0) + d.amount;
+                catAgg[d.mainCategory || 'Miscellaneous'] = (catAgg[d.mainCategory || 'Miscellaneous'] || 0) + d.amount;
             });
 
             const categories = Object.keys(catAgg);
@@ -511,15 +628,42 @@
                     labels: categories.length > 0 ? categories : ['No Data'],
                     datasets: [{
                         data: amounts,
-                        backgroundColor: [
-                            '#2563eb', '#10b981', '#f59e0b', '#ef4444', 
-                            '#8b5cf6', '#ec4899', '#14b8a6', '#64748b'
-                        ]
+                        backgroundColor: ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#64748b']
                     }]
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false
+                    maintainAspectRatio: false,
+                    plugins: { title: { display: true, text: 'Main Category Breakdown' } }
+                }
+            });
+
+        } else if (currentExpenseViewMode === 'sub_category') {
+            const subAgg = {};
+            data.forEach(d => {
+                const label = `${d.mainCategory || 'Misc'} > ${d.subCategory || 'General'}`;
+                subAgg[label] = (subAgg[label] || 0) + d.amount;
+            });
+
+            const subCategories = Object.keys(subAgg);
+            const amounts = subCategories.map(s => subAgg[s]);
+
+            expenseChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: subCategories.length > 0 ? subCategories : ['No Data'],
+                    datasets: [{
+                        label: 'Spending (¥)',
+                        data: amounts,
+                        backgroundColor: '#8b5cf6',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { x: { beginAtZero: true, title: { display: true, text: '¥ (JPY)' } } }
                 }
             });
 
@@ -563,7 +707,8 @@
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td style="font-weight: 500;">${item.date}</td>
-                <td><span style="background: #f1f5f9; padding: 2px 8px; border-radius: 4px; font-weight: 500; font-size: 0.8rem;">${item.category}</span></td>
+                <td><span class="cat-tag">${item.mainCategory || 'Miscellaneous'}</span></td>
+                <td><span class="subcat-tag">${item.subCategory || 'General Expense'}</span></td>
                 <td>${item.description}</td>
                 <td style="font-weight: 700; color: var(--text-main);">¥${item.amount.toLocaleString()}</td>
                 <td>
@@ -574,6 +719,7 @@
         });
     }
 
+    initCategoryDropdowns();
     renderDashboard();
 </script>
 </body>
