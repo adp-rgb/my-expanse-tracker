@@ -426,7 +426,7 @@
         }
     }
 
-    // Convert Japanese full-width characters (ＥＴＣ, ネットフリックス) to standard half-width
+    // Convert Japanese full-width characters to standard half-width
     function normalizeJapaneseText(str) {
         if (!str) return '';
         return str.replace(/[Ａ-Ｚａ-ｚ０-９]/g, function(s) {
@@ -592,7 +592,6 @@
         let day = parseInt(parts[2], 10);
         if (isNaN(year) || isNaN(month) || isNaN(day) || month < 1 || month > 12) return null;
         
-        // Handles YY/MM/DD (e.g. 25/10/03 -> 2025-10-03)
         if (year < 100) year += 2000;
         return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     }
@@ -678,7 +677,6 @@
                     let extracted = [];
                     let headerIndex = -1;
                     
-                    // Recognized CSV Headers (English & Japanese PayPay Export formats)
                     const dateHeaders = ['Date & Time', 'Date', '日付', '取引日時', '利用日', '利用年月日'];
 
                     for (let i = 0; i < rows.length; i++) {
@@ -698,21 +696,17 @@
                             row[h] = rowArr[idx] !== undefined ? String(rowArr[idx]).trim() : '';
                         });
 
-                        // Extract Date
                         let rawDate = row['Date & Time'] || row['Date'] || row['取引日時'] || row['日付'] || row['利用日'] || row['利用年月日'];
                         let cleanDate = sanitizeDate(rawDate);
 
-                        // Extract Description
                         let description = row['Business Name'] || row['加盟店名/支払い先'] || row['内容'] || row['利用店名・商品名'] || row['Transaction Type'] || row['取引種別'] || 'PayPay Payment';
                         description = normalizeJapaneseText(description);
 
-                        // Extract Amount Outgoing (Skip Top-Ups / Balance Earned)
                         let rawAmountOut = row['Amount Outgoing (Yen)'] || row['金額（出金）'] || row['Amount'] || row['金額'] || row['利用金額(円)'];
                         let amount = parseNum(rawAmountOut);
 
                         let typeStr = (row['Transaction Type'] || row['取引種別'] || '').toLowerCase();
                         
-                        // Ignore Top-Ups / Money Received into wallet balance
                         if (typeStr.includes('top-up') || typeStr.includes('チャージ') || typeStr.includes('points') || typeStr.includes('ポイント')) {
                             amount = 0;
                         }
@@ -736,7 +730,7 @@
         });
     }
 
-    // SMBC PDF Extraction Logic
+    // SMBC Direct PDF Extraction Logic
     async function processExpensePDF(file) {
         let extracted = [];
         try {
@@ -749,7 +743,6 @@
                 const textContent = await page.getTextContent();
                 let lineMap = {};
 
-                // Map items vertically by Y-coordinate layout spacing
                 textContent.items.forEach(item => {
                     let y = Math.round(item.transform[5]); 
                     if (!lineMap[y]) lineMap[y] = [];
@@ -762,23 +755,40 @@
                 });
             }
 
-            // Handles SMBC statements: YY/MM/DD Merchant Name Amount
-            // Example: "25/10/03 ＥＴＣ首都高 590" or "2026/06/07 かんたん告知の医療保険 3,540"
-            const smbcLineRegex = /(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})\s+([^\d\n]+?)\s+([\d,]+)/;
+            // Extract context year (default to current year)
+            let currentYear = new Date().getFullYear();
+            let fullText = extractedLines.join('\n');
+            let yearMatch = fullText.match(/(\d{4})年/);
+            if (yearMatch) {
+                currentYear = parseInt(yearMatch[1], 10);
+            }
 
-            extractedLines.forEach(line => {
-                let match = line.match(smbcLineRegex);
-                if (match) {
-                    let cleanDate = sanitizeDate(match[1]);
-                    let description = normalizeJapaneseText(match[2]);
-                    let amount = parseNum(match[3]);
+            let pendingDate = null;
+            let pendingDescParts = [];
 
-                    // Exclude summary total lines from transaction list
-                    if (description.includes("お支払い合計額") || description.includes("お支払金額総合計") || description.includes("最低支払額")) {
-                        return;
-                    }
+            for (let i = 0; i < extractedLines.length; i++) {
+                let line = extractedLines[i].trim();
 
-                    if (cleanDate && amount > 0 && description) {
+                // Skip header/footer metadata
+                if (line.includes('明細照会') || line.includes('SMBCダイレクト') || line.includes('対象期間') || line.includes('入金合計') || line.includes('出金') || line.includes('お取扱内容')) {
+                    continue;
+                }
+
+                // Year Section Header (e.g. 2026年3月 or 2026年2月)
+                let headerYearMatch = line.match(/^(\d{4})年(\d{1,2})月$/);
+                if (headerYearMatch) {
+                    currentYear = parseInt(headerYearMatch[1], 10);
+                    continue;
+                }
+
+                // Single-line format: YY/MM/DD Description Amount
+                let smbcLineMatch = line.match(/(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})\s+([^\d\n]+?)\s+([\d,]+)/);
+                if (smbcLineMatch) {
+                    let cleanDate = sanitizeDate(smbcLineMatch[1]);
+                    let description = normalizeJapaneseText(smbcLineMatch[2]);
+                    let amount = parseNum(smbcLineMatch[3]);
+
+                    if (!line.includes('+') && cleanDate && amount > 0 && description) {
                         let cats = autoCategorize(description);
                         extracted.push({
                             id: (Date.now() + Math.random()).toString(),
@@ -789,8 +799,51 @@
                             amount: amount
                         });
                     }
+                    continue;
                 }
-            });
+
+                // Table format detection with M月D日 (e.g. 2月27日 カード ミツビシューエフジエイ)
+                let dateMatch = line.match(/^(\d{1,2})月(\d{1,2})日(?:\s+(.*))?$/);
+                if (dateMatch) {
+                    let m = String(dateMatch[1]).padStart(2, '0');
+                    let d = String(dateMatch[2]).padStart(2, '0');
+                    pendingDate = `${currentYear}-${m}-${d}`;
+                    pendingDescParts = [];
+                    if (dateMatch[3]) pendingDescParts.push(dateMatch[3]);
+                    continue;
+                }
+
+                if (pendingDate) {
+                    // Check if line contains withdraw amount (e.g., 200,000円 or 10,000円-)
+                    let withdrawMatch = line.match(/([\d,]+)円\s*-?/);
+                    let isIncome = line.includes('+');
+
+                    if (withdrawMatch) {
+                        if (!isIncome) {
+                            let amount = parseNum(withdrawMatch[1]);
+                            let description = pendingDescParts.join(' ').trim();
+                            description = normalizeJapaneseText(description);
+
+                            if (amount > 0 && description) {
+                                let cats = autoCategorize(description);
+                                extracted.push({
+                                    id: (Date.now() + Math.random()).toString(),
+                                    date: pendingDate,
+                                    mainCategory: cats.mainCategory,
+                                    subCategory: cats.subCategory,
+                                    description: description,
+                                    amount: amount
+                                });
+                            }
+                        }
+                        pendingDate = null;
+                        pendingDescParts = [];
+                    } else if (!line.includes('円')) {
+                        // Accumulate multi-line transaction description text
+                        pendingDescParts.push(line);
+                    }
+                }
+            }
         } catch (err) {
             console.error("PDF Parsing Error:", err);
         }
