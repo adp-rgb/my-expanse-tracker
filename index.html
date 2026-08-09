@@ -1181,22 +1181,31 @@ function populateMonthFilter() {
         renderDashboard();
     }
 
-    function renderDashboard() {
-        populateMonthFilter();
-        const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
-        
-        let filtered = expenseData.filter(d => selectedMonth === 'ALL' || (d.date && d.date.startsWith(selectedMonth)));
-        
-        let totalSpend = filtered.reduce((sum, item) => sum + item.amount, 0);
-        const uniqueDays = new Set(filtered.map(d => d.date)).size || 1;
+function renderDashboard() {
+    populateMonthFilter();
+    const selectedMonth = document.getElementById('month-filter')?.value || 'ALL'; // format: MM/YYYY
+    
+    let filtered = expenseData.filter(d => {
+        if (selectedMonth === 'ALL') return true;
+        if (!d.date) return false;
+        const parts = d.date.split('/'); // [DD, MM, YYYY]
+        if (parts.length === 3) {
+            const itemMonthYear = `${parts[1]}/${parts[2]}`;
+            return itemMonthYear === selectedMonth;
+        }
+        return false;
+    });
+    
+    let totalSpend = filtered.reduce((sum, item) => sum + item.amount, 0);
+    const uniqueDays = new Set(filtered.map(d => d.date)).size || 1;
 
-        document.getElementById('m-total-spending').textContent = `¥${totalSpend.toLocaleString()}`;
-        document.getElementById('m-transaction-count').textContent = filtered.length;
-        document.getElementById('m-daily-avg').textContent = `¥${Math.round(totalSpend / uniqueDays).toLocaleString()}`;
+    document.getElementById('m-total-spending').textContent = `¥${totalSpend.toLocaleString()}`;
+    document.getElementById('m-transaction-count').textContent = filtered.length;
+    document.getElementById('m-daily-avg').textContent = `¥${Math.round(totalSpend / uniqueDays).toLocaleString()}`;
 
-        renderChart(filtered);
-        renderTable(filtered);
-    }
+    renderChart(filtered);
+    renderTable(filtered);
+}
 
     function renderChart(data) {
         if (expenseChartInstance) expenseChartInstance.destroy();
