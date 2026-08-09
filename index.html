@@ -5,9 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Household Expense Tracker</title>
     <!-- External Libraries -->
-    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- Add Tesseract.js for Receipt OCR -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
         :root {
             --primary: #2563eb;
@@ -247,6 +249,22 @@
         </div>
         <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 10px; font-weight: 500;" id="expense-upload-status">Ready to import.</div>
     </div>
+    <!-- Receipt Photo / Camera Capture -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">📷 Scan Receipt Photo (Mobile Camera or Upload)</h3>
+    </div>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <!-- Camera Capture Input for Mobile -->
+        <button class="btn btn-primary" onclick="document.getElementById('receipt-camera-input').click()">
+            📸 Take Photo / Upload Receipt
+        </button>
+        <input type="file" id="receipt-camera-input" accept="image/*" capture="environment" multiple style="display: none;" onchange="handleReceiptPhotos(event)">
+    </div>
+    <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 10px; font-weight: 500;" id="receipt-scan-status">
+        Ready to scan receipts.
+    </div>
+</div>
 
     <!-- KPI Summary Cards -->
     <div class="metrics-grid">
@@ -334,7 +352,126 @@
 <script>
     // Paste your deployed Google Apps Script URL here
     const API_URL = "https://script.google.com/macros/s/AKfycbwNuJnAEAZBWnUCZVCCJ7CN3utDm20NPUF18lU5G6HMrwnkVmaMrJgmS3a2AJ1Vlkrb/exec";
+
+    async function handleReceiptPhotos(event) {
+    const files = Array.from(event.target.files);
+    const status = document.getElementById('receipt-scan-status');
+    if (files.length === 0) return;
+
+    let scannedCount = 0;
+
+    for (let file of files) {
+        status.textContent = `Scanning ${file.name} with OCR... (This may take a few seconds)`;
+
+        try {
+            // Recognize Japanese + English text directly in browser memory
+            const worker = await Tesseract.createWorker('jpn+eng');
+            const ret = await worker.recognize(file);
+            await worker.terminate();
+
+            const text = ret.data.text;
+            const parsedItem = parseJapaneseReceiptText(text);
+
+            if (parsedItem && parsedItem.amount > 0) {
+                const hash = getTransactionHash(parsedItem);
+
+                // Prevent duplicate addition if already scanned
+                if (!processedFilesHashes.includes(hash)) {
+                    processedFilesHashes.push(hash);
+                    expenseData.push(parsedItem);
+                    scannedCount++;
+                }
+            }
+        } catch (err) {
+            console.error("Receipt OCR Failed:", err);
+        }
+    }
+
+    if (scannedCount > 0) {
+        saveAndRender(); // Saves to Google Sheet and updates UI automatically
+        status.textContent = `Successfully scanned and added ${scannedCount} receipt transaction(s)!`;
+    } else {
+        status.textContent = `Could not extract valid receipt details. Please check the image quality.`;
+    }
+
+    // Reset file input so memory/images are cleared immediately
+    event.target.value = '';
+}
+
+function parseJapaneseReceiptText(text) {
+    if (!text) return null;
+
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
     
+    // 1. Extract Date (Matches YYYY/MM/DD, YYYY-MM-DD, YYYY年MM月DD日, YY/MM/DD)
+    let extractedDate = null;
+    const dateRegex = /(20\d{2}|\d{2})[年\/\.-](\d{1,2})[月\/\.-](\d{1,2})/;
+    for (let line of lines) {
+        let match = line.match(dateRegex);
+        if (match) {
+            extractedDate = sanitizeDate(`${match[1]}-${match[2]}-${match[3]}`);
+            if (extractedDate) break;
+        }
+    }
+    // Fallback to today's date if date isn't clearly visible on receipt
+    if (!extractedDate) {
+        extractedDate = new Date().toISOString().split('T')[0];
+    }
+
+    // 2. Extract Amount (Looks for 合計, 対象, 小計, or largest ¥ value)
+    let extractedAmount = 0;
+    const amountRegex = /(?:合計|小計|お買上|支払|税込)?\s*¥?\s*([1-9]\d{0,2}(?:,\d{3})+|[1-9]\d{2,6})/g;
+    let possibleAmounts = [];
+
+    for (let line of lines) {
+        if (/合計|小計|お買上|支払|税込|現 金|クレジット|STORE|TAX/i.test(line)) {
+            let matches = [...line.matchAll(amountRegex)];
+            for (let m of matches) {
+                let val = parseNum(m[1]);
+                if (val > 50 && val < 1000000) {
+                    possibleAmounts.push(val);
+                }
+            }
+        }
+    }
+
+    // Pick maximum plausible amount detected near total keywords
+    if (possibleAmounts.length > 0) {
+        extractedAmount = Math.max(...possibleAmounts);
+    } else {
+        // Fallback scan across all lines for currency values
+        for (let line of lines) {
+            let val = parseNum(line);
+            if (val > 50 && val < 1000000) possibleAmounts.push(val);
+        }
+        if (possibleAmounts.length > 0) extractedAmount = Math.max(...possibleAmounts);
+    }
+
+    // 3. Extract Store / Description (Usually found in top 3 lines of Japanese receipt)
+    let description = "Store Receipt";
+    for (let i = 0; i < Math.min(3, lines.length); i++) {
+        let cleanLine = normalizeJapaneseText(lines[i]);
+        if (cleanLine.length > 2 && !/領収書|レシート|電話|TEL|〒/i.test(cleanLine)) {
+            description = cleanLine;
+            break;
+        }
+    }
+
+    // 4. Categorize using existing logic or fallback to Miscellaneous / General Expense
+    let cats = autoCategorize(description);
+    if (!cats || !cats.subCategory || cats.subCategory === "General Expense") {
+        cats = { mainCategory: "Miscellaneous", subCategory: "General Expense" };
+    }
+
+    return {
+        id: (Date.now() + Math.random()).toString(),
+        date: extractedDate,
+        mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
+        subCategory: cats.subCategory,
+        description: description,
+        amount: extractedAmount
+    };
+}
 
     if (typeof pdfjsLib !== 'undefined') {
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
