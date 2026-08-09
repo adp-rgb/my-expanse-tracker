@@ -5,11 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Household Expense Tracker</title>
     <!-- External Libraries -->
-<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<!-- Add Tesseract.js for Receipt OCR -->
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
         :root {
             --primary: #2563eb;
@@ -212,7 +211,7 @@
     <!-- Custom Categorization Rules Manager -->
     <div class="card">
         <div class="card-header">
-            <h3 class="card-title">⚙️ Logic 1: Custom Rule Manager</h3>
+            <h3 class="card-title">⚙️ Custom Rule Manager</h3>
             <span style="font-size: 0.8rem; color: var(--text-muted);">Set keyword triggers to assign main categories and subcategories</span>
         </div>
         <form id="rule-form" onsubmit="handleAddRule(event)">
@@ -240,7 +239,7 @@
     <!-- Upload Statements -->
     <div class="card">
         <div class="card-header">
-            <h3 class="card-title">📁 Import Statements (PayPay / AEON Card CSV & SMBC PDF)</h3>
+            <h3 class="card-title">📁 Import Statements (CSV & PDF)</h3>
         </div>
         <div class="batch-drop-zone" onclick="document.getElementById('statement-files').click()">
             <span style="font-size: 2rem; display: block; margin-bottom: 8px;">📄 / 📊</span>
@@ -253,10 +252,9 @@
     <!-- Receipt Photo / Camera Capture -->
     <div class="card">
         <div class="card-header">
-            <h3 class="card-title">📷 Scan Receipt Photo (Mobile Camera or Upload)</h3>
+            <h3 class="card-title">📷 Scan Receipt Photo</h3>
         </div>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <!-- Camera Capture Input for Mobile -->
             <button class="btn btn-primary" onclick="document.getElementById('receipt-camera-input').click()">
                 📸 Take Photo / Upload Receipt
             </button>
@@ -308,7 +306,7 @@
 
         <!-- Bulk Category Modifier Interface -->
         <div style="background: #f1f5f9; padding: 12px 16px; border-radius: var(--radius-md); margin-bottom: 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-            <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-main);">⚡ Logic 2: Bulk Category Modifier</span>
+            <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-main);">⚡ Bulk Category Modifier</span>
             <select id="bulk-main-category" onchange="updateSubCategoryDropdown('bulk-main-category', 'bulk-sub-category')"></select>
             <select id="bulk-sub-category" onchange="autoSyncMainCategory('bulk-sub-category', 'bulk-main-category')"></select>
             <button class="btn btn-primary" onclick="applyBulkCategorization()">Update Selected Items</button>
@@ -351,7 +349,6 @@
 </div>
 
 <script>
-    // Paste your deployed Google Apps Script URL here
     const API_URL = "https://script.google.com/macros/s/AKfycbwNuJnAEAZBWnUCZVCCJ7CN3utDm20NPUF18lU5G6HMrwnkVmaMrJgmS3a2AJ1Vlkrb/exec";
 
     async function handleReceiptPhotos(event) {
@@ -362,10 +359,9 @@
         let scannedCount = 0;
 
         for (let file of files) {
-            status.textContent = `Scanning ${file.name} with OCR... (This may take a few seconds)`;
+            status.textContent = `Scanning ${file.name} with OCR...`;
 
             try {
-                // Recognize Japanese + English text directly in browser memory
                 const worker = await Tesseract.createWorker('jpn+eng');
                 const ret = await worker.recognize(file);
                 await worker.terminate();
@@ -376,7 +372,6 @@
                 if (parsedItem && parsedItem.amount > 0) {
                     const hash = getTransactionHash(parsedItem);
 
-                    // Prevent duplicate addition if already scanned
                     if (!processedFilesHashes.includes(hash)) {
                         processedFilesHashes.push(hash);
                         expenseData.push(parsedItem);
@@ -389,31 +384,20 @@
         }
 
         if (scannedCount > 0) {
-            saveAndRender(); // Saves to Google Sheet and updates UI automatically
-            status.textContent = `Successfully scanned and added ${scannedCount} receipt transaction(s)!`;
+            saveAndRender();
+            status.textContent = `Successfully scanned ${scannedCount} receipt(s)!`;
         } else {
-            status.textContent = `Could not extract valid receipt details. Please check the image quality.`;
+            status.textContent = `Could not extract valid details. Please check image clarity.`;
         }
 
-        // Reset file input so memory/images are cleared immediately
         event.target.value = '';
     }
 
-    // Store and Keyword Lookup Rules for Accurate Categorization
     const STORE_CATEGORY_RULES = [
-        // Groceries & Supermarkets
-        { keywords: ["BLANDE", "BLANDE オリナス錦糸町店", "Swagat", "Bazaar", "Krishna Palace", "Asian Store", "マルエツ", "ライフ", "オーケー", "イオン", "ヤオコー", "イトーヨーカドー", "まいばすけっと"], main: "Food & Dining", sub: "Groceries" },
-        
-        // Restaurants & Dining Out
-        { keywords: ["ポポラマーマ", "Popolamama", "Sizzler", "シズラー", "スシロー", "Sushiro", "タラキッチン", "Tara Kitchen", "サイゼリヤ", "ガスト", "Royal Host", "ロイヤルホスト", "くら寿司", "はま寿司", "Eat-In", "2curry set", "サラダバー"], main: "Food & Dining", sub: "Restaurants / Dining Out" },
-
-        // Convenience Stores
+        { keywords: ["BLANDE", "マルエツ", "ライフ", "オーケー", "イオン", "ヤオコー", "イトーヨーカドー", "まいばすけっと"], main: "Food & Dining", sub: "Groceries" },
+        { keywords: ["ポポラマーマ", "Popolamama", "Sizzler", "シズラー", "スシロー", "サイゼリヤ", "ガスト", "ロイヤルホスト", "くら寿司", "はま寿司"], main: "Food & Dining", sub: "Restaurants & Dining Out" },
         { keywords: ["FamilyMart", "ファミマ", "ファミリーマート", "7-Eleven", "セブン-イレブン", "Lawson", "ローソン"], main: "Food & Dining", sub: "Convenience Store" },
-
-        // Household, General Shopping & Discount Stores
-        { keywords: ["ドン・キホーテ", "ドンキ", "Don Quijote", "Donki", "マツモトキヨシ", "ウエルシア", "ダイソー", "DAISO", "セリア", "ニトリ", "無印良品"], main: "Shopping", sub: "Household / General Goods" },
-
-        // Post Office, Postal & Shipping Services
+        { keywords: ["ドン・キホーテ", "ドンキ", "マツモトキヨシ", "ウエルシア", "ダイソー", "DAISO", "セリア", "ニトリ", "無印良品"], main: "Shopping & Household", sub: "Home Goods & Supplies" },
         { keywords: ["日本郵便", "郵便局", "レターパック", "郵送", "切手", "ゆうパック"], main: "Services & Fees", sub: "Postal & Shipping" }
     ];
 
@@ -422,10 +406,9 @@
 
         const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
-        // 1. Extract Date (Handles YYYY年MM月DD日, YYYY/MM/DD, YYYY-MM-DD, MM/DD/YYYY)
         let extractedDate = null;
         const dateRegex = /(20\d{2}|\d{2})[年\/\.-](\d{1,2})[月\/\.-](\d{1,2})/;
-        const altDateRegex = /(\d{1,2})\/(\d{1,2})\/(20\d{2})/; // For MM/DD/YYYY formats like 06/26/2026
+        const altDateRegex = /(\d{1,2})\/(\d{1,2})\/(20\d{2})/;
 
         for (let line of lines) {
             let match = line.match(dateRegex);
@@ -443,7 +426,6 @@
             extractedDate = new Date().toISOString().split('T')[0];
         }
 
-        // 2. Extract Amount (Looks for 合計, TOTAL, 小計, or maximum numeric amounts)
         let extractedAmount = 0;
         const amountRegex = /(?:合計|TOTAL|小計|お買上|支払|税込)?\s*¥?\s*([1-9]\d{0,2}(?:,\d{3})+|[1-9]\d{2,6})/gi;
         let possibleAmounts = [];
@@ -453,9 +435,7 @@
                 let matches = [...line.matchAll(amountRegex)];
                 for (let m of matches) {
                     let val = parseNum(m[1]);
-                    if (val > 50 && val < 1000000) {
-                        possibleAmounts.push(val);
-                    }
+                    if (val > 50 && val < 1000000) possibleAmounts.push(val);
                 }
             }
         }
@@ -470,7 +450,6 @@
             if (possibleAmounts.length > 0) extractedAmount = Math.max(...possibleAmounts);
         }
 
-        // 3. Extract Store Name / Header Description
         let description = "Store Receipt";
         for (let i = 0; i < Math.min(5, lines.length); i++) {
             let cleanLine = normalizeJapaneseText(lines[i]);
@@ -480,14 +459,10 @@
             }
         }
 
-        // 4. Categorization Logic based on detected Store/Item keywords
         let identifiedSub = null;
-
-        // Scan full OCR text against store rules
         for (let rule of STORE_CATEGORY_RULES) {
             for (let kw of rule.keywords) {
-                const regex = new RegExp(kw, 'i');
-                if (regex.test(text)) {
+                if (new RegExp(kw, 'i').test(text)) {
                     identifiedSub = rule.sub;
                     break;
                 }
@@ -495,7 +470,6 @@
             if (identifiedSub) break;
         }
 
-        // Fallback to autoCategorize() or General Expense
         if (!identifiedSub) {
             let cats = autoCategorize(description);
             identifiedSub = cats.subCategory;
@@ -561,49 +535,48 @@
         el.textContent = text;
     }
 
-   async function fetchDataFromSheets() {
-    if (!API_URL || API_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) {
-        setSyncState('error', 'API URL Not Configured');
-        return;
+    async function fetchDataFromSheets() {
+        if (!API_URL || API_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) {
+            setSyncState('error', 'API URL Not Configured');
+            return;
+        }
+        setSyncState('syncing', 'Syncing...');
+        try {
+            const response = await fetch(API_URL + "?action=read", {
+                method: "GET",
+                redirect: "follow"
+            });
+            
+            if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+            
+            const data = await response.json();
+            expenseData = Array.isArray(data) ? data : [];
+            syncAllDataMainCategories();
+            renderDashboard();
+            setSyncState('synced', 'Synced');
+        } catch (e) {
+            console.error("Fetch failed:", e);
+            setSyncState('error', 'Sync Failed');
+        }
     }
-    setSyncState('syncing', 'Syncing...');
-    try {
-        // Appending redirect parameters avoids CORS pre-flight failures
-        const response = await fetch(API_URL + "?action=read", {
-            method: "GET",
-            redirect: "follow"
-        });
-        
-        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-        
-        const data = await response.json();
-        expenseData = Array.isArray(data) ? data : [];
-        syncAllDataMainCategories();
-        renderDashboard();
-        setSyncState('synced', 'Synced');
-    } catch (e) {
-        console.error("Fetch failed:", e);
-        setSyncState('error', 'Sync Failed');
-    }
-}
 
-async function syncToSheets() {
-    if (!API_URL || API_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) return;
-    setSyncState('syncing', 'Saving...');
-    try {
-        // text/plain prevents the browser from sending a CORS preflight OPTIONS request
-        await fetch(API_URL, {
-            method: "POST",
-            mode: "no-cors",
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify({ action: "saveAll", data: expenseData })
-        });
-        setSyncState('synced', 'Synced');
-    } catch (e) {
-        console.error("Save failed:", e);
-        setSyncState('error', 'Save Failed');
+    async function syncToSheets() {
+        if (!API_URL || API_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) return;
+        setSyncState('syncing', 'Saving...');
+        try {
+            await fetch(API_URL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                body: JSON.stringify({ action: "saveAll", data: expenseData })
+            });
+            setSyncState('synced', 'Synced');
+        } catch (e) {
+            console.error("Save failed:", e);
+            setSyncState('error', 'Save Failed');
+        }
     }
-}
+
     function getTransactionHash(item) {
         return `${item.date}_${item.description}_${item.amount}`;
     }
@@ -613,8 +586,7 @@ async function syncToSheets() {
         const mainSelect = document.getElementById(mainSelectId);
         if (!subVal || !mainSelect) return;
 
-        const mappedMain = getMainCategory(subVal);
-        mainSelect.value = mappedMain;
+        mainSelect.value = getMainCategory(subVal);
     }
 
     function initCategoryDropdowns() {
@@ -689,18 +661,12 @@ async function syncToSheets() {
             subCatFilter.appendChild(opt);
         });
 
-        if (optionsToDisplay.includes(currentSubVal)) {
-            subCatFilter.value = currentSubVal;
-        } else {
-            subCatFilter.value = 'ALL';
-        }
+        subCatFilter.value = optionsToDisplay.includes(currentSubVal) ? currentSubVal : 'ALL';
     }
 
     function normalizeJapaneseText(str) {
         if (!str) return '';
-        return str.replace(/[Ａ-Ｚａ-ｚ０-９]/g, function(s) {
-            return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
-        }).replace(/ /g, ' ').trim();
+        return str.replace(/[Ａ-Ｚａ-ｚ０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/ /g, ' ').trim();
     }
 
     function autoCategorize(description) {
@@ -820,7 +786,6 @@ async function syncToSheets() {
 
         const subCategory = document.getElementById('bulk-sub-category').value;
         const mainCategory = getMainCategory(subCategory);
-
         const selectedIds = Array.from(selectedBoxes).map(cb => cb.dataset.id);
 
         expenseData.forEach(item => {
@@ -913,9 +878,7 @@ async function syncToSheets() {
                 let text = e.target.result;
                 if (text.includes('')) {
                     const readerSJIS = new FileReader();
-                    readerSJIS.onload = function(eSJIS) {
-                        resolve(eSJIS.target.result);
-                    };
+                    readerSJIS.onload = function(eSJIS) { resolve(eSJIS.target.result); };
                     readerSJIS.readAsText(file, 'Shift_JIS');
                 } else {
                     resolve(text);
@@ -964,7 +927,7 @@ async function syncToSheets() {
         }
 
         saveAndRender();
-        status.textContent = `Import complete! Added ${totalExtracted} new items (${updatedCount} existing items updated with active rules).`;
+        status.textContent = `Import complete! Added ${totalExtracted} new items (${updatedCount} updated).`;
         event.target.value = '';
     }
 
