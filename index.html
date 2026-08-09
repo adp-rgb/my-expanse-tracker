@@ -55,6 +55,18 @@
         }
         .app-brand h1 { font-size: 1.35rem; font-weight: 700; color: var(--text-main); margin: 0; letter-spacing: -0.02em; }
 
+        .sync-status {
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: var(--radius-sm);
+            background: #e2e8f0;
+            color: var(--text-muted);
+        }
+        .sync-status.syncing { background: #fef3c7; color: #b45309; }
+        .sync-status.synced { background: #dcfce7; color: #15803d; }
+        .sync-status.error { background: #fee2e2; color: #b91c1c; }
+
         .card {
             background: var(--surface);
             border-radius: var(--radius-lg);
@@ -154,10 +166,12 @@
         <div class="app-brand">
             <div class="app-brand-icon">💳</div>
             <h1>Household Expense Tracker</h1>
+            <span id="sync-indicator" class="sync-status">Connecting...</span>
         </div>
         <div>
             <label for="month-filter" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-right: 6px;">Filter Month:</label>
             <select id="month-filter" onchange="renderDashboard()"></select>
+            <button class="btn btn-secondary" onclick="fetchDataFromSheets()" style="margin-left: 8px;">🔄 Refresh</button>
         </div>
     </div>
 
@@ -318,6 +332,9 @@
 </div>
 
 <script>
+    // Paste your deployed Google Apps Script URL here
+    const API_URL = "https://script.google.com/macros/s/AKfycbzNRquebjzZZf3p-Vbr6eBcef6MFlkdS0GewlN3vtYNDyTog4hYRfGRN6PTw3PLIwLO/exec";
+
     if (typeof pdfjsLib !== 'undefined') {
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     }
@@ -342,7 +359,6 @@
         ]
     };
 
-    // Dynamically generate clean 1-to-1 reverse mapping
     const SUB_TO_MAIN_MAP = {};
     Object.entries(CATEGORY_MAP).forEach(([mainCat, subCats]) => {
         subCats.forEach(subCat => {
@@ -357,7 +373,7 @@
         return SUB_TO_MAIN_MAP[subCategory] || fallbackMain;
     }
 
-    let expenseData = JSON.parse(localStorage.getItem('household_expenses_data')) || [];
+    let expenseData = [];
     let customRules = JSON.parse(localStorage.getItem('household_custom_rules')) || [
         { id: '1', keyword: 'suica', mainCategory: 'Transportation', subCategory: 'Trains & Bus' },
         { id: '2', keyword: 'supermarket', mainCategory: 'Food & Dining', subCategory: 'Groceries' },
@@ -370,6 +386,49 @@
     let expenseChartInstance;
 
     document.getElementById('exp-date').valueAsDate = new Date();
+
+    function setSyncState(state, text) {
+        const el = document.getElementById('sync-indicator');
+        if (!el) return;
+        el.className = `sync-status ${state}`;
+        el.textContent = text;
+    }
+
+    async function fetchDataFromSheets() {
+        if (!API_URL || API_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) {
+            setSyncState('error', 'API URL Not Configured');
+            return;
+        }
+        setSyncState('syncing', 'Syncing...');
+        try {
+            const res = await fetch(API_URL);
+            const data = await res.json();
+            expenseData = data || [];
+            syncAllDataMainCategories();
+            renderDashboard();
+            setSyncState('synced', 'Synced');
+        } catch (e) {
+            console.error("Fetch failed", e);
+            setSyncState('error', 'Sync Failed');
+        }
+    }
+
+    async function syncToSheets() {
+        if (!API_URL || API_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) return;
+        setSyncState('syncing', 'Saving...');
+        try {
+            await fetch(API_URL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "saveAll", data: expenseData })
+            });
+            setSyncState('synced', 'Synced');
+        } catch (e) {
+            console.error("Save failed", e);
+            setSyncState('error', 'Save Failed');
+        }
+    }
 
     function getTransactionHash(item) {
         return `${item.date}_${item.description}_${item.amount}`;
@@ -473,14 +532,12 @@
     function autoCategorize(description) {
         const desc = normalizeJapaneseText(description).toLowerCase();
 
-        // 1. User Custom Rules First (highest priority)
         for (let rule of customRules) {
             if (desc.includes(rule.keyword.toLowerCase())) {
                 return { mainCategory: getMainCategory(rule.subCategory, rule.mainCategory), subCategory: rule.subCategory };
             }
         }
 
-        // 2. Built-in Merchant Definitions
         let subCategory = "General Expense";
 
         if (/スーパー|イオン|イトーヨーカドー|ダイエー|ライフ|オーケー|ヤオコー|西友|コストコ|まいばすけっと|業務スーパー|サミット|ロピア|セブン|ファミマ|ローソン|オリジン|supermarket|grocery/i.test(desc)) {
@@ -503,7 +560,7 @@
             subCategory = "Fuel & Parking";
         } else if (/スイミング|水泳|arena|speedo|mizuno|スポーツ|ジム|フィットネス|swim|pool/i.test(desc)) {
             subCategory = "Swimming & Sports Club";
-        } else if (/病院|クリニック|診療所|歯科|歯医者|内科|外科|眼科|耳鼻科|皮膚科|hospital|clinic|doctor/i.test(desc)) {
+        } else if (/病院|クリニック|診療所|歯科|歯医者|内科|外科|眼科|耳鼻科|hospital|clinic|doctor/i.test(desc)) {
             subCategory = "Doctor & Clinic";
         } else if (/薬局|ドラッグストア|処方箋|調剤|マツモトキヨシ|ウェルシア|ウエルシア|サンドラッグ|ツルハ|スギ薬局|ココカラファイン|pharmacy|drugstore/i.test(desc)) {
             subCategory = "Pharmacy & Medicine";
@@ -523,7 +580,6 @@
     }
 
     function syncAllDataMainCategories() {
-        // Enforces main category mapping across all stored transaction records
         expenseData.forEach(item => {
             item.mainCategory = getMainCategory(item.subCategory, item.mainCategory);
         });
@@ -543,7 +599,6 @@
         document.getElementById('rule-keyword').value = '';
         renderRules();
 
-        // Re-apply rules unconditionally to all existing transactions
         expenseData.forEach(item => {
             let cat = autoCategorize(item.description);
             item.subCategory = cat.subCategory;
@@ -558,7 +613,6 @@
         localStorage.setItem('household_custom_rules', JSON.stringify(customRules));
         renderRules();
 
-        // Re-evaluate categories after deleting a rule
         expenseData.forEach(item => {
             let cat = autoCategorize(item.description);
             item.subCategory = cat.subCategory;
@@ -719,12 +773,9 @@
             newItems.forEach(item => {
                 const hash = getTransactionHash(item);
                 const existingIndex = expenseData.findIndex(e => getTransactionHash(e) === hash);
-
-                // Re-evaluate through autoCategorize to apply active/updated rules
                 const freshCat = autoCategorize(item.description);
 
                 if (existingIndex !== -1) {
-                    // Update existing transaction categories with fresh rule evaluation
                     expenseData[existingIndex].subCategory = freshCat.subCategory;
                     expenseData[existingIndex].mainCategory = getMainCategory(freshCat.subCategory, freshCat.mainCategory);
                     updatedCount++;
@@ -740,7 +791,6 @@
 
         saveAndRender();
         status.textContent = `Import complete! Added ${totalExtracted} new items (${updatedCount} existing items updated with active rules).`;
-        
         event.target.value = '';
     }
 
@@ -756,7 +806,6 @@
 
                     let extracted = [];
                     let headerIndex = -1;
-                    
                     const dateHeaders = ['Date & Time', 'Date', '日付', '取引日時', '利用日', '利用年月日', 'ご利用日'];
 
                     for (let i = 0; i < rows.length; i++) {
@@ -786,7 +835,6 @@
                         let amount = parseNum(rawAmountOut);
 
                         let typeStr = (row['Transaction Type'] || row['取引種別'] || '').toLowerCase();
-                        
                         if (typeStr.includes('top-up') || typeStr.includes('チャージ') || typeStr.includes('points') || typeStr.includes('ポイント')) {
                             amount = 0;
                         }
@@ -868,19 +916,19 @@
 
     function saveAndRender() {
         syncAllDataMainCategories();
-        localStorage.setItem('household_expenses_data', JSON.stringify(expenseData));
         localStorage.setItem('household_custom_rules', JSON.stringify(customRules));
         localStorage.setItem('processed_file_hashes', JSON.stringify(processedFilesHashes));
         renderDashboard();
+        syncToSheets();
     }
 
     function clearExpenseData() {
         if (confirm("Clear all records and hash history?")) {
             expenseData = [];
             processedFilesHashes = [];
-            localStorage.removeItem('household_expenses_data');
             localStorage.removeItem('processed_file_hashes');
             renderDashboard();
+            syncToSheets();
         }
     }
 
@@ -916,7 +964,7 @@
         populateMonthFilter();
         const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
         
-        let filtered = expenseData.filter(d => selectedMonth === 'ALL' || d.date.startsWith(selectedMonth));
+        let filtered = expenseData.filter(d => selectedMonth === 'ALL' || (d.date && d.date.startsWith(selectedMonth)));
         
         let totalSpend = filtered.reduce((sum, item) => sum + item.amount, 0);
         const uniqueDays = new Set(filtered.map(d => d.date)).size || 1;
@@ -983,8 +1031,10 @@
         } else if (currentExpenseViewMode === 'monthly') {
             const monthAgg = {};
             expenseData.forEach(d => {
-                const m = d.date.substring(0, 7);
-                monthAgg[m] = (monthAgg[m] || 0) + d.amount;
+                if (d.date) {
+                    const m = d.date.substring(0, 7);
+                    monthAgg[m] = (monthAgg[m] || 0) + d.amount;
+                }
             });
 
             expenseChartInstance = new Chart(ctx, {
@@ -1004,7 +1054,7 @@
 
     function renderTableDataOnly(dataset) {
         const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
-        let baseData = dataset || expenseData.filter(d => selectedMonth === 'ALL' || d.date.startsWith(selectedMonth));
+        let baseData = dataset || expenseData.filter(d => selectedMonth === 'ALL' || (d.date && d.date.startsWith(selectedMonth)));
 
         const dateFilterVal = (document.getElementById('col-filter-date')?.value || '').toLowerCase().trim();
         const mainCatFilterVal = document.getElementById('col-filter-main-cat')?.value || 'ALL';
@@ -1024,7 +1074,7 @@
         if (!tbody) return;
         tbody.innerHTML = '';
 
-        const sortedData = [...filtered].sort((a,b) => b.date.localeCompare(a.date));
+        const sortedData = [...filtered].sort((a,b) => (b.date || '').localeCompare(a.date || ''));
 
         sortedData.forEach(item => {
             const mainCat = getMainCategory(item.subCategory, item.mainCategory);
@@ -1051,8 +1101,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         initCategoryDropdowns();
         renderRules();
-        syncAllDataMainCategories();
-        saveAndRender();
+        fetchDataFromSheets();
     });
 </script>
 </body>
