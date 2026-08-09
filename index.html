@@ -333,7 +333,7 @@
 
 <script>
     // Paste your deployed Google Apps Script URL here
-    const API_URL = "https://script.google.com/macros/s/AKfycbwUA1P62r9py5EuZIS2W7oEiJnfxD64LCNy9konM6HCIzLdAgpJa7Jn-ocB2J7lJcqs/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbwNuJnAEAZBWnUCZVCCJ7CN3utDm20NPUF18lU5G6HMrwnkVmaMrJgmS3a2AJ1Vlkrb/exec";
 
     if (typeof pdfjsLib !== 'undefined') {
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -413,22 +413,22 @@
         }
     }
 
-    async function syncToSheets() {
-        if (!API_URL || API_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) return;
-        setSyncState('syncing', 'Saving...');
-        try {
-            await fetch(API_URL, {
-                method: "POST",
-                mode: "no-cors",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "saveAll", data: expenseData })
-            });
-            setSyncState('synced', 'Synced');
-        } catch (e) {
-            console.error("Save failed", e);
-            setSyncState('error', 'Save Failed');
-        }
+   async function syncToSheets() {
+    if (!API_URL || API_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) return;
+    setSyncState('syncing', 'Saving...');
+    try {
+        await fetch(API_URL, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({ action: "saveAll", data: expenseData })
+        });
+        setSyncState('synced', 'Synced');
+    } catch (e) {
+        console.error("Save failed", e);
+        setSyncState('error', 'Save Failed');
     }
+}
 
     function getTransactionHash(item) {
         return `${item.date}_${item.description}_${item.amount}`;
