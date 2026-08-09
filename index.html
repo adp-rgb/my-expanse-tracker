@@ -329,6 +329,7 @@
         "Education & Sports": ["Swimming & Sports Club", "Tuition & School", "Books & Study Materials"],
         "Shopping & Household": ["Clothing & Apparel", "Home Goods & Supplies", "Electronics & Tech"],
         "Leisure & Travel": ["Hotels & Accommodation", "Attractions & Trips", "Hobbies & Entertainment"],
+        "Medical & Insurance": ["Doctor & Clinic", "Pharmacy & Medicine", "Health Insurance", "Life & Other Insurance"],
         "Miscellaneous": ["General Expense", "Services & Fees"]
     };
 
@@ -355,6 +356,10 @@
         "Hotels & Accommodation": "Leisure & Travel",
         "Attractions & Trips": "Leisure & Travel",
         "Hobbies & Entertainment": "Leisure & Travel",
+        "Doctor & Clinic": "Medical & Insurance",
+        "Pharmacy & Medicine": "Medical & Insurance",
+        "Health Insurance": "Medical & Insurance",
+        "Life & Other Insurance": "Medical & Insurance",
         "General Expense": "Miscellaneous",
         "Services & Fees": "Miscellaneous"
     };
@@ -510,6 +515,14 @@
             subCategory = "Fuel & Parking";
         } else if (/スイミング|水泳|arena|speedo|mizuno|スポーツ|ジム|フィットネス|swim|pool/i.test(desc)) {
             subCategory = "Swimming & Sports Club";
+        } else if (/病院|クリニック|診療所|歯科|歯医者|内科|外科|眼科|耳鼻科|皮膚科|hospital|clinic|doctor/i.test(desc)) {
+            subCategory = "Doctor & Clinic";
+        } else if (/薬局|ドラッグストア|処方箋|調剤|マツモトキヨシ|ウェルシア|ウエルシア|サンドラッグ|ツルハ|スギ薬局|ココカラファイン|pharmacy|drugstore/i.test(desc)) {
+            subCategory = "Pharmacy & Medicine";
+        } else if (/健康保険|国保|健保|国民健康保険/i.test(desc)) {
+            subCategory = "Health Insurance";
+        } else if (/生命保険|損害保険|共済|かんぽ|アフラック|保険|insurance/i.test(desc)) {
+            subCategory = "Life & Other Insurance";
         } else if (/hotel|jamahkiri/i.test(desc)) {
             subCategory = "Hotels & Accommodation";
         } else if (/アトレ|ラゾーナ|ニトリ|amazon|アマゾン/i.test(desc)) {
@@ -953,7 +966,7 @@
                 type: 'doughnut',
                 data: {
                     labels: Object.keys(catAgg),
-                    datasets: [{ data: Object.values(catAgg), backgroundColor: ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#64748b'] }]
+                    datasets: [{ data: Object.values(catAgg), backgroundColor: ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#64748b'] }]
                 },
                 options: { responsive: true, maintainAspectRatio: false }
             });
