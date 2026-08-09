@@ -439,12 +439,14 @@
     function autoCategorize(description) {
         const desc = normalizeJapaneseText(description).toLowerCase();
 
+        // 1. User Custom Rules First (highest priority)
         for (let rule of customRules) {
             if (desc.includes(rule.keyword.toLowerCase())) {
                 return { mainCategory: rule.mainCategory, subCategory: rule.subCategory };
             }
         }
 
+        // 2. Built-in Merchant Definitions
         if (/スーパー|イオン|イトーヨーカドー|ダイエー|ライフ|オーケー|ヤオコー|西友|コストコ|まいばすけっと|業務スーパー|サミット|ロピア|セブン|ファミマ|ローソン|オリジン|supermarket|grocery/i.test(desc)) {
             return { mainCategory: 'Food & Dining', subCategory: 'Groceries' };
         }
@@ -498,13 +500,13 @@
         document.getElementById('rule-keyword').value = '';
         renderRules();
 
+        // Re-apply rules unconditionally to all existing transactions
         expenseData.forEach(item => {
             let cat = autoCategorize(item.description);
-            if (cat.mainCategory !== 'Miscellaneous') {
-                item.mainCategory = cat.mainCategory;
-                item.subCategory = cat.subCategory;
-            }
+            item.mainCategory = cat.mainCategory;
+            item.subCategory = cat.subCategory;
         });
+
         saveAndRender();
     }
 
@@ -512,6 +514,14 @@
         customRules = customRules.filter(r => r.id !== id);
         localStorage.setItem('household_custom_rules', JSON.stringify(customRules));
         renderRules();
+
+        // Re-evaluate categories after deleting a rule
+        expenseData.forEach(item => {
+            let cat = autoCategorize(item.description);
+            item.mainCategory = cat.mainCategory;
+            item.subCategory = cat.subCategory;
+        });
+        saveAndRender();
     }
 
     function renderRules() {
@@ -650,7 +660,7 @@
         if (files.length === 0) return;
 
         let totalExtracted = 0;
-        let duplicateCount = 0;
+        let updatedCount = 0;
 
         for (let file of files) {
             status.textContent = `Processing ${file.name}...`;
@@ -665,8 +675,13 @@
 
             newItems.forEach(item => {
                 const hash = getTransactionHash(item);
-                if (processedFilesHashes.includes(hash)) {
-                    duplicateCount++;
+                const existingIndex = expenseData.findIndex(e => getTransactionHash(e) === hash);
+
+                if (existingIndex !== -1) {
+                    // Update existing transaction categories with fresh rule evaluation
+                    expenseData[existingIndex].mainCategory = item.mainCategory;
+                    expenseData[existingIndex].subCategory = item.subCategory;
+                    updatedCount++;
                 } else {
                     processedFilesHashes.push(hash);
                     expenseData.push(item);
@@ -676,7 +691,10 @@
         }
 
         saveAndRender();
-        status.textContent = `Import complete! Added ${totalExtracted} new records (${duplicateCount} duplicate records skipped).`;
+        status.textContent = `Import complete! Added ${totalExtracted} new items (${updatedCount} existing items updated with active rules).`;
+        
+        // Reset file input value to allow re-uploading the same file if desired
+        event.target.value = '';
     }
 
     async function processExpenseCSV(file) {
