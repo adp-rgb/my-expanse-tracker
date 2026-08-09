@@ -330,14 +330,25 @@
         "Shopping & Household": ["Clothing & Apparel", "Home Goods & Supplies", "Electronics & Tech"],
         "Leisure & Travel": ["Hotels & Accommodation", "Attractions & Trips", "Hobbies & Entertainment"],
         "Medical & Insurance": ["Doctor & Clinic", "Pharmacy & Medicine", "Health Insurance", "Life & Other Insurance"],
-        "Miscellaneous": ["General Expense"]
+        "Miscellaneous": [
+            "General Expense",
+            "Groceries", "Restaurants & Dining Out", "Cafes & Bakeries", "Delivery Services",
+            "Electricity", "Water & Gas", "Rent & Mortgage", "Internet & Mobile",
+            "Trains & Bus", "Taxi & Rideshare", "Fuel & Parking", "Vehicle Maintenance",
+            "Swimming & Sports Club", "Tuition & School", "Books & Study Materials",
+            "Clothing & Apparel", "Home Goods & Supplies", "Electronics & Tech",
+            "Hotels & Accommodation", "Attractions & Trips", "Hobbies & Entertainment",
+            "Doctor & Clinic", "Pharmacy & Medicine", "Health Insurance", "Life & Other Insurance"
+        ]
     };
 
     // Dynamically generate clean 1-to-1 reverse mapping
     const SUB_TO_MAIN_MAP = {};
     Object.entries(CATEGORY_MAP).forEach(([mainCat, subCats]) => {
         subCats.forEach(subCat => {
-            SUB_TO_MAIN_MAP[subCat] = mainCat;
+            if (!SUB_TO_MAIN_MAP[subCat] || mainCat !== "Miscellaneous") {
+                SUB_TO_MAIN_MAP[subCat] = mainCat;
+            }
         });
     });
 
