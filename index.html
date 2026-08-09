@@ -330,39 +330,16 @@
         "Shopping & Household": ["Clothing & Apparel", "Home Goods & Supplies", "Electronics & Tech"],
         "Leisure & Travel": ["Hotels & Accommodation", "Attractions & Trips", "Hobbies & Entertainment"],
         "Medical & Insurance": ["Doctor & Clinic", "Pharmacy & Medicine", "Health Insurance", "Life & Other Insurance"],
-        "Miscellaneous": ["General Expense", "Services & Fees"]
+        "Miscellaneous": ["General Expense"]
     };
 
-    // Subcategory to Main Category lookup map
-    const SUB_TO_MAIN_MAP = {
-        "Groceries": "Food & Dining",
-        "Restaurants & Dining Out": "Food & Dining",
-        "Cafes & Bakeries": "Food & Dining",
-        "Delivery Services": "Food & Dining",
-        "Electricity": "Housing & Utilities",
-        "Water & Gas": "Housing & Utilities",
-        "Rent & Mortgage": "Housing & Utilities",
-        "Internet & Mobile": "Housing & Utilities",
-        "Trains & Bus": "Transportation",
-        "Taxi & Rideshare": "Transportation",
-        "Fuel & Parking": "Transportation",
-        "Vehicle Maintenance": "Transportation",
-        "Swimming & Sports Club": "Education & Sports",
-        "Tuition & School": "Education & Sports",
-        "Books & Study Materials": "Education & Sports",
-        "Clothing & Apparel": "Shopping & Household",
-        "Home Goods & Supplies": "Shopping & Household",
-        "Electronics & Tech": "Shopping & Household",
-        "Hotels & Accommodation": "Leisure & Travel",
-        "Attractions & Trips": "Leisure & Travel",
-        "Hobbies & Entertainment": "Leisure & Travel",
-        "Doctor & Clinic": "Medical & Insurance",
-        "Pharmacy & Medicine": "Medical & Insurance",
-        "Health Insurance": "Medical & Insurance",
-        "Life & Other Insurance": "Medical & Insurance",
-        "General Expense": "Miscellaneous",
-        "Services & Fees": "Miscellaneous"
-    };
+    // Dynamically generate clean 1-to-1 reverse mapping
+    const SUB_TO_MAIN_MAP = {};
+    Object.entries(CATEGORY_MAP).forEach(([mainCat, subCats]) => {
+        subCats.forEach(subCat => {
+            SUB_TO_MAIN_MAP[subCat] = mainCat;
+        });
+    });
 
     function getMainCategory(subCategory, fallbackMain = 'Miscellaneous') {
         if (!subCategory) return fallbackMain;
@@ -732,14 +709,18 @@
                 const hash = getTransactionHash(item);
                 const existingIndex = expenseData.findIndex(e => getTransactionHash(e) === hash);
 
+                // Re-evaluate through autoCategorize to apply active/updated rules
+                const freshCat = autoCategorize(item.description);
+
                 if (existingIndex !== -1) {
-                    // Update existing transaction categories with fresh rule evaluation & strict main category mapping
-                    expenseData[existingIndex].subCategory = item.subCategory;
-                    expenseData[existingIndex].mainCategory = getMainCategory(item.subCategory, item.mainCategory);
+                    // Update existing transaction categories with fresh rule evaluation
+                    expenseData[existingIndex].subCategory = freshCat.subCategory;
+                    expenseData[existingIndex].mainCategory = getMainCategory(freshCat.subCategory, freshCat.mainCategory);
                     updatedCount++;
                 } else {
                     processedFilesHashes.push(hash);
-                    item.mainCategory = getMainCategory(item.subCategory, item.mainCategory);
+                    item.subCategory = freshCat.subCategory;
+                    item.mainCategory = getMainCategory(freshCat.subCategory, freshCat.mainCategory);
                     expenseData.push(item);
                     totalExtracted++;
                 }
