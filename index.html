@@ -249,22 +249,23 @@
         </div>
         <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 10px; font-weight: 500;" id="expense-upload-status">Ready to import.</div>
     </div>
+
     <!-- Receipt Photo / Camera Capture -->
-<div class="card">
-    <div class="card-header">
-        <h3 class="card-title">📷 Scan Receipt Photo (Mobile Camera or Upload)</h3>
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">📷 Scan Receipt Photo (Mobile Camera or Upload)</h3>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <!-- Camera Capture Input for Mobile -->
+            <button class="btn btn-primary" onclick="document.getElementById('receipt-camera-input').click()">
+                📸 Take Photo / Upload Receipt
+            </button>
+            <input type="file" id="receipt-camera-input" accept="image/*" capture="environment" multiple style="display: none;" onchange="handleReceiptPhotos(event)">
+        </div>
+        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 10px; font-weight: 500;" id="receipt-scan-status">
+            Ready to scan receipts.
+        </div>
     </div>
-    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-        <!-- Camera Capture Input for Mobile -->
-        <button class="btn btn-primary" onclick="document.getElementById('receipt-camera-input').click()">
-            📸 Take Photo / Upload Receipt
-        </button>
-        <input type="file" id="receipt-camera-input" accept="image/*" capture="environment" multiple style="display: none;" onchange="handleReceiptPhotos(event)">
-    </div>
-    <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 10px; font-weight: 500;" id="receipt-scan-status">
-        Ready to scan receipts.
-    </div>
-</div>
 
     <!-- KPI Summary Cards -->
     <div class="metrics-grid">
@@ -354,169 +355,162 @@
     const API_URL = "https://script.google.com/macros/s/AKfycbwNuJnAEAZBWnUCZVCCJ7CN3utDm20NPUF18lU5G6HMrwnkVmaMrJgmS3a2AJ1Vlkrb/exec";
 
     async function handleReceiptPhotos(event) {
-    const files = Array.from(event.target.files);
-    const status = document.getElementById('receipt-scan-status');
-    if (files.length === 0) return;
+        const files = Array.from(event.target.files);
+        const status = document.getElementById('receipt-scan-status');
+        if (files.length === 0) return;
 
-    let scannedCount = 0;
+        let scannedCount = 0;
 
-    for (let file of files) {
-        status.textContent = `Scanning ${file.name} with OCR... (This may take a few seconds)`;
+        for (let file of files) {
+            status.textContent = `Scanning ${file.name} with OCR... (This may take a few seconds)`;
 
-        try {
-            // Recognize Japanese + English text directly in browser memory
-            const worker = await Tesseract.createWorker('jpn+eng');
-            const ret = await worker.recognize(file);
-            await worker.terminate();
+            try {
+                // Recognize Japanese + English text directly in browser memory
+                const worker = await Tesseract.createWorker('jpn+eng');
+                const ret = await worker.recognize(file);
+                await worker.terminate();
 
-            const text = ret.data.text;
-            const parsedItem = parseJapaneseReceiptText(text);
+                const text = ret.data.text;
+                const parsedItem = parseJapaneseReceiptText(text);
 
-            if (parsedItem && parsedItem.amount > 0) {
-                const hash = getTransactionHash(parsedItem);
+                if (parsedItem && parsedItem.amount > 0) {
+                    const hash = getTransactionHash(parsedItem);
 
-                // Prevent duplicate addition if already scanned
-                if (!processedFilesHashes.includes(hash)) {
-                    processedFilesHashes.push(hash);
-                    expenseData.push(parsedItem);
-                    scannedCount++;
+                    // Prevent duplicate addition if already scanned
+                    if (!processedFilesHashes.includes(hash)) {
+                        processedFilesHashes.push(hash);
+                        expenseData.push(parsedItem);
+                        scannedCount++;
+                    }
                 }
-            }
-        } catch (err) {
-            console.error("Receipt OCR Failed:", err);
-        }
-    }
-
-    if (scannedCount > 0) {
-        saveAndRender(); // Saves to Google Sheet and updates UI automatically
-        status.textContent = `Successfully scanned and added ${scannedCount} receipt transaction(s)!`;
-    } else {
-        status.textContent = `Could not extract valid receipt details. Please check the image quality.`;
-    }
-
-    // Reset file input so memory/images are cleared immediately
-    event.target.value = '';
-}
-
-// Store and Keyword Lookup Rules for Accurate Categorization
-const STORE_CATEGORY_RULES = [
-    // Groceries & Supermarkets
-    { keywords: ["BLANDE", "BLANDE オリナス錦糸町店", "Swagat", "Bazaar", "Krishna Palace", "Asian Store", "マルエツ", "ライフ", "オーケー", "イオン", "ヤオコー", "イトーヨーカドー", "まいばすけっと"], main: "Food & Dining", sub: "Groceries" },
-    
-    // Restaurants & Dining Out
-    { keywords: ["ポポラマーマ", "Popolamama", "Sizzler", "シズラー", "スシロー", "Sushiro", "タラキッチン", "Tara Kitchen", "サイゼリヤ", "ガスト", "Royal Host", "ロイヤルホスト", "くら寿司", "はま寿司", "Eat-In", "2curry set", "サラダバー"], main: "Food & Dining", sub: "Restaurants / Dining Out" },
-
-    // Convenience Stores
-    { keywords: ["FamilyMart", "ファミマ", "ファミリーマート", "7-Eleven", "セブン-イレブン", "Lawson", "ローソン"], main: "Food & Dining", sub: "Convenience Store" },
-
-    // Household, General Shopping & Discount Stores
-    { keywords: ["ドン・キホーテ", "ドンキ", "Don Quijote", "Donki", "マツモトキヨシ", "ウエルシア", "ダイソー", "DAISO", "セリア", "ニトリ", "無印良品"], main: "Shopping", sub: "Household / General Goods" },
-
-    // Post Office, Postal & Shipping Services
-    { keywords: ["日本郵便", "郵便局", "レターパック", "郵送", "切手", "ゆうパック"], main: "Services & Fees", sub: "Postal & Shipping" }
-];
-
-function parseJapaneseReceiptText(text) {
-    if (!text) return null;
-
-    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-
-    // 1. Extract Date (Handles YYYY年MM月DD日, YYYY/MM/DD, YYYY-MM-DD, MM/DD/YYYY)
-    let extractedDate = null;
-    const dateRegex = /(20\d{2}|\d{2})[年\/\.-](\d{1,2})[月\/\.-](\d{1,2})/;
-    const altDateRegex = /(\d{1,2})\/(\d{1,2})\/(20\d{2})/; // For MM/DD/YYYY formats like 06/26/2026
-
-    for (let line of lines) {
-        let match = line.match(dateRegex);
-        if (match) {
-            extractedDate = sanitizeDate(`${match[1]}-${match[2]}-${match[3]}`);
-            if (extractedDate) break;
-        }
-        let altMatch = line.match(altDateRegex);
-        if (altMatch) {
-            extractedDate = sanitizeDate(`${altMatch[3]}-${altMatch[1]}-${altMatch[2]}`);
-            if (extractedDate) break;
-        }
-    }
-    if (!extractedDate) {
-        extractedDate = new Date().toISOString().split('T')[0];
-    }
-
-    // 2. Extract Amount (Looks for 合計, TOTAL, 小計, or maximum numeric amounts)
-    let extractedAmount = 0;
-    const amountRegex = /(?:合計|TOTAL|小計|お買上|支払|税込)?\s*¥?\s*([1-9]\d{0,2}(?:,\d{3})+|[1-9]\d{2,6})/gi;
-    let possibleAmounts = [];
-
-    for (let line of lines) {
-        if (/合計|TOTAL|小計|お買上|支払|税込|現金|クレジット|CHANGE DUE/i.test(line)) {
-            let matches = [...line.matchAll(amountRegex)];
-            for (let m of matches) {
-                let val = parseNum(m[1]);
-                if (val > 50 && val < 1000000) {
-                    possibleAmounts.push(val);
-                }
+            } catch (err) {
+                console.error("Receipt OCR Failed:", err);
             }
         }
+
+        if (scannedCount > 0) {
+            saveAndRender(); // Saves to Google Sheet and updates UI automatically
+            status.textContent = `Successfully scanned and added ${scannedCount} receipt transaction(s)!`;
+        } else {
+            status.textContent = `Could not extract valid receipt details. Please check the image quality.`;
+        }
+
+        // Reset file input so memory/images are cleared immediately
+        event.target.value = '';
     }
 
-    if (possibleAmounts.length > 0) {
-        extractedAmount = Math.max(...possibleAmounts);
-    } else {
+    // Store and Keyword Lookup Rules for Accurate Categorization
+    const STORE_CATEGORY_RULES = [
+        // Groceries & Supermarkets
+        { keywords: ["BLANDE", "BLANDE オリナス錦糸町店", "Swagat", "Bazaar", "Krishna Palace", "Asian Store", "マルエツ", "ライフ", "オーケー", "イオン", "ヤオコー", "イトーヨーカドー", "まいばすけっと"], main: "Food & Dining", sub: "Groceries" },
+        
+        // Restaurants & Dining Out
+        { keywords: ["ポポラマーマ", "Popolamama", "Sizzler", "シズラー", "スシロー", "Sushiro", "タラキッチン", "Tara Kitchen", "サイゼリヤ", "ガスト", "Royal Host", "ロイヤルホスト", "くら寿司", "はま寿司", "Eat-In", "2curry set", "サラダバー"], main: "Food & Dining", sub: "Restaurants / Dining Out" },
+
+        // Convenience Stores
+        { keywords: ["FamilyMart", "ファミマ", "ファミリーマート", "7-Eleven", "セブン-イレブン", "Lawson", "ローソン"], main: "Food & Dining", sub: "Convenience Store" },
+
+        // Household, General Shopping & Discount Stores
+        { keywords: ["ドン・キホーテ", "ドンキ", "Don Quijote", "Donki", "マツモトキヨシ", "ウエルシア", "ダイソー", "DAISO", "セリア", "ニトリ", "無印良品"], main: "Shopping", sub: "Household / General Goods" },
+
+        // Post Office, Postal & Shipping Services
+        { keywords: ["日本郵便", "郵便局", "レターパック", "郵送", "切手", "ゆうパック"], main: "Services & Fees", sub: "Postal & Shipping" }
+    ];
+
+    function parseJapaneseReceiptText(text) {
+        if (!text) return null;
+
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+        // 1. Extract Date (Handles YYYY年MM月DD日, YYYY/MM/DD, YYYY-MM-DD, MM/DD/YYYY)
+        let extractedDate = null;
+        const dateRegex = /(20\d{2}|\d{2})[年\/\.-](\d{1,2})[月\/\.-](\d{1,2})/;
+        const altDateRegex = /(\d{1,2})\/(\d{1,2})\/(20\d{2})/; // For MM/DD/YYYY formats like 06/26/2026
+
         for (let line of lines) {
-            let val = parseNum(line);
-            if (val > 50 && val < 1000000) possibleAmounts.push(val);
+            let match = line.match(dateRegex);
+            if (match) {
+                extractedDate = sanitizeDate(`${match[1]}-${match[2]}-${match[3]}`);
+                if (extractedDate) break;
+            }
+            let altMatch = line.match(altDateRegex);
+            if (altMatch) {
+                extractedDate = sanitizeDate(`${altMatch[3]}-${altMatch[1]}-${altMatch[2]}`);
+                if (extractedDate) break;
+            }
         }
-        if (possibleAmounts.length > 0) extractedAmount = Math.max(...possibleAmounts);
-    }
-
-    // 3. Extract Store Name / Header Description
-    let description = "Store Receipt";
-    for (let i = 0; i < Math.min(5, lines.length); i++) {
-        let cleanLine = normalizeJapaneseText(lines[i]);
-        if (cleanLine.length > 2 && !/領収書|レシート|電話|TEL|〒|毎度|ありがとう|様|Order/i.test(cleanLine)) {
-            description = cleanLine;
-            break;
+        if (!extractedDate) {
+            extractedDate = new Date().toISOString().split('T')[0];
         }
-    }
 
-    // 4. Categorization Logic based on detected Store/Item keywords
-    let identifiedMain = null;
-    let identifiedSub = null;
+        // 2. Extract Amount (Looks for 合計, TOTAL, 小計, or maximum numeric amounts)
+        let extractedAmount = 0;
+        const amountRegex = /(?:合計|TOTAL|小計|お買上|支払|税込)?\s*¥?\s*([1-9]\d{0,2}(?:,\d{3})+|[1-9]\d{2,6})/gi;
+        let possibleAmounts = [];
 
-    // Scan full OCR text against store rules
-    for (let rule of STORE_CATEGORY_RULES) {
-        for (let kw of rule.keywords) {
-            const regex = new RegExp(kw, 'i');
-            if (regex.test(text)) {
-                identifiedMain = rule.main;
-                identifiedSub = rule.sub;
+        for (let line of lines) {
+            if (/合計|TOTAL|小計|お買上|支払|税込|現金|クレジット|CHANGE DUE/i.test(line)) {
+                let matches = [...line.matchAll(amountRegex)];
+                for (let m of matches) {
+                    let val = parseNum(m[1]);
+                    if (val > 50 && val < 1000000) {
+                        possibleAmounts.push(val);
+                    }
+                }
+            }
+        }
+
+        if (possibleAmounts.length > 0) {
+            extractedAmount = Math.max(...possibleAmounts);
+        } else {
+            for (let line of lines) {
+                let val = parseNum(line);
+                if (val > 50 && val < 1000000) possibleAmounts.push(val);
+            }
+            if (possibleAmounts.length > 0) extractedAmount = Math.max(...possibleAmounts);
+        }
+
+        // 3. Extract Store Name / Header Description
+        let description = "Store Receipt";
+        for (let i = 0; i < Math.min(5, lines.length); i++) {
+            let cleanLine = normalizeJapaneseText(lines[i]);
+            if (cleanLine.length > 2 && !/領収書|レシート|電話|TEL|〒|毎度|ありがとう|様|Order/i.test(cleanLine)) {
+                description = cleanLine;
                 break;
             }
         }
-        if (identifiedMain) break;
-    }
 
-    // Fallback to autoCategorize() or General Expense
-    if (!identifiedSub) {
-        let cats = autoCategorize(description);
-        if (cats && cats.subCategory && cats.subCategory !== "General Expense") {
-            identifiedMain = cats.mainCategory;
-            identifiedSub = cats.subCategory;
-        } else {
-            identifiedMain = "Miscellaneous";
-            identifiedSub = "General Expense";
+        // 4. Categorization Logic based on detected Store/Item keywords
+        let identifiedSub = null;
+
+        // Scan full OCR text against store rules
+        for (let rule of STORE_CATEGORY_RULES) {
+            for (let kw of rule.keywords) {
+                const regex = new RegExp(kw, 'i');
+                if (regex.test(text)) {
+                    identifiedSub = rule.sub;
+                    break;
+                }
+            }
+            if (identifiedSub) break;
         }
+
+        // Fallback to autoCategorize() or General Expense
+        if (!identifiedSub) {
+            let cats = autoCategorize(description);
+            identifiedSub = cats.subCategory;
+        }
+
+        return {
+            id: (Date.now() + Math.random()).toString(),
+            date: extractedDate,
+            mainCategory: getMainCategory(identifiedSub),
+            subCategory: identifiedSub,
+            description: description,
+            amount: extractedAmount
+        };
     }
 
-    return {
-        id: (Date.now() + Math.random()).toString(),
-        date: extractedDate,
-        mainCategory: identifiedMain,
-        subCategory: identifiedSub,
-        description: description,
-        amount: extractedAmount
-    };
-}
     if (typeof pdfjsLib !== 'undefined') {
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     }
@@ -529,16 +523,7 @@ function parseJapaneseReceiptText(text) {
         "Shopping & Household": ["Clothing & Apparel", "Home Goods & Supplies", "Electronics & Tech"],
         "Leisure & Travel": ["Hotels & Accommodation", "Attractions & Trips", "Hobbies & Entertainment"],
         "Medical & Insurance": ["Doctor & Clinic", "Pharmacy & Medicine", "Health Insurance", "Life & Other Insurance"],
-        "Miscellaneous": [
-            "General Expense",
-            "Groceries", "Restaurants & Dining Out", "Cafes & Bakeries", "Delivery Services",
-            "Electricity", "Water & Gas", "Rent & Mortgage", "Internet & Mobile",
-            "Trains & Bus", "Taxi & Rideshare", "Fuel & Parking", "Vehicle Maintenance",
-            "Swimming & Sports Club", "Tuition & School", "Books & Study Materials",
-            "Clothing & Apparel", "Home Goods & Supplies", "Electronics & Tech",
-            "Hotels & Accommodation", "Attractions & Trips", "Hobbies & Entertainment",
-            "Doctor & Clinic", "Pharmacy & Medicine", "Health Insurance", "Life & Other Insurance"
-        ]
+        "Miscellaneous": ["General Expense"]
     };
 
     const SUB_TO_MAIN_MAP = {};
@@ -1288,6 +1273,7 @@ async function syncToSheets() {
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        syncAllDataMainCategories();
         initCategoryDropdowns();
         renderRules();
         fetchDataFromSheets();
