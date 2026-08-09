@@ -398,33 +398,57 @@
     event.target.value = '';
 }
 
+// Store and Keyword Lookup Rules for Accurate Categorization
+const STORE_CATEGORY_RULES = [
+    // Groceries & Supermarkets
+    { keywords: ["BLANDE", "BLANDE オリナス錦糸町店", "Swagat", "Bazaar", "Krishna Palace", "Asian Store", "マルエツ", "ライフ", "オーケー", "イオン", "ヤオコー", "イトーヨーカドー", "まいばすけっと"], main: "Food & Dining", sub: "Groceries" },
+    
+    // Restaurants & Dining Out
+    { keywords: ["ポポラマーマ", "Popolamama", "Sizzler", "シズラー", "スシロー", "Sushiro", "タラキッチン", "Tara Kitchen", "サイゼリヤ", "ガスト", "Royal Host", "ロイヤルホスト", "くら寿司", "はま寿司", "Eat-In", "2curry set", "サラダバー"], main: "Food & Dining", sub: "Restaurants / Dining Out" },
+
+    // Convenience Stores
+    { keywords: ["FamilyMart", "ファミマ", "ファミリーマート", "7-Eleven", "セブン-イレブン", "Lawson", "ローソン"], main: "Food & Dining", sub: "Convenience Store" },
+
+    // Household, General Shopping & Discount Stores
+    { keywords: ["ドン・キホーテ", "ドンキ", "Don Quijote", "Donki", "マツモトキヨシ", "ウエルシア", "ダイソー", "DAISO", "セリア", "ニトリ", "無印良品"], main: "Shopping", sub: "Household / General Goods" },
+
+    // Post Office, Postal & Shipping Services
+    { keywords: ["日本郵便", "郵便局", "レターパック", "郵送", "切手", "ゆうパック"], main: "Services & Fees", sub: "Postal & Shipping" }
+];
+
 function parseJapaneseReceiptText(text) {
     if (!text) return null;
 
     const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-    
-    // 1. Extract Date (Matches YYYY/MM/DD, YYYY-MM-DD, YYYY年MM月DD日, YY/MM/DD)
+
+    // 1. Extract Date (Handles YYYY年MM月DD日, YYYY/MM/DD, YYYY-MM-DD, MM/DD/YYYY)
     let extractedDate = null;
     const dateRegex = /(20\d{2}|\d{2})[年\/\.-](\d{1,2})[月\/\.-](\d{1,2})/;
+    const altDateRegex = /(\d{1,2})\/(\d{1,2})\/(20\d{2})/; // For MM/DD/YYYY formats like 06/26/2026
+
     for (let line of lines) {
         let match = line.match(dateRegex);
         if (match) {
             extractedDate = sanitizeDate(`${match[1]}-${match[2]}-${match[3]}`);
             if (extractedDate) break;
         }
+        let altMatch = line.match(altDateRegex);
+        if (altMatch) {
+            extractedDate = sanitizeDate(`${altMatch[3]}-${altMatch[1]}-${altMatch[2]}`);
+            if (extractedDate) break;
+        }
     }
-    // Fallback to today's date if date isn't clearly visible on receipt
     if (!extractedDate) {
         extractedDate = new Date().toISOString().split('T')[0];
     }
 
-    // 2. Extract Amount (Looks for 合計, 対象, 小計, or largest ¥ value)
+    // 2. Extract Amount (Looks for 合計, TOTAL, 小計, or maximum numeric amounts)
     let extractedAmount = 0;
-    const amountRegex = /(?:合計|小計|お買上|支払|税込)?\s*¥?\s*([1-9]\d{0,2}(?:,\d{3})+|[1-9]\d{2,6})/g;
+    const amountRegex = /(?:合計|TOTAL|小計|お買上|支払|税込)?\s*¥?\s*([1-9]\d{0,2}(?:,\d{3})+|[1-9]\d{2,6})/gi;
     let possibleAmounts = [];
 
     for (let line of lines) {
-        if (/合計|小計|お買上|支払|税込|現 金|クレジット|STORE|TAX/i.test(line)) {
+        if (/合計|TOTAL|小計|お買上|支払|税込|現金|クレジット|CHANGE DUE/i.test(line)) {
             let matches = [...line.matchAll(amountRegex)];
             for (let m of matches) {
                 let val = parseNum(m[1]);
@@ -435,11 +459,9 @@ function parseJapaneseReceiptText(text) {
         }
     }
 
-    // Pick maximum plausible amount detected near total keywords
     if (possibleAmounts.length > 0) {
         extractedAmount = Math.max(...possibleAmounts);
     } else {
-        // Fallback scan across all lines for currency values
         for (let line of lines) {
             let val = parseNum(line);
             if (val > 50 && val < 1000000) possibleAmounts.push(val);
@@ -447,32 +469,54 @@ function parseJapaneseReceiptText(text) {
         if (possibleAmounts.length > 0) extractedAmount = Math.max(...possibleAmounts);
     }
 
-    // 3. Extract Store / Description (Usually found in top 3 lines of Japanese receipt)
+    // 3. Extract Store Name / Header Description
     let description = "Store Receipt";
-    for (let i = 0; i < Math.min(3, lines.length); i++) {
+    for (let i = 0; i < Math.min(5, lines.length); i++) {
         let cleanLine = normalizeJapaneseText(lines[i]);
-        if (cleanLine.length > 2 && !/領収書|レシート|電話|TEL|〒/i.test(cleanLine)) {
+        if (cleanLine.length > 2 && !/領収書|レシート|電話|TEL|〒|毎度|ありがとう|様|Order/i.test(cleanLine)) {
             description = cleanLine;
             break;
         }
     }
 
-    // 4. Categorize using existing logic or fallback to Miscellaneous / General Expense
-    let cats = autoCategorize(description);
-    if (!cats || !cats.subCategory || cats.subCategory === "General Expense") {
-        cats = { mainCategory: "Miscellaneous", subCategory: "General Expense" };
+    // 4. Categorization Logic based on detected Store/Item keywords
+    let identifiedMain = null;
+    let identifiedSub = null;
+
+    // Scan full OCR text against store rules
+    for (let rule of STORE_CATEGORY_RULES) {
+        for (let kw of rule.keywords) {
+            const regex = new RegExp(kw, 'i');
+            if (regex.test(text)) {
+                identifiedMain = rule.main;
+                identifiedSub = rule.sub;
+                break;
+            }
+        }
+        if (identifiedMain) break;
+    }
+
+    // Fallback to autoCategorize() or General Expense
+    if (!identifiedSub) {
+        let cats = autoCategorize(description);
+        if (cats && cats.subCategory && cats.subCategory !== "General Expense") {
+            identifiedMain = cats.mainCategory;
+            identifiedSub = cats.subCategory;
+        } else {
+            identifiedMain = "Miscellaneous";
+            identifiedSub = "General Expense";
+        }
     }
 
     return {
         id: (Date.now() + Math.random()).toString(),
         date: extractedDate,
-        mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
-        subCategory: cats.subCategory,
+        mainCategory: identifiedMain,
+        subCategory: identifiedSub,
         description: description,
         amount: extractedAmount
     };
 }
-
     if (typeof pdfjsLib !== 'undefined') {
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     }
