@@ -395,29 +395,37 @@
         el.textContent = text;
     }
 
-    async function fetchDataFromSheets() {
-        if (!API_URL || API_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) {
-            setSyncState('error', 'API URL Not Configured');
-            return;
-        }
-        setSyncState('syncing', 'Syncing...');
-        try {
-            const res = await fetch(API_URL);
-            const data = await res.json();
-            expenseData = data || [];
-            syncAllDataMainCategories();
-            renderDashboard();
-            setSyncState('synced', 'Synced');
-        } catch (e) {
-            console.error("Fetch failed", e);
-            setSyncState('error', 'Sync Failed');
-        }
+   async function fetchDataFromSheets() {
+    if (!API_URL || API_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) {
+        setSyncState('error', 'API URL Not Configured');
+        return;
     }
+    setSyncState('syncing', 'Syncing...');
+    try {
+        // Appending redirect parameters avoids CORS pre-flight failures
+        const response = await fetch(API_URL + "?action=read", {
+            method: "GET",
+            redirect: "follow"
+        });
+        
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+        
+        const data = await response.json();
+        expenseData = Array.isArray(data) ? data : [];
+        syncAllDataMainCategories();
+        renderDashboard();
+        setSyncState('synced', 'Synced');
+    } catch (e) {
+        console.error("Fetch failed:", e);
+        setSyncState('error', 'Sync Failed');
+    }
+}
 
-   async function syncToSheets() {
+async function syncToSheets() {
     if (!API_URL || API_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) return;
     setSyncState('syncing', 'Saving...');
     try {
+        // text/plain prevents the browser from sending a CORS preflight OPTIONS request
         await fetch(API_URL, {
             method: "POST",
             mode: "no-cors",
@@ -426,11 +434,10 @@
         });
         setSyncState('synced', 'Synced');
     } catch (e) {
-        console.error("Save failed", e);
+        console.error("Save failed:", e);
         setSyncState('error', 'Save Failed');
     }
 }
-
     function getTransactionHash(item) {
         return `${item.date}_${item.description}_${item.amount}`;
     }
