@@ -329,18 +329,10 @@
         "Education & Sports": ["Swimming & Sports Club", "Tuition & School", "Books & Study Materials"],
         "Shopping & Household": ["Clothing & Apparel", "Home Goods & Supplies", "Electronics & Tech"],
         "Leisure & Travel": ["Hotels & Accommodation", "Attractions & Trips", "Hobbies & Entertainment"],
-        "Miscellaneous": [
-            "General Expense", "Services & Fees", "Groceries", "Restaurants & Dining Out", 
-            "Cafes & Bakeries", "Delivery Services", "Electricity", "Water & Gas", 
-            "Rent & Mortgage", "Internet & Mobile", "Trains & Bus", "Taxi & Rideshare", 
-            "Fuel & Parking", "Vehicle Maintenance", "Swimming & Sports Club", 
-            "Tuition & School", "Books & Study Materials", "Clothing & Apparel", 
-            "Home Goods & Supplies", "Electronics & Tech", "Hotels & Accommodation", 
-            "Attractions & Trips", "Hobbies & Entertainment"
-        ]
+        "Miscellaneous": ["General Expense", "Services & Fees"]
     };
 
-    // Subcategory to Main Category standard lookup
+    // Subcategory to Main Category lookup map
     const SUB_TO_MAIN_MAP = {
         "Groceries": "Food & Dining",
         "Restaurants & Dining Out": "Food & Dining",
@@ -367,6 +359,11 @@
         "Services & Fees": "Miscellaneous"
     };
 
+    function getMainCategory(subCategory, fallbackMain = 'Miscellaneous') {
+        if (!subCategory) return fallbackMain;
+        return SUB_TO_MAIN_MAP[subCategory] || fallbackMain;
+    }
+
     let expenseData = JSON.parse(localStorage.getItem('household_expenses_data')) || [];
     let customRules = JSON.parse(localStorage.getItem('household_custom_rules')) || [
         { id: '1', keyword: 'suica', mainCategory: 'Transportation', subCategory: 'Trains & Bus' },
@@ -390,10 +387,8 @@
         const mainSelect = document.getElementById(mainSelectId);
         if (!subVal || !mainSelect) return;
 
-        const mappedMain = SUB_TO_MAIN_MAP[subVal];
-        if (mappedMain && mainSelect.value !== mappedMain) {
-            mainSelect.value = mappedMain;
-        }
+        const mappedMain = getMainCategory(subVal);
+        mainSelect.value = mappedMain;
     }
 
     function initCategoryDropdowns() {
@@ -488,55 +483,56 @@
         // 1. User Custom Rules First (highest priority)
         for (let rule of customRules) {
             if (desc.includes(rule.keyword.toLowerCase())) {
-                return { mainCategory: rule.mainCategory, subCategory: rule.subCategory };
+                return { mainCategory: getMainCategory(rule.subCategory, rule.mainCategory), subCategory: rule.subCategory };
             }
         }
 
         // 2. Built-in Merchant Definitions
+        let subCategory = "General Expense";
+
         if (/スーパー|イオン|イトーヨーカドー|ダイエー|ライフ|オーケー|ヤオコー|西友|コストコ|まいばすけっと|業務スーパー|サミット|ロピア|セブン|ファミマ|ローソン|オリジン|supermarket|grocery/i.test(desc)) {
-            return { mainCategory: 'Food & Dining', subCategory: 'Groceries' };
+            subCategory = "Groceries";
+        } else if (/マクドナルド|スターバックス|ドトール|カフェ|ガスト|サイゼリヤ|すき家|吉野家|松屋|スシロー|居酒屋|レストラン|ラーメン|はま寿司|ポポラマーマ|gordon|restaurant|cafe/i.test(desc)) {
+            subCategory = "Restaurants & Dining Out";
+        } else if (/ウーバーイーツ|出前館|uber\s*eats|delivery/i.test(desc)) {
+            subCategory = "Delivery Services";
+        } else if (/電力|東京電力|電気|power|electric/i.test(desc)) {
+            subCategory = "Electricity";
+        } else if (/ガス|東京ガス|水道|東京都水道局/i.test(desc)) {
+            subCategory = "Water & Gas";
+        } else if (/nuro|ソフトバンク|softbank|ワイヤレスゲート|新聞|simcard/i.test(desc)) {
+            subCategory = "Internet & Mobile";
+        } else if (/suica|pasmo|icoca|jr|電車|バス|metro|train/i.test(desc)) {
+            subCategory = "Trains & Bus";
+        } else if (/タクシー|taxi|rideshare/i.test(desc)) {
+            subCategory = "Taxi & Rideshare";
+        } else if (/高速|etc|首都高|関東支社|東京支社|八王子支社|パラカ|タイムズ/i.test(desc)) {
+            subCategory = "Fuel & Parking";
+        } else if (/スイミング|水泳|arena|speedo|mizuno|スポーツ|ジム|フィットネス|swim|pool/i.test(desc)) {
+            subCategory = "Swimming & Sports Club";
+        } else if (/hotel|jamahkiri/i.test(desc)) {
+            subCategory = "Hotels & Accommodation";
+        } else if (/アトレ|ラゾーナ|ニトリ|amazon|アマゾン/i.test(desc)) {
+            subCategory = "Home Goods & Supplies";
+        } else if (/ネットフリックス|netflix|apple|google/i.test(desc)) {
+            subCategory = "Hobbies & Entertainment";
         }
 
-        if (/マクドナルド|スターバックス|ドトール|カフェ|ガスト|サイゼリヤ|すき家|吉野家|松屋|スシロー|居酒屋|レストラン|ラーメン|はま寿司|ポポラマーマ|gordon|restaurant|cafe/i.test(desc)) {
-            return { mainCategory: 'Food & Dining', subCategory: 'Restaurants & Dining Out' };
-        }
+        return { mainCategory: getMainCategory(subCategory), subCategory: subCategory };
+    }
 
-        if (/ウーバーイーツ|出前館|uber\s*eats|delivery/i.test(desc)) {
-            return { mainCategory: 'Food & Dining', subCategory: 'Delivery Services' };
-        }
-
-        if (/電力|東京電力|電気|ガス|東京ガス|水道|東京都水道局|nuro|ソフトバンク|softbank|ワイヤレスゲート|新聞|power|electric/i.test(desc)) {
-            if (/ガス|水道|スイドウ/.test(desc)) return { mainCategory: 'Housing & Utilities', subCategory: 'Water & Gas' };
-            if (/nuro|ソフトバンク|softbank|ワイヤレスゲート|simcard/i.test(desc)) return { mainCategory: 'Housing & Utilities', subCategory: 'Internet & Mobile' };
-            return { mainCategory: 'Housing & Utilities', subCategory: 'Electricity' };
-        }
-
-        if (/suica|pasmo|icoca|jr|電車|バス|タクシー|高速|etc|首都高|関東支社|東京支社|八王子支社|パラカ|タイムズ|列車|metro|train/i.test(desc)) {
-            if (/etc|首都高|支社|パラカ|タイムズ/.test(desc)) return { mainCategory: 'Transportation', subCategory: 'Fuel & Parking' };
-            return { mainCategory: 'Transportation', subCategory: 'Trains & Bus' };
-        }
-
-        if (/スイミング|水泳|arena|speedo|mizuno|スポーツ|ジム|フィットネス|swim|pool/i.test(desc)) {
-            return { mainCategory: 'Education & Sports', subCategory: 'Swimming & Sports Club' };
-        }
-
-        if (/hotel|jamahkiri|アトレ|ラゾーナ|ニトリ|amazon|アマゾン/i.test(desc)) {
-            if (/hotel|jamahkiri/i.test(desc)) return { mainCategory: 'Leisure & Travel', subCategory: 'Hotels & Accommodation' };
-            return { mainCategory: 'Shopping & Household', subCategory: 'Home Goods & Supplies' };
-        }
-
-        if (/ネットフリックス|netflix|apple|google/i.test(desc)) {
-            return { mainCategory: 'Leisure & Travel', subCategory: 'Hobbies & Entertainment' };
-        }
-
-        return { mainCategory: 'Miscellaneous', subCategory: 'General Expense' };
+    function syncAllDataMainCategories() {
+        // Enforces main category mapping across all stored transaction records
+        expenseData.forEach(item => {
+            item.mainCategory = getMainCategory(item.subCategory, item.mainCategory);
+        });
     }
 
     function handleAddRule(event) {
         event.preventDefault();
         const keyword = document.getElementById('rule-keyword').value.trim();
         const subCategory = document.getElementById('rule-sub-category').value;
-        const mainCategory = SUB_TO_MAIN_MAP[subCategory] || document.getElementById('rule-main-category').value;
+        const mainCategory = getMainCategory(subCategory);
 
         if (!keyword) return;
 
@@ -549,8 +545,8 @@
         // Re-apply rules unconditionally to all existing transactions
         expenseData.forEach(item => {
             let cat = autoCategorize(item.description);
-            item.mainCategory = cat.mainCategory;
             item.subCategory = cat.subCategory;
+            item.mainCategory = getMainCategory(cat.subCategory, cat.mainCategory);
         });
 
         saveAndRender();
@@ -564,8 +560,8 @@
         // Re-evaluate categories after deleting a rule
         expenseData.forEach(item => {
             let cat = autoCategorize(item.description);
-            item.mainCategory = cat.mainCategory;
             item.subCategory = cat.subCategory;
+            item.mainCategory = getMainCategory(cat.subCategory, cat.mainCategory);
         });
         saveAndRender();
     }
@@ -594,15 +590,14 @@
         }
 
         const subCategory = document.getElementById('bulk-sub-category').value;
-        // Automatically determine the true Main Category for the selected subcategory
-        const mainCategory = SUB_TO_MAIN_MAP[subCategory] || document.getElementById('bulk-main-category').value;
+        const mainCategory = getMainCategory(subCategory);
 
         const selectedIds = Array.from(selectedBoxes).map(cb => cb.dataset.id);
 
         expenseData.forEach(item => {
             if (selectedIds.includes(item.id)) {
-                item.mainCategory = mainCategory;
                 item.subCategory = subCategory;
+                item.mainCategory = mainCategory;
             }
         });
 
@@ -658,7 +653,7 @@
         event.preventDefault();
         const date = document.getElementById('exp-date').value;
         const subCategory = document.getElementById('exp-sub-category').value;
-        const mainCategory = SUB_TO_MAIN_MAP[subCategory] || document.getElementById('exp-main-category').value;
+        const mainCategory = getMainCategory(subCategory);
         const description = document.getElementById('exp-description').value.trim();
         const amount = parseNum(document.getElementById('exp-amount').value);
 
@@ -725,12 +720,13 @@
                 const existingIndex = expenseData.findIndex(e => getTransactionHash(e) === hash);
 
                 if (existingIndex !== -1) {
-                    // Update existing transaction categories with fresh rule evaluation
-                    expenseData[existingIndex].mainCategory = item.mainCategory;
+                    // Update existing transaction categories with fresh rule evaluation & strict main category mapping
                     expenseData[existingIndex].subCategory = item.subCategory;
+                    expenseData[existingIndex].mainCategory = getMainCategory(item.subCategory, item.mainCategory);
                     updatedCount++;
                 } else {
                     processedFilesHashes.push(hash);
+                    item.mainCategory = getMainCategory(item.subCategory, item.mainCategory);
                     expenseData.push(item);
                     totalExtracted++;
                 }
@@ -740,7 +736,6 @@
         saveAndRender();
         status.textContent = `Import complete! Added ${totalExtracted} new items (${updatedCount} existing items updated with active rules).`;
         
-        // Reset file input value to allow re-uploading the same file if desired
         event.target.value = '';
     }
 
@@ -797,7 +792,7 @@
                             extracted.push({
                                 id: (Date.now() + Math.random()).toString(),
                                 date: cleanDate,
-                                mainCategory: cats.mainCategory,
+                                mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
                                 subCategory: cats.subCategory,
                                 description: description,
                                 amount: amount
@@ -852,7 +847,7 @@
                         extracted.push({
                             id: (Date.now() + Math.random()).toString(),
                             date: cleanDate,
-                            mainCategory: cats.mainCategory,
+                            mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
                             subCategory: cats.subCategory,
                             description: description,
                             amount: amount
@@ -867,6 +862,7 @@
     }
 
     function saveAndRender() {
+        syncAllDataMainCategories();
         localStorage.setItem('household_expenses_data', JSON.stringify(expenseData));
         localStorage.setItem('household_custom_rules', JSON.stringify(customRules));
         localStorage.setItem('processed_file_hashes', JSON.stringify(processedFilesHashes));
@@ -948,7 +944,10 @@
 
         } else if (currentExpenseViewMode === 'main_category') {
             const catAgg = {};
-            data.forEach(d => catAgg[d.mainCategory] = (catAgg[d.mainCategory] || 0) + d.amount);
+            data.forEach(d => {
+                const main = getMainCategory(d.subCategory, d.mainCategory);
+                catAgg[main] = (catAgg[main] || 0) + d.amount;
+            });
 
             expenseChartInstance = new Chart(ctx, {
                 type: 'doughnut',
@@ -962,7 +961,8 @@
         } else if (currentExpenseViewMode === 'sub_category') {
             const subAgg = {};
             data.forEach(d => {
-                const label = `${d.mainCategory} > ${d.subCategory}`;
+                const main = getMainCategory(d.subCategory, d.mainCategory);
+                const label = `${main} > ${d.subCategory}`;
                 subAgg[label] = (subAgg[label] || 0) + d.amount;
             });
 
@@ -1007,8 +1007,9 @@
         const descFilterVal = (document.getElementById('col-filter-desc')?.value || '').toLowerCase().trim();
 
         let filtered = baseData.filter(item => {
+            const mainCat = getMainCategory(item.subCategory, item.mainCategory);
             if (dateFilterVal && !item.date.toLowerCase().includes(dateFilterVal)) return false;
-            if (mainCatFilterVal !== 'ALL' && item.mainCategory !== mainCatFilterVal) return false;
+            if (mainCatFilterVal !== 'ALL' && mainCat !== mainCatFilterVal) return false;
             if (subCatFilterVal !== 'ALL' && item.subCategory !== subCatFilterVal) return false;
             if (descFilterVal && !item.description.toLowerCase().includes(descFilterVal)) return false;
             return true;
@@ -1021,11 +1022,12 @@
         const sortedData = [...filtered].sort((a,b) => b.date.localeCompare(a.date));
 
         sortedData.forEach(item => {
+            const mainCat = getMainCategory(item.subCategory, item.mainCategory);
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td><input type="checkbox" class="item-checkbox" data-id="${item.id}" onchange="updateSelectedCount()"></td>
                 <td style="font-weight: 500;">${item.date}</td>
-                <td><span class="cat-tag">${item.mainCategory}</span></td>
+                <td><span class="cat-tag">${mainCat}</span></td>
                 <td><span class="subcat-tag">${item.subCategory}</span></td>
                 <td>${item.description}</td>
                 <td style="font-weight: 700;">¥${item.amount.toLocaleString()}</td>
@@ -1044,7 +1046,8 @@
     document.addEventListener('DOMContentLoaded', () => {
         initCategoryDropdowns();
         renderRules();
-        renderDashboard();
+        syncAllDataMainCategories();
+        saveAndRender();
     });
 </script>
 </body>
