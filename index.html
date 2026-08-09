@@ -176,7 +176,7 @@
                 </div>
                 <div>
                     <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">SUB CATEGORY</label>
-                    <select id="exp-sub-category" style="width: 100%;"></select>
+                    <select id="exp-sub-category" onchange="autoSyncMainCategory('exp-sub-category', 'exp-main-category')" style="width: 100%;"></select>
                 </div>
                 <div>
                     <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">DESCRIPTION</label>
@@ -211,7 +211,7 @@
                 </div>
                 <div>
                     <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">ASSIGN SUB CATEGORY</label>
-                    <select id="rule-sub-category" style="width: 100%;"></select>
+                    <select id="rule-sub-category" onchange="autoSyncMainCategory('rule-sub-category', 'rule-main-category')" style="width: 100%;"></select>
                 </div>
                 <div>
                     <button type="submit" class="btn btn-primary" style="width: 100%; height: 37px; justify-content: center;">Add Rule</button>
@@ -277,7 +277,7 @@
         <div style="background: #f1f5f9; padding: 12px 16px; border-radius: var(--radius-md); margin-bottom: 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
             <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-main);">⚡ Logic 2: Bulk Category Modifier</span>
             <select id="bulk-main-category" onchange="updateSubCategoryDropdown('bulk-main-category', 'bulk-sub-category')"></select>
-            <select id="bulk-sub-category"></select>
+            <select id="bulk-sub-category" onchange="autoSyncMainCategory('bulk-sub-category', 'bulk-main-category')"></select>
             <button class="btn btn-primary" onclick="applyBulkCategorization()">Update Selected Items</button>
             <span id="selected-count-label" style="font-size: 0.8rem; color: var(--text-muted);">0 items selected</span>
         </div>
@@ -340,6 +340,33 @@
         ]
     };
 
+    // Subcategory to Main Category standard lookup
+    const SUB_TO_MAIN_MAP = {
+        "Groceries": "Food & Dining",
+        "Restaurants & Dining Out": "Food & Dining",
+        "Cafes & Bakeries": "Food & Dining",
+        "Delivery Services": "Food & Dining",
+        "Electricity": "Housing & Utilities",
+        "Water & Gas": "Housing & Utilities",
+        "Rent & Mortgage": "Housing & Utilities",
+        "Internet & Mobile": "Housing & Utilities",
+        "Trains & Bus": "Transportation",
+        "Taxi & Rideshare": "Transportation",
+        "Fuel & Parking": "Transportation",
+        "Vehicle Maintenance": "Transportation",
+        "Swimming & Sports Club": "Education & Sports",
+        "Tuition & School": "Education & Sports",
+        "Books & Study Materials": "Education & Sports",
+        "Clothing & Apparel": "Shopping & Household",
+        "Home Goods & Supplies": "Shopping & Household",
+        "Electronics & Tech": "Shopping & Household",
+        "Hotels & Accommodation": "Leisure & Travel",
+        "Attractions & Trips": "Leisure & Travel",
+        "Hobbies & Entertainment": "Leisure & Travel",
+        "General Expense": "Miscellaneous",
+        "Services & Fees": "Miscellaneous"
+    };
+
     let expenseData = JSON.parse(localStorage.getItem('household_expenses_data')) || [];
     let customRules = JSON.parse(localStorage.getItem('household_custom_rules')) || [
         { id: '1', keyword: 'suica', mainCategory: 'Transportation', subCategory: 'Trains & Bus' },
@@ -356,6 +383,17 @@
 
     function getTransactionHash(item) {
         return `${item.date}_${item.description}_${item.amount}`;
+    }
+
+    function autoSyncMainCategory(subSelectId, mainSelectId) {
+        const subVal = document.getElementById(subSelectId)?.value;
+        const mainSelect = document.getElementById(mainSelectId);
+        if (!subVal || !mainSelect) return;
+
+        const mappedMain = SUB_TO_MAIN_MAP[subVal];
+        if (mappedMain && mainSelect.value !== mappedMain) {
+            mainSelect.value = mappedMain;
+        }
     }
 
     function initCategoryDropdowns() {
@@ -497,8 +535,8 @@
     function handleAddRule(event) {
         event.preventDefault();
         const keyword = document.getElementById('rule-keyword').value.trim();
-        const mainCategory = document.getElementById('rule-main-category').value;
         const subCategory = document.getElementById('rule-sub-category').value;
+        const mainCategory = SUB_TO_MAIN_MAP[subCategory] || document.getElementById('rule-main-category').value;
 
         if (!keyword) return;
 
@@ -555,8 +593,9 @@
             return;
         }
 
-        const mainCategory = document.getElementById('bulk-main-category').value;
         const subCategory = document.getElementById('bulk-sub-category').value;
+        // Automatically determine the true Main Category for the selected subcategory
+        const mainCategory = SUB_TO_MAIN_MAP[subCategory] || document.getElementById('bulk-main-category').value;
 
         const selectedIds = Array.from(selectedBoxes).map(cb => cb.dataset.id);
 
@@ -618,8 +657,8 @@
     function handleAddExpense(event) {
         event.preventDefault();
         const date = document.getElementById('exp-date').value;
-        const mainCategory = document.getElementById('exp-main-category').value;
         const subCategory = document.getElementById('exp-sub-category').value;
+        const mainCategory = SUB_TO_MAIN_MAP[subCategory] || document.getElementById('exp-main-category').value;
         const description = document.getElementById('exp-description').value.trim();
         const amount = parseNum(document.getElementById('exp-amount').value);
 
