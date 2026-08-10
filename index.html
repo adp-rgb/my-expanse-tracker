@@ -1262,180 +1262,177 @@ function populateMonthFilter() {
         renderDashboard();
     }
 
-    function renderDashboard() {
-        populateMonthFilter();
-        const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
-        
-        let filtered = expenseData.filter(d => {
-            if (selectedMonth === 'ALL') return true;
-            if (!d.date) return false;
-            const parts = d.date.split('/');
-            if (parts.length === 3) {
-                const itemMonthYear = `${parts[1]}/${parts[2]}`;
-                return itemMonthYear === selectedMonth;
-            }
-            return false;
-        });
-        
-        let totalSpend = filtered.reduce((sum, item) => sum + item.amount, 0);
-        const uniqueDays = new Set(filtered.map(d => d.date)).size || 1;
-
-        document.getElementById('m-total-spending').textContent = `¥${totalSpend.toLocaleString()}`;
-        document.getElementById('m-transaction-count').textContent = filtered.length;
-        document.getElementById('m-daily-avg').textContent = `¥${Math.round(totalSpend / uniqueDays).toLocaleString()}`;
-
-        renderChart(filtered);
-        renderTable(filtered);
-    }
-
-    function renderChart(data) {
-        if (expenseChartInstance) expenseChartInstance.destroy();
-        const ctx = document.getElementById('expenseChart').getContext('2d');
-
-        if (currentExpenseViewMode === 'daily') {
-            const dailyAgg = {};
-            data.forEach(d => dailyAgg[d.date] = (dailyAgg[d.date] || 0) + d.amount);
-            const sortedDates = Object.keys(dailyAgg).sort();
-
-            expenseChartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: sortedDates,
-                    datasets: [{ label: 'Daily Spending (¥)', data: sortedDates.map(d => dailyAgg[d]), backgroundColor: '#2563eb' }]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
-
-        } else if (currentExpenseViewMode === 'main_category') {
-            const catAgg = {};
-            const total = data.reduce((sum, item) => sum + item.amount, 0);
-
-            data.forEach(d => {
-                const main = getMainCategory(d.subCategory, d.mainCategory);
-                catAgg[main] = (catAgg[main] || 0) + d.amount;
-            });
-
-            expenseChartInstance = new Chart(ctx, {
-                type: 'pie',
-                data: {
-                    labels: Object.keys(catAgg),
-                    datasets: [{
-                        data: Object.values(catAgg),
-                        backgroundColor: ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#64748b']
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const val = context.raw || 0;
-                                    const percentage = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
-                                    return ` ${context.label}: ¥${val.toLocaleString()} (${percentage}%)`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-
-        } else if (currentExpenseViewMode === 'sub_category') {
-            const subAgg = {};
-            data.forEach(d => {
-                const main = getMainCategory(d.subCategory, d.mainCategory);
-                const label = `${main} > ${d.subCategory}`;
-                subAgg[label] = (subAgg[label] || 0) + d.amount;
-            });
-
-            expenseChartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: Object.keys(subAgg),
-                    datasets: [{ label: 'Subcategory Spending (¥)', data: Object.values(subAgg), backgroundColor: '#8b5cf6' }]
-                },
-                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
-            });
-
-        } else if (currentExpenseViewMode === 'monthly') {
-            const monthAgg = {};
-            expenseData.forEach(d => {
-                if (d.date) {
-                    const parts = d.date.split('/');
-                    if (parts.length === 3) {
-                        const m = `${parts[2]}-${parts[1]}`;
-                        monthAgg[m] = (monthAgg[m] || 0) + d.amount;
-                    }
-                }
-            });
-
-            expenseChartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: Object.keys(monthAgg).sort(),
-                    datasets: [{ label: 'Monthly Expense (¥)', data: Object.keys(monthAgg).sort().map(m => monthAgg[m]), backgroundColor: '#3b82f6' }]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
+function renderDashboard() {
+    populateMonthFilter();
+    const selectedMonth = document.getElementById('month-filter')?.value || 'ALL'; // format: MM/YYYY
+    
+    let filtered = expenseData.filter(d => {
+        if (selectedMonth === 'ALL') return true;
+        if (!d.date) return false;
+        const parts = d.date.split('/'); // [DD, MM, YYYY]
+        if (parts.length === 3) {
+            const itemMonthYear = `${parts[1]}/${parts[2]}`;
+            return itemMonthYear === selectedMonth;
         }
+        return false;
+    });
+    
+    let totalSpend = filtered.reduce((sum, item) => sum + item.amount, 0);
+    const uniqueDays = new Set(filtered.map(d => d.date)).size || 1;
+
+    document.getElementById('m-total-spending').textContent = `¥${totalSpend.toLocaleString()}`;
+    document.getElementById('m-transaction-count').textContent = filtered.length;
+    document.getElementById('m-daily-avg').textContent = `¥${Math.round(totalSpend / uniqueDays).toLocaleString()}`;
+
+    renderChart(filtered);
+    renderTable(filtered);
+}
+
+   function renderChart(data) {
+    if (expenseChartInstance) expenseChartInstance.destroy();
+    const ctx = document.getElementById('expenseChart').getContext('2d');
+
+    if (currentExpenseViewMode === 'daily') {
+        const dailyAgg = {};
+        data.forEach(d => dailyAgg[d.date] = (dailyAgg[d.date] || 0) + d.amount);
+        
+        // Sort keys by converting DD/MM/YYYY -> YYYY-MM-DD
+        const sortedDates = Object.keys(dailyAgg).sort((a, b) => {
+            return parseDDMMYYYYToISO(a).localeCompare(parseDDMMYYYYToISO(b));
+        });
+
+        expenseChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: sortedDates,
+                datasets: [{ label: 'Daily Spending (¥)', data: sortedDates.map(d => dailyAgg[d]), backgroundColor: '#2563eb' }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+
+    } else if (currentExpenseViewMode === 'main_category') {
+        const catAgg = {};
+        data.forEach(d => {
+            const main = getMainCategory(d.subCategory, d.mainCategory);
+            catAgg[main] = (catAgg[main] || 0) + d.amount;
+        });
+
+        expenseChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(catAgg),
+                datasets: [{ data: Object.values(catAgg), backgroundColor: ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#64748b'] }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+
+    } else if (currentExpenseViewMode === 'sub_category') {
+        const subAgg = {};
+        data.forEach(d => {
+            const main = getMainCategory(d.subCategory, d.mainCategory);
+            const label = `${main} > ${d.subCategory}`;
+            subAgg[label] = (subAgg[label] || 0) + d.amount;
+        });
+
+        expenseChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(subAgg),
+                datasets: [{ label: 'Subcategory Spending (¥)', data: Object.values(subAgg), backgroundColor: '#8b5cf6' }]
+            },
+            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
+        });
+
+    } else if (currentExpenseViewMode === 'monthly') {
+        const monthAgg = {};
+        expenseData.forEach(d => {
+            if (d.date) {
+                const parts = d.date.split('/');
+                if (parts.length === 3) {
+                    const mKey = `${parts[1]}/${parts[2]}`; // MM/YYYY
+                    monthAgg[mKey] = (monthAgg[mKey] || 0) + d.amount;
+                }
+            }
+        });
+
+        // Sort MM/YYYY keys chronologically by converting to YYYY-MM
+        const sortedMonths = Object.keys(monthAgg).sort((a, b) => {
+            const [mA, yA] = a.split('/');
+            const [mB, yB] = b.split('/');
+            return `${yA}-${mA}`.localeCompare(`${yB}-${mB}`);
+        });
+
+        expenseChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: sortedMonths,
+                datasets: [{ label: 'Monthly Expense (¥)', data: sortedMonths.map(m => monthAgg[m]), backgroundColor: '#3b82f6' }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
     }
+}
 
     function renderTable(data) {
         renderTableDataOnly(data);
     }
 
-    function renderTableDataOnly(dataset) {
-        const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
-        let baseData = dataset || expenseData.filter(d => {
-            if (selectedMonth === 'ALL') return true;
-            if (!d.date) return false;
-            const parts = d.date.split('/');
-            return parts.length === 3 && `${parts[1]}/${parts[2]}` === selectedMonth;
-        });
+function renderTableDataOnly(dataset) {
+    const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
+    
+    let baseData = dataset || expenseData.filter(d => {
+        if (selectedMonth === 'ALL') return true;
+        if (!d.date) return false;
+        const parts = d.date.split('/');
+        return parts.length === 3 && `${parts[1]}/${parts[2]}` === selectedMonth;
+    });
 
-        const dateFilterVal = (document.getElementById('col-filter-date')?.value || '').toLowerCase().trim();
-        const mainCatFilterVal = document.getElementById('col-filter-main-cat')?.value || 'ALL';
-        const subCatFilterVal = document.getElementById('col-filter-sub-cat')?.value || 'ALL';
-        const descFilterVal = (document.getElementById('col-filter-desc')?.value || '').toLowerCase().trim();
+    const dateFilterVal = (document.getElementById('col-filter-date')?.value || '').toLowerCase().trim();
+    const mainCatFilterVal = document.getElementById('col-filter-main-cat')?.value || 'ALL';
+    const subCatFilterVal = document.getElementById('col-filter-sub-cat')?.value || 'ALL';
+    const descFilterVal = (document.getElementById('col-filter-desc')?.value || '').toLowerCase().trim();
 
-        let filtered = baseData.filter(item => {
-            const mainCat = getMainCategory(item.subCategory, item.mainCategory);
-            if (dateFilterVal && !item.date.toLowerCase().includes(dateFilterVal)) return false;
-            if (mainCatFilterVal !== 'ALL' && mainCat !== mainCatFilterVal) return false;
-            if (subCatFilterVal !== 'ALL' && item.subCategory !== subCatFilterVal) return false;
-            if (descFilterVal && !item.description.toLowerCase().includes(descFilterVal)) return false;
-            return true;
-        });
+    let filtered = baseData.filter(item => {
+        const mainCat = getMainCategory(item.subCategory, item.mainCategory);
+        if (dateFilterVal && !item.date.toLowerCase().includes(dateFilterVal)) return false;
+        if (mainCatFilterVal !== 'ALL' && mainCat !== mainCatFilterVal) return false;
+        if (subCatFilterVal !== 'ALL' && item.subCategory !== subCatFilterVal) return false;
+        if (descFilterVal && !item.description.toLowerCase().includes(descFilterVal)) return false;
+        return true;
+    });
 
-        const tbody = document.getElementById('expense-table-body');
-        if (!tbody) return;
-        tbody.innerHTML = '';
+    const tbody = document.getElementById('expense-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
 
-        const sortedData = [...filtered].sort((a,b) => (b.date || '').localeCompare(a.date || ''));
+    // Sort chronologically using parseDDMMYYYYToISO
+    const sortedData = [...filtered].sort((a,b) => {
+        const isoA = parseDDMMYYYYToISO(a.date || '');
+        const isoB = parseDDMMYYYYToISO(b.date || '');
+        return isoB.localeCompare(isoA);
+    });
 
-        sortedData.forEach(item => {
-            const mainCat = getMainCategory(item.subCategory, item.mainCategory);
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td><input type="checkbox" class="item-checkbox" data-id="${item.id}" onchange="updateSelectedCount()"></td>
-                <td style="font-weight: 500;">${item.date}</td>
-                <td><span class="cat-tag">${mainCat}</span></td>
-                <td><span class="subcat-tag">${item.subCategory}</span></td>
-                <td>${item.description}</td>
-                <td style="font-weight: 700;">¥${item.amount.toLocaleString()}</td>
-                <td>
-                    <button onclick="deleteExpense('${item.id}')" style="background: transparent; border: none; color: #ef4444; cursor: pointer;">🗑️ Delete</button>
-                </td>
-            `;
-            tbody.appendChild(row);
-        });
+    sortedData.forEach(item => {
+        const mainCat = getMainCategory(item.subCategory, item.mainCategory);
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><input type="checkbox" class="item-checkbox" data-id="${item.id}" onchange="updateSelectedCount()"></td>
+            <td style="font-weight: 500;">${item.date}</td>
+            <td><span class="cat-tag">${mainCat}</span></td>
+            <td><span class="subcat-tag">${item.subCategory}</span></td>
+            <td>${item.description}</td>
+            <td style="font-weight: 700;">¥${item.amount.toLocaleString()}</td>
+            <td>
+                <button onclick="deleteExpense('${item.id}')" style="background: transparent; border: none; color: #ef4444; cursor: pointer;">🗑️ Delete</button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
 
-        const selectAll = document.getElementById('select-all-checkbox');
-        if (selectAll) selectAll.checked = false;
-        updateSelectedCount();
-    }
-
+    const selectAll = document.getElementById('select-all-checkbox');
+    if (selectAll) selectAll.checked = false;
+    updateSelectedCount();
+}
     document.addEventListener('DOMContentLoaded', () => {
         syncAllDataMainCategories();
         initCategoryDropdowns();
