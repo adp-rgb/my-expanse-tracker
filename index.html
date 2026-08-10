@@ -890,27 +890,110 @@
         return isNaN(num) ? 0 : Math.abs(num);
     }
 
-    function sanitizeDate(rawDateStr) {
-        if (!rawDateStr) return null;
-        let dateOnly = String(rawDateStr).trim().split(' ')[0];
-        let clean = dateOnly.replace(/\./g, '-').replace(/\//g, '-').replace(/年|月/g, '-').replace(/日/g, '').trim();
-        
-        if (/^\d{6}$/.test(clean)) {
-            clean = clean.substring(0, 2) + '-' + clean.substring(2, 4) + '-' + clean.substring(4, 6);
-        }
-
-        let parts = clean.split('-');
-        if (parts.length < 3) return null;
-        let year = parseInt(parts[0], 10);
-        let month = parseInt(parts[1], 10);
-        let day = parseInt(parts[2], 10);
-        if (isNaN(year) || isNaN(month) || isNaN(day) || month < 1 || month > 12) return null;
-        
-        if (year < 100) year += 2000;
-        
-        return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
+    // 1. Updated sanitizeDate to output DD/MM/YYYY
+function sanitizeDate(rawDateStr) {
+    if (!rawDateStr) return null;
+    let dateOnly = String(rawDateStr).trim().split(' ')[0];
+    let clean = dateOnly.replace(/\./g, '-').replace(/\//g, '-').replace(/年|月/g, '-').replace(/日/g, '').trim();
+    
+    if (/^\d{6}$/.test(clean)) {
+        clean = clean.substring(0, 2) + '-' + clean.substring(2, 4) + '-' + clean.substring(4, 6);
     }
 
+    let parts = clean.split('-');
+    if (parts.length < 3) return null;
+    let year = parseInt(parts[0], 10);
+    let month = parseInt(parts[1], 10);
+    let day = parseInt(parts[2], 10);
+    if (isNaN(year) || isNaN(month) || isNaN(day) || month < 1 || month > 12) return null;
+    
+    if (year < 100) year += 2000;
+    
+    // Format output strictly as DD/MM/YYYY
+    return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
+}
+
+// Helper to convert DD/MM/YYYY to YYYY-MM-DD for sorting/filtering
+function parseDDMMYYYYToISO(dateStr) {
+    if (!dateStr || !dateStr.includes('/')) return dateStr;
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+        return `${parts[2]}-${parts[1]}-${parts[0]}`; // YYYY-MM-DD
+    }
+    return dateStr;
+}
+
+// 2. Updated Manual Expense Entry Handler
+function handleAddExpense(event) {
+    event.preventDefault();
+    const rawDate = document.getElementById('exp-date').value; // YYYY-MM-DD from input
+    if (!rawDate) return;
+
+    // Convert YYYY-MM-DD to DD/MM/YYYY
+    const parts = rawDate.split('-');
+    const formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+
+    const subCategory = document.getElementById('exp-sub-category').value;
+    const mainCategory = getMainCategory(subCategory);
+    const description = document.getElementById('exp-description').value.trim();
+    const amount = parseNum(document.getElementById('exp-amount').value);
+
+    if (!description || amount <= 0) return;
+
+    const newItem = { id: Date.now().toString(), date: formattedDate, mainCategory, subCategory, description, amount };
+    const hash = getTransactionHash(newItem);
+
+    if (!processedFilesHashes.includes(hash)) {
+        processedFilesHashes.push(hash);
+        expenseData.push(newItem);
+        saveAndRender();
+    }
+
+    document.getElementById('exp-description').value = '';
+    document.getElementById('exp-amount').value = '';
+}
+
+// 3. Updated Receipt Fallback Date Handler
+function parseJapaneseReceiptText(text) {
+    if (!text) return null;
+    // ... existing date regex extraction logic ...
+    
+    if (!extractedDate) {
+        const today = new Date();
+        const d = String(today.getDate()).padStart(2, '0');
+        const m = String(today.getMonth() + 1).padStart(2, '0');
+        const y = today.getFullYear();
+        extractedDate = `${d}/${m}/${y}`;
+    }
+
+    // ... rest of parseJapaneseReceiptText function remains unchanged ...
+}
+
+// 4. Updated Month Filter & Sorting Helpers
+function populateMonthFilter() {
+    const monthSelect = document.getElementById('month-filter');
+    if (!monthSelect) return;
+    const curMonth = monthSelect.value;
+    monthSelect.innerHTML = '<option value="ALL">All Months</option>';
+
+    const months = new Set();
+    expenseData.forEach(s => { 
+        if (s.date) {
+            // Extracts MM/YYYY from DD/MM/YYYY format
+            const parts = s.date.split('/');
+            if (parts.length === 3) months.add(`${parts[1]}/${parts[2]}`);
+        } 
+    });
+
+    const sortedMonths = Array.from(months).sort().reverse();
+    sortedMonths.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m; opt.textContent = m;
+        monthSelect.appendChild(opt);
+    });
+
+    if (curMonth && sortedMonths.includes(curMonth)) monthSelect.value = curMonth;
+}
     function handleAddExpense(event) {
         event.preventDefault();
         const rawDate = document.getElementById('exp-date').value;
