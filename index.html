@@ -926,70 +926,71 @@
     }
 
     // Fixed Cross-Browser Mobile-Safe Date Parser
- function sanitizeDate(rawDateStr) {
-    if (!rawDateStr && rawDateStr !== 0) return 'N/A';
-    
-    // Handle JS Date objects directly
-    if (rawDateStr instanceof Date) {
-        if (isNaN(rawDateStr.getTime())) return 'N/A';
-        let d = String(rawDateStr.getDate()).padStart(2, '0');
-        let m = String(rawDateStr.getMonth() + 1).padStart(2, '0');
-        let y = rawDateStr.getFullYear();
-        return `${d}/${m}/${y}`;
-    }
-
-    let str = String(rawDateStr).trim();
-
-    // If only a day of the month is provided (e.g., "20" or 20 for fixed recurring expense)
-    if (/^\d{1,2}$/.test(str)) {
-        let dayNum = parseInt(str, 10);
-        if (dayNum >= 1 && dayNum <= 31) {
-            let today = new Date();
-            let d = String(dayNum).padStart(2, '0');
-            let m = String(today.getMonth() + 1).padStart(2, '0');
-            let y = today.getFullYear();
+    function sanitizeDate(rawDateStr) {
+        if (!rawDateStr && rawDateStr !== 0) return 'N/A';
+        
+        // Handle JS Date objects directly
+        if (rawDateStr instanceof Date) {
+            if (isNaN(rawDateStr.getTime())) return 'N/A';
+            let d = String(rawDateStr.getDate()).padStart(2, '0');
+            let m = String(rawDateStr.getMonth() + 1).padStart(2, '0');
+            let y = rawDateStr.getFullYear();
             return `${d}/${m}/${y}`;
         }
+
+        let str = String(rawDateStr).trim();
+
+        // If only a day of the month is provided (e.g., "20" or 20 for fixed recurring expense)
+        if (/^\d{1,2}$/.test(str)) {
+            let dayNum = parseInt(str, 10);
+            if (dayNum >= 1 && dayNum <= 31) {
+                let today = new Date();
+                let d = String(dayNum).padStart(2, '0');
+                let m = String(today.getMonth() + 1).padStart(2, '0');
+                let y = today.getFullYear();
+                return `${d}/${m}/${y}`;
+            }
+        }
+
+        // 1. Japanese Kanji Date Format (2026年08月20日 or 26年08月20日)
+        let jpMatch = str.match(/(?:20(\d{2})|(\d{2}))年\s*(\d{1,2})月\s*(\d{1,2})日/);
+        if (jpMatch) {
+            let year = jpMatch[1] ? `20${jpMatch[1]}` : `20${jpMatch[2]}`;
+            let month = String(jpMatch[3]).padStart(2, '0');
+            let day = String(jpMatch[4]).padStart(2, '0');
+            return `${day}/${month}/${year}`;
+        }
+
+        // 2. Strict DD/MM/YYYY
+        let strictMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        if (strictMatch) {
+            let d = String(strictMatch[1]).padStart(2, '0');
+            let m = String(strictMatch[2]).padStart(2, '0');
+            let y = strictMatch[3];
+            return `${d}/${m}/${y}`;
+        }
+
+        // 3. YYYY-MM-DD or ISO string prefix (YYYY-MM-DD)
+        let ymdMatch = str.match(/^(19\d{2}|20\d{2})[\/\.-](\d{1,2})[\/\.-](\d{1,2})/);
+        if (ymdMatch) {
+            let year = ymdMatch[1];
+            let month = String(ymdMatch[2]).padStart(2, '0');
+            let day = String(ymdMatch[3]).padStart(2, '0');
+            return `${day}/${month}/${year}`;
+        }
+
+        // 4. Native JS Date parse fallback for full timestamp strings
+        let parsed = new Date(str);
+        if (!isNaN(parsed.getTime())) {
+            let d = String(parsed.getDate()).padStart(2, '0');
+            let m = String(parsed.getMonth() + 1).padStart(2, '0');
+            let y = parsed.getFullYear();
+            if (y >= 1900 && y <= 2099) return `${d}/${m}/${y}`;
+        }
+
+        return str || 'N/A';
     }
 
-    // 1. Japanese Kanji Date Format (2026年08月20日 or 26年08月20日)
-    let jpMatch = str.match(/(?:20(\d{2})|(\d{2}))年\s*(\d{1,2})月\s*(\d{1,2})日/);
-    if (jpMatch) {
-        let year = jpMatch[1] ? `20${jpMatch[1]}` : `20${jpMatch[2]}`;
-        let month = String(jpMatch[3]).padStart(2, '0');
-        let day = String(jpMatch[4]).padStart(2, '0');
-        return `${day}/${month}/${year}`;
-    }
-
-    // 2. Strict DD/MM/YYYY
-    let strictMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-    if (strictMatch) {
-        let d = String(strictMatch[1]).padStart(2, '0');
-        let m = String(strictMatch[2]).padStart(2, '0');
-        let y = strictMatch[3];
-        return `${d}/${m}/${y}`;
-    }
-
-    // 3. YYYY-MM-DD or ISO string prefix (YYYY-MM-DD)
-    let ymdMatch = str.match(/^(19\d{2}|20\d{2})[\/\.-](\d{1,2})[\/\.-](\d{1,2})/);
-    if (ymdMatch) {
-        let year = ymdMatch[1];
-        let month = String(ymdMatch[2]).padStart(2, '0');
-        let day = String(ymdMatch[3]).padStart(2, '0');
-        return `${day}/${month}/${year}`;
-    }
-
-    // 4. Native JS Date parse fallback for full timestamp strings
-    let parsed = new Date(str);
-    if (!isNaN(parsed.getTime())) {
-        let d = String(parsed.getDate()).padStart(2, '0');
-        let m = String(parsed.getMonth() + 1).padStart(2, '0');
-        let y = parsed.getFullYear();
-        if (y >= 1900 && y <= 2099) return `${d}/${m}/${y}`;
-    }
-
-    return str || 'N/A';
-}
     function handleAddExpense(event) {
         event.preventDefault();
         const rawDate = document.getElementById('exp-date').value;
@@ -1004,7 +1005,14 @@
 
         if (!description || amount <= 0) return;
 
-        const newItem = { id: Date.now().toString(), date: formattedDate, mainCategory, subCategory, description, amount };
+        const newItem = { 
+            id: Date.now().toString(), 
+            date: formattedDate, 
+            mainCategory: mainCategory, 
+            subCategory: subCategory, 
+            description: description, 
+            amount: amount 
+        };
         const hash = getTransactionHash(newItem);
 
         if (!processedFilesHashes.includes(hash)) {
