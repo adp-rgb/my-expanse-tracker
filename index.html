@@ -896,41 +896,42 @@
         return isNaN(num) ? 0 : Math.abs(num);
     }
 
-    function sanitizeDate(rawDateStr) {
-        if (!rawDateStr) return null;
-        let str = String(rawDateStr).trim();
+   function sanitizeDate(rawDateStr) {
+    if (!rawDateStr) return null;
+    let str = String(rawDateStr).trim();
 
-        // Check for DD/MM/YYYY format
-        if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) return str;
-
-        // Try standard Javascript Date parsing
-        let parsedDate = new Date(str);
-        if (!isNaN(parsedDate.getTime())) {
-            let day = String(parsedDate.getDate()).padStart(2, '0');
-            let month = String(parsedDate.getMonth() + 1).padStart(2, '0');
-            let year = parsedDate.getFullYear();
-            return `${day}/${month}/${year}`;
-        }
-
-        let dateOnly = str.split(' ')[0];
-        let clean = dateOnly.replace(/\./g, '-').replace(/\//g, '-').replace(/年|月/g, '-').replace(/日/g, '').trim();
-        
-        if (/^\d{6}$/.test(clean)) {
-            clean = clean.substring(0, 2) + '-' + clean.substring(2, 4) + '-' + clean.substring(4, 6);
-        }
-
-        let parts = clean.split('-');
-        if (parts.length < 3) return null;
-        let year = parseInt(parts[0], 10);
-        let month = parseInt(parts[1], 10);
-        let day = parseInt(parts[2], 10);
-        if (isNaN(year) || isNaN(month) || isNaN(day) || month < 1 || month > 12) return null;
-        
-        if (year < 100) year += 2000;
-        
-        return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
+    // Direct match for standard DD/MM/YYYY
+    let strictMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (strictMatch) {
+        let d = String(strictMatch[1]).padStart(2, '0');
+        let m = String(strictMatch[2]).padStart(2, '0');
+        let y = strictMatch[3];
+        return `${d}/${m}/${y}`;
     }
 
+    // Match YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD
+    let ymdMatch = str.match(/^(20\d{2}|\d{2})[\/\.-](\d{1,2})[\/\.-](\d{1,2})/);
+    if (ymdMatch) {
+        let year = parseInt(ymdMatch[1], 10);
+        if (year < 100) year += 2000;
+        let month = String(ymdMatch[2]).padStart(2, '0');
+        let day = String(ymdMatch[3]).padStart(2, '0');
+        return `${day}/${month}/${year}`;
+    }
+
+    // Fallback standard Date parsing
+    let parsedDate = new Date(str);
+    if (!isNaN(parsedDate.getTime())) {
+        let day = String(parsedDate.getDate()).padStart(2, '0');
+        let month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+        let year = parsedDate.getFullYear();
+        if (year >= 1900 && year <= 2099) {
+            return `${day}/${month}/${year}`;
+        }
+    }
+
+    return null;
+}
     function handleAddExpense(event) {
         event.preventDefault();
         const rawDate = document.getElementById('exp-date').value;
@@ -1167,18 +1168,21 @@
     }
 
     function populateMonthFilter() {
-        const monthSelect = document.getElementById('month-filter');
-        if (!monthSelect) return;
-        const curMonth = monthSelect.value;
-        monthSelect.innerHTML = '<option value="ALL">All Months</option>';
+    const monthSelect = document.getElementById('month-filter');
+    if (!monthSelect) return;
+    const curMonth = monthSelect.value;
+    monthSelect.innerHTML = '<option value="ALL">All Months</option>';
 
-        const monthMap = {};
-        expenseData.forEach(s => { 
-            if (s.date) {
-                const parts = s.date.split('/');
-                if (parts.length === 3) {
-                    const mm = parts[1];
-                    const yyyy = parts[2];
+    const monthMap = {};
+    expenseData.forEach(s => { 
+        if (s.date) {
+            const parts = s.date.split('/');
+            if (parts.length === 3) {
+                const mm = parts[1];
+                const yyyy = parts[2];
+                
+                // Validate month and 4-digit year range
+                if (yyyy.length === 4 && parseInt(mm, 10) >= 1 && parseInt(mm, 10) <= 12) {
                     const dateObj = new Date(parseInt(yyyy, 10), parseInt(mm, 10) - 1, 1);
                     if (!isNaN(dateObj.getTime())) {
                         const monthName = dateObj.toLocaleString('en-US', { month: 'long' });
@@ -1186,29 +1190,29 @@
                         monthMap[key] = `${monthName} ${yyyy}`;
                     }
                 }
-            } 
-        });
+            }
+        } 
+    });
 
-        const sortedKeys = Object.keys(monthMap).sort((a, b) => {
-            const [mA, yA] = a.split('/');
-            const [mB, yB] = b.split('/');
-            return `${yB}${mB}`.localeCompare(`${yA}${mA}`);
-        });
+    const sortedKeys = Object.keys(monthMap).sort((a, b) => {
+        const [mA, yA] = a.split('/');
+        const [mB, yB] = b.split('/');
+        return `${yB}${mB}`.localeCompare(`${yA}${mA}`);
+    });
 
-        sortedKeys.forEach(key => {
-            const opt = document.createElement('option');
-            opt.value = key;
-            opt.textContent = monthMap[key];
-            monthSelect.appendChild(opt);
-        });
+    sortedKeys.forEach(key => {
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = monthMap[key];
+        monthSelect.appendChild(opt);
+    });
 
-        if (curMonth && sortedKeys.includes(curMonth)) {
-            monthSelect.value = curMonth;
-        } else {
-            monthSelect.value = 'ALL';
-        }
+    if (curMonth && sortedKeys.includes(curMonth)) {
+        monthSelect.value = curMonth;
+    } else {
+        monthSelect.value = 'ALL';
     }
-
+}
     function setExpenseViewMode(mode) {
         currentExpenseViewMode = mode;
         document.getElementById('btnViewMainCat').classList.toggle('active', mode === 'main_category');
