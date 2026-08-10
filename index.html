@@ -362,60 +362,37 @@
         { description: "Japanese Class", amount: 7800, mainCategory: "Education & Sports", subCategory: "Books & Study Materials" },
         { description: "School Expenses", amount: 120000, mainCategory: "Education & Sports", subCategory: "Tuition & School" }
     ];
-    function applyFixedExpenses() {
-        let targetMonth = document.getElementById('month-filter')?.value;
-        
-        if (!targetMonth || targetMonth === 'ALL') {
-            const today = new Date();
-            const m = String(today.getMonth() + 1).padStart(2, '0');
-            const y = today.getFullYear();
-            targetMonth = `${m}/${y}`;
-        }
+    function addFixedExpensesForMonth(targetMonthYear) {
+    // targetMonthYear format: "MM/YYYY" (e.g., "04/2026")
+    if (!targetMonthYear || targetMonthYear === 'ALL') return;
 
-        let addedCount = 0;
+    const [mm, yyyy] = targetMonthYear.split('/');
+    // Standardize date to 1st of the target month
+    const fixedDateStr = `01/${mm.padStart(2, '0')}/${yyyy}`;
 
-        FIXED_EXPENSES.forEach(fixed => {
-            const alreadyExists = expenseData.some(item => {
-                if (!item.date) return false;
-                const parts = item.date.split('/');
-                if (parts.length === 3) {
-                    const itemMonth = `${parts[1]}/${parts[2]}`;
-                    return itemMonth === targetMonth && item.description.toLowerCase() === fixed.description.toLowerCase();
-                }
-                return false;
-            });
+    // Filter out any previous fixed expenses for this month to prevent stale/duplicate states
+    expenseData = expenseData.filter(item => !(item.isFixed && item.date === fixedDateStr));
 
-            if (!alreadyExists) {
-                const [mm, yyyy] = targetMonth.split('/');
-                const dateStr = `01/${mm}/${yyyy}`; 
-                
-                const newItem = {
-                    id: Date.now().toString() + Math.random().toString(36).substring(2, 7),
-                    date: dateStr,
-                    mainCategory: fixed.mainCategory,
-                    subCategory: fixed.subCategory,
-                    description: fixed.description,
-                    amount: fixed.amount
-                };
-                
-                const hash = getTransactionHash(newItem);
-                if (!processedFilesHashes.includes(hash)) {
-                    processedFilesHashes.push(hash);
-                    expenseData.push(newItem);
-                    addedCount++;
-                }
-            }
-        });
+    // Map and inject the FIXED_EXPENSES array for the target month
+    const newFixedItems = FIXED_EXPENSES.map((fe, index) => ({
+        id: `fixed_${yyyy}${mm}_${index}_${Date.now()}`,
+        date: fixedDateStr,
+        description: fe.description,
+        amount: Number(fe.amount),
+        mainCategory: fe.mainCategory,
+        subCategory: fe.subCategory,
+        source: 'Fixed Expense',
+        isFixed: true
+    }));
 
-        if (addedCount > 0) {
-            alert(`Successfully injected ${addedCount} fixed expense(s) for ${targetMonth}.`);
-            saveAndRender();
-        } else {
-            alert(`All fixed expenses for ${targetMonth} have already been added!`);
-        }
-    }
+    // Add items into global dataset
+    expenseData.push(...newFixedItems);
 
-    async function handleReceiptPhotos(event) {
+    // Re-render components without losing newly added records
+    if (typeof populateMonthFilter === 'function') populateMonthFilter();
+    if (typeof renderExpenseTable === 'function') renderExpenseTable();
+    if (typeof updateSummaryCards === 'function') updateSummaryCards();
+}    async function handleReceiptPhotos(event) {
         const files = Array.from(event.target.files);
         const status = document.getElementById('receipt-scan-status');
         if (files.length === 0) return;
