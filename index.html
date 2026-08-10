@@ -926,52 +926,50 @@
     }
 
     // Fixed Cross-Browser Mobile-Safe Date Parser
-    function sanitizeDate(rawDateStr) {
-        if (!rawDateStr) return null;
-        let str = String(rawDateStr).trim();
+function sanitizeDate(rawDateStr) {
+    if (!rawDateStr) return null;
+    let str = String(rawDateStr).trim();
 
-        // 1. Japanese Kanji Date Format (YYYY年MM月DD日)
-        let jpMatch = str.match(/(20\d{2}|\d{2})[年\/\.-](\d{1,2})[月\/\.-](\d{1,2})/);
-        if (jpMatch) {
-            let year = parseInt(jpMatch[1], 10);
-            if (year < 100) year += 2000;
-            let month = String(jpMatch[2]).padStart(2, '0');
-            let day = String(jpMatch[3]).padStart(2, '0');
-            return `${day}/${month}/${year}`;
-        }
-
-        // 2. Strict DD/MM/YYYY
-        let strictMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-        if (strictMatch) {
-            let d = String(strictMatch[1]).padStart(2, '0');
-            let m = String(strictMatch[2]).padStart(2, '0');
-            let y = strictMatch[3];
-            return `${d}/${m}/${y}`;
-        }
-
-        // 3. YYYY-MM-DD or YYYY/MM/DD
-        let ymdMatch = str.match(/^(20\d{2}|\d{2})[\/\.-](\d{1,2})[\/\.-](\d{1,2})/);
-        if (ymdMatch) {
-            let year = parseInt(ymdMatch[1], 10);
-            if (year < 100) year += 2000;
-            let month = String(ymdMatch[2]).padStart(2, '0');
-            let day = String(ymdMatch[3]).padStart(2, '0');
-            return `${day}/${month}/${year}`;
-        }
-
-        // 4. Fallback Native JS Date parsing
-        let parsedDate = new Date(str);
-        if (!isNaN(parsedDate.getTime())) {
-            let day = String(parsedDate.getDate()).padStart(2, '0');
-            let month = String(parsedDate.getMonth() + 1).padStart(2, '0');
-            let year = parsedDate.getFullYear();
-            if (year >= 1900 && year <= 2099) {
-                return `${day}/${month}/${year}`;
-            }
-        }
-
-        return str;
+    // 1. Japanese Kanji Date Format (e.g., 2026年06月20日 or 26年06月20日)
+    let jpMatch = str.match(/(?:20(\d{2})|(\d{2}))年\s*(\d{1,2})月\s*(\d{1,2})日/);
+    if (jpMatch) {
+        let year = jpMatch[1] ? `20${jpMatch[1]}` : `20${jpMatch[2]}`;
+        let month = String(jpMatch[3]).padStart(2, '0');
+        let day = String(jpMatch[4]).padStart(2, '0');
+        return `${day}/${month}/${year}`;
     }
+
+    // 2. Strict DD/MM/YYYY
+    let strictMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (strictMatch) {
+        let d = String(strictMatch[1]).padStart(2, '0');
+        let m = String(strictMatch[2]).padStart(2, '0');
+        let y = strictMatch[3];
+        return `${d}/${m}/${y}`;
+    }
+
+    // 3. YYYY-MM-DD or YYYY/MM/DD (4-digit year starting with 19xx or 20xx)
+    let ymdMatch = str.match(/^(19\d{2}|20\d{2})[\/\.-](\d{1,2})[\/\.-](\d{1,2})/);
+    if (ymdMatch) {
+        let year = ymdMatch[1];
+        let month = String(ymdMatch[2]).padStart(2, '0');
+        let day = String(ymdMatch[3]).padStart(2, '0');
+        return `${day}/${month}/${year}`;
+    }
+
+    // 4. Fallback Native JS Date parsing
+    let parsedDate = new Date(str);
+    if (!isNaN(parsedDate.getTime())) {
+        let day = String(parsedDate.getDate()).padStart(2, '0');
+        let month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+        let year = parsedDate.getFullYear();
+        if (year >= 1900 && year <= 2099) {
+            return `${day}/${month}/${year}`;
+        }
+    }
+
+    return str;
+}
 
     function handleAddExpense(event) {
         event.preventDefault();
