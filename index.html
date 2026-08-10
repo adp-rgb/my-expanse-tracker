@@ -392,7 +392,7 @@
 <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbwNuJnAEAZBWnUCZVCCJ7CN3utDm20NPUF18lU5G6HMrwnkVmaMrJgmS3a2AJ1Vlkrb/exec";
 
-    // Fixed Monthly Expenses Array with updated mapping
+    // Fixed Monthly Expenses Array
     const FIXED_EXPENSES = [
         { description: "House Loan", amount: 191824, mainCategory: "Loans & Liabilities", subCategory: "Housing Loan / Mortgage" },
         { description: "NISA Investment", amount: 30000, mainCategory: "Investments & Wealth", subCategory: "NISA & Stocks" },
@@ -925,11 +925,12 @@
         return isNaN(num) ? 0 : Math.abs(num);
     }
 
+    // Fixed Cross-Browser Mobile-Safe Date Parser
     function sanitizeDate(rawDateStr) {
         if (!rawDateStr) return null;
         let str = String(rawDateStr).trim();
 
-        // 1. Check for Japanese Kanji Date Format (YYYY年MM月DD日)
+        // 1. Japanese Kanji Date Format (YYYY年MM月DD日)
         let jpMatch = str.match(/(20\d{2}|\d{2})[年\/\.-](\d{1,2})[月\/\.-](\d{1,2})/);
         if (jpMatch) {
             let year = parseInt(jpMatch[1], 10);
@@ -939,7 +940,7 @@
             return `${day}/${month}/${year}`;
         }
 
-        // 2. Check for DD/MM/YYYY
+        // 2. Strict DD/MM/YYYY
         let strictMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
         if (strictMatch) {
             let d = String(strictMatch[1]).padStart(2, '0');
@@ -948,7 +949,7 @@
             return `${d}/${m}/${y}`;
         }
 
-        // 3. Check for YYYY-MM-DD or YYYY/MM/DD
+        // 3. YYYY-MM-DD or YYYY/MM/DD
         let ymdMatch = str.match(/^(20\d{2}|\d{2})[\/\.-](\d{1,2})[\/\.-](\d{1,2})/);
         if (ymdMatch) {
             let year = parseInt(ymdMatch[1], 10);
@@ -958,7 +959,7 @@
             return `${day}/${month}/${year}`;
         }
 
-        // 4. Native JS Date fallback
+        // 4. Fallback Native JS Date parsing
         let parsedDate = new Date(str);
         if (!isNaN(parsedDate.getTime())) {
             let day = String(parsedDate.getDate()).padStart(2, '0');
@@ -1206,6 +1207,7 @@
         return hdr ? String(hdr).replace(/^\uFEFF/, '').replace(/["']/g, '').trim() : '';
     }
 
+    // Fixed Mobile-Safe Month Filter Logic
     function populateMonthFilter() {
         const monthSelect = document.getElementById('month-filter');
         if (!monthSelect) return;
@@ -1213,20 +1215,20 @@
         monthSelect.innerHTML = '<option value="ALL">All Months</option>';
 
         const monthMap = {};
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
         expenseData.forEach(s => { 
             if (s.date) {
                 const parts = s.date.split('/');
                 if (parts.length === 3) {
-                    const mm = parts[1];
+                    const mm = parts[1].padStart(2, '0');
                     const yyyy = parts[2];
+                    const monthIdx = parseInt(mm, 10) - 1;
                     
-                    if (yyyy.length === 4 && parseInt(mm, 10) >= 1 && parseInt(mm, 10) <= 12) {
-                        const dateObj = new Date(parseInt(yyyy, 10), parseInt(mm, 10) - 1, 1);
-                        if (!isNaN(dateObj.getTime())) {
-                            const monthName = dateObj.toLocaleString('en-US', { month: 'long' });
-                            const key = `${mm}/${yyyy}`;
-                            monthMap[key] = `${monthName} ${yyyy}`;
-                        }
+                    if (yyyy.length === 4 && monthIdx >= 0 && monthIdx < 12) {
+                        const monthName = monthNames[monthIdx];
+                        const key = `${mm}/${yyyy}`;
+                        monthMap[key] = `${monthName} ${yyyy}`;
                     }
                 }
             } 
@@ -1268,7 +1270,7 @@
             if (!d.date) return false;
             const parts = d.date.split('/');
             if (parts.length === 3) {
-                const itemMonthYear = `${parts[1]}/${parts[2]}`;
+                const itemMonthYear = `${parts[1].padStart(2, '0')}/${parts[2]}`;
                 return itemMonthYear === selectedMonth;
             }
             return false;
@@ -1353,7 +1355,7 @@
             if (selectedMonth === 'ALL') return true;
             if (!d.date) return false;
             const parts = d.date.split('/');
-            return parts.length === 3 && `${parts[1]}/${parts[2]}` === selectedMonth;
+            return parts.length === 3 && `${parts[1].padStart(2, '0')}/${parts[2]}` === selectedMonth;
         });
 
         const dateFilterVal = (document.getElementById('col-filter-date')?.value || '').toLowerCase().trim();
@@ -1382,8 +1384,8 @@
             let partsB = dateB.split('/');
             
             if (partsA.length === 3 && partsB.length === 3) {
-                let isoA = `${partsA[2]}-${partsA[1]}-${partsA[0]}`;
-                let isoB = `${partsB[2]}-${partsB[1]}-${partsB[0]}`;
+                let isoA = `${partsA[2]}-${partsA[1].padStart(2, '0')}-${partsA[0].padStart(2, '0')}`;
+                let isoB = `${partsB[2]}-${partsB[1].padStart(2, '0')}-${partsB[0].padStart(2, '0')}`;
                 return isoB.localeCompare(isoA);
             }
             return (dateB).localeCompare(dateA);
