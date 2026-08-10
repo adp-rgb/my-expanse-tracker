@@ -350,7 +350,7 @@
 <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbwNuJnAEAZBWnUCZVCCJ7CN3utDm20NPUF18lU5G6HMrwnkVmaMrJgmS3a2AJ1Vlkrb/exec";
 
-    // Fixed Monthly Expenses Array
+   // Fixed Monthly Expenses Array
     const FIXED_EXPENSES = [
         { description: "House Loan", amount: 191824, mainCategory: "Housing & Utilities", subCategory: "Rent & Mortgage" },
         { description: "NISA Investment", amount: 30000, mainCategory: "Services & Fees", subCategory: "General Expense" },
@@ -359,9 +359,9 @@
         { description: "Fx Investment", amount: 6500, mainCategory: "Services & Fees", subCategory: "General Expense" },
         { description: "Solar Loan / Maintenance", amount: 17346, mainCategory: "Housing & Utilities", subCategory: "Electricity" },
         { description: "Singing Class", amount: 4100, mainCategory: "Education & Sports", subCategory: "Tuition & School" },
-        { description: "Japanese Class", amount: 7800, mainCategory: "Education & Sports", subCategory: "Books & Study Materials" }
+        { description: "Japanese Class", amount: 7800, mainCategory: "Education & Sports", subCategory: "Books & Study Materials" },
+        { description: "School Expenses", amount: 120000, mainCategory: "Education & Sports", subCategory: "Tuition & School" }
     ];
-
     function applyFixedExpenses() {
         let targetMonth = document.getElementById('month-filter')?.value;
         
