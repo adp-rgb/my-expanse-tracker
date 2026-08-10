@@ -621,9 +621,11 @@
             const data = await response.json();
             expenseData = Array.isArray(data) ? data : [];
             
-            // Normalize all incoming dates
+            // Normalize all incoming dates strictly to DD/MM/YYYY
             expenseData.forEach(item => {
-                item.date = sanitizeDate(item.date) || item.date;
+                if (item.date) {
+                    item.date = sanitizeDate(item.date) || item.date;
+                }
             });
 
             syncAllDataMainCategories();
@@ -896,9 +898,13 @@
 
     function sanitizeDate(rawDateStr) {
         if (!rawDateStr) return null;
+        let str = String(rawDateStr).trim();
 
-        // Try standard Javascript Date parsing (handles formats like "Wed Sep 24 2025 00:00:00 GM...")
-        let parsedDate = new Date(rawDateStr);
+        // Check for DD/MM/YYYY format
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) return str;
+
+        // Try standard Javascript Date parsing
+        let parsedDate = new Date(str);
         if (!isNaN(parsedDate.getTime())) {
             let day = String(parsedDate.getDate()).padStart(2, '0');
             let month = String(parsedDate.getMonth() + 1).padStart(2, '0');
@@ -906,7 +912,7 @@
             return `${day}/${month}/${year}`;
         }
 
-        let dateOnly = String(rawDateStr).trim().split(' ')[0];
+        let dateOnly = str.split(' ')[0];
         let clean = dateOnly.replace(/\./g, '-').replace(/\//g, '-').replace(/年|月/g, '-').replace(/日/g, '').trim();
         
         if (/^\d{6}$/.test(clean)) {
@@ -1196,7 +1202,11 @@
             monthSelect.appendChild(opt);
         });
 
-        if (curMonth && sortedKeys.includes(curMonth)) monthSelect.value = curMonth;
+        if (curMonth && sortedKeys.includes(curMonth)) {
+            monthSelect.value = curMonth;
+        } else {
+            monthSelect.value = 'ALL';
+        }
     }
 
     function setExpenseViewMode(mode) {
@@ -1222,7 +1232,7 @@
         });
         
         let totalSpend = filtered.reduce((sum, item) => sum + item.amount, 0);
-        const uniqueDays = new Set(filtered.map(d => d.date)).size || 1;
+        const uniqueDays = new Set(filtered.map(d => d.date).filter(Boolean)).size || 1;
 
         document.getElementById('m-total-spending').textContent = `¥${totalSpend.toLocaleString()}`;
         document.getElementById('m-transaction-count').textContent = filtered.length;
@@ -1325,7 +1335,7 @@
 
         sortedData.forEach(item => {
             const mainCat = getMainCategory(item.subCategory, item.mainCategory);
-            const displayDate = item.date || 'N/A';
+            const displayDate = item.date ? item.date : 'N/A';
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td><input type="checkbox" class="item-checkbox" data-id="${item.id}" onchange="updateSelectedCount()"></td>
