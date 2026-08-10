@@ -368,10 +368,7 @@
         let targetMonth = document.getElementById('month-filter')?.value;
         
         if (!targetMonth || targetMonth === 'ALL') {
-            const today = new Date();
-            const m = String(today.getMonth() + 1).padStart(2, '0');
-            const y = today.getFullYear();
-            targetMonth = `${m}/${y}`;
+            targetMonth = '08/2025';
         }
 
         let addedCount = 0;
@@ -890,110 +887,36 @@
         return isNaN(num) ? 0 : Math.abs(num);
     }
 
-    // 1. Updated sanitizeDate to output DD/MM/YYYY
-function sanitizeDate(rawDateStr) {
-    if (!rawDateStr) return null;
-    let dateOnly = String(rawDateStr).trim().split(' ')[0];
-    let clean = dateOnly.replace(/\./g, '-').replace(/\//g, '-').replace(/年|月/g, '-').replace(/日/g, '').trim();
-    
-    if (/^\d{6}$/.test(clean)) {
-        clean = clean.substring(0, 2) + '-' + clean.substring(2, 4) + '-' + clean.substring(4, 6);
+    function sanitizeDate(rawDateStr) {
+        if (!rawDateStr) return null;
+        let dateOnly = String(rawDateStr).trim().split(' ')[0];
+        let clean = dateOnly.replace(/\./g, '-').replace(/\//g, '-').replace(/年|月/g, '-').replace(/日/g, '').trim();
+        
+        if (/^\d{6}$/.test(clean)) {
+            clean = clean.substring(0, 2) + '-' + clean.substring(2, 4) + '-' + clean.substring(4, 6);
+        }
+
+        let parts = clean.split('-');
+        if (parts.length < 3) return null;
+        let year = parseInt(parts[0], 10);
+        let month = parseInt(parts[1], 10);
+        let day = parseInt(parts[2], 10);
+        if (isNaN(year) || isNaN(month) || isNaN(day) || month < 1 || month > 12) return null;
+        
+        if (year < 100) year += 2000;
+        
+        return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
     }
 
-    let parts = clean.split('-');
-    if (parts.length < 3) return null;
-    let year = parseInt(parts[0], 10);
-    let month = parseInt(parts[1], 10);
-    let day = parseInt(parts[2], 10);
-    if (isNaN(year) || isNaN(month) || isNaN(day) || month < 1 || month > 12) return null;
-    
-    if (year < 100) year += 2000;
-    
-    // Format output strictly as DD/MM/YYYY
-    return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
-}
-
-// Helper to convert DD/MM/YYYY to YYYY-MM-DD for sorting/filtering
-function parseDDMMYYYYToISO(dateStr) {
-    if (!dateStr || !dateStr.includes('/')) return dateStr;
-    const parts = dateStr.split('/');
-    if (parts.length === 3) {
-        return `${parts[2]}-${parts[1]}-${parts[0]}`; // YYYY-MM-DD
-    }
-    return dateStr;
-}
-
-// 2. Updated Manual Expense Entry Handler
-function handleAddExpense(event) {
-    event.preventDefault();
-    const rawDate = document.getElementById('exp-date').value; // YYYY-MM-DD from input
-    if (!rawDate) return;
-
-    // Convert YYYY-MM-DD to DD/MM/YYYY
-    const parts = rawDate.split('-');
-    const formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
-
-    const subCategory = document.getElementById('exp-sub-category').value;
-    const mainCategory = getMainCategory(subCategory);
-    const description = document.getElementById('exp-description').value.trim();
-    const amount = parseNum(document.getElementById('exp-amount').value);
-
-    if (!description || amount <= 0) return;
-
-    const newItem = { id: Date.now().toString(), date: formattedDate, mainCategory, subCategory, description, amount };
-    const hash = getTransactionHash(newItem);
-
-    if (!processedFilesHashes.includes(hash)) {
-        processedFilesHashes.push(hash);
-        expenseData.push(newItem);
-        saveAndRender();
+    function parseDDMMYYYYToISO(dateStr) {
+        if (!dateStr || !dateStr.includes('/')) return dateStr;
+        const parts = dateStr.split('/');
+        if (parts.length === 3) {
+            return `${parts[2]}-${parts[1]}-${parts[0]}`;
+        }
+        return dateStr;
     }
 
-    document.getElementById('exp-description').value = '';
-    document.getElementById('exp-amount').value = '';
-}
-
-// 3. Updated Receipt Fallback Date Handler
-function parseJapaneseReceiptText(text) {
-    if (!text) return null;
-    // ... existing date regex extraction logic ...
-    
-    if (!extractedDate) {
-        const today = new Date();
-        const d = String(today.getDate()).padStart(2, '0');
-        const m = String(today.getMonth() + 1).padStart(2, '0');
-        const y = today.getFullYear();
-        extractedDate = `${d}/${m}/${y}`;
-    }
-
-    // ... rest of parseJapaneseReceiptText function remains unchanged ...
-}
-
-// 4. Updated Month Filter & Sorting Helpers
-function populateMonthFilter() {
-    const monthSelect = document.getElementById('month-filter');
-    if (!monthSelect) return;
-    const curMonth = monthSelect.value;
-    monthSelect.innerHTML = '<option value="ALL">All Months</option>';
-
-    const months = new Set();
-    expenseData.forEach(s => { 
-        if (s.date) {
-            // Extracts MM/YYYY from DD/MM/YYYY format
-            const parts = s.date.split('/');
-            if (parts.length === 3) months.add(`${parts[1]}/${parts[2]}`);
-        } 
-    });
-
-    const sortedMonths = Array.from(months).sort().reverse();
-    sortedMonths.forEach(m => {
-        const opt = document.createElement('option');
-        opt.value = m; opt.textContent = m;
-        monthSelect.appendChild(opt);
-    });
-
-    if (curMonth && sortedMonths.includes(curMonth)) monthSelect.value = curMonth;
-}
     function handleAddExpense(event) {
         event.preventDefault();
         const rawDate = document.getElementById('exp-date').value;
@@ -1236,6 +1159,8 @@ function populateMonthFilter() {
         monthSelect.innerHTML = '<option value="ALL">All Months</option>';
 
         const months = new Set();
+        months.add('08/2025');
+
         expenseData.forEach(s => { 
             if (s.date) {
                 const parts = s.date.split('/');
@@ -1250,7 +1175,11 @@ function populateMonthFilter() {
             monthSelect.appendChild(opt);
         });
 
-        if (curMonth && sortedMonths.includes(curMonth)) monthSelect.value = curMonth;
+        if (curMonth && sortedMonths.includes(curMonth)) {
+            monthSelect.value = curMonth;
+        } else {
+            monthSelect.value = '08/2025';
+        }
     }
 
     function setExpenseViewMode(mode) {
@@ -1262,177 +1191,175 @@ function populateMonthFilter() {
         renderDashboard();
     }
 
-function renderDashboard() {
-    populateMonthFilter();
-    const selectedMonth = document.getElementById('month-filter')?.value || 'ALL'; // format: MM/YYYY
-    
-    let filtered = expenseData.filter(d => {
-        if (selectedMonth === 'ALL') return true;
-        if (!d.date) return false;
-        const parts = d.date.split('/'); // [DD, MM, YYYY]
-        if (parts.length === 3) {
-            const itemMonthYear = `${parts[1]}/${parts[2]}`;
-            return itemMonthYear === selectedMonth;
-        }
-        return false;
-    });
-    
-    let totalSpend = filtered.reduce((sum, item) => sum + item.amount, 0);
-    const uniqueDays = new Set(filtered.map(d => d.date)).size || 1;
-
-    document.getElementById('m-total-spending').textContent = `¥${totalSpend.toLocaleString()}`;
-    document.getElementById('m-transaction-count').textContent = filtered.length;
-    document.getElementById('m-daily-avg').textContent = `¥${Math.round(totalSpend / uniqueDays).toLocaleString()}`;
-
-    renderChart(filtered);
-    renderTable(filtered);
-}
-
-   function renderChart(data) {
-    if (expenseChartInstance) expenseChartInstance.destroy();
-    const ctx = document.getElementById('expenseChart').getContext('2d');
-
-    if (currentExpenseViewMode === 'daily') {
-        const dailyAgg = {};
-        data.forEach(d => dailyAgg[d.date] = (dailyAgg[d.date] || 0) + d.amount);
+    function renderDashboard() {
+        populateMonthFilter();
+        const selectedMonth = document.getElementById('month-filter')?.value || '08/2025';
         
-        // Sort keys by converting DD/MM/YYYY -> YYYY-MM-DD
-        const sortedDates = Object.keys(dailyAgg).sort((a, b) => {
-            return parseDDMMYYYYToISO(a).localeCompare(parseDDMMYYYYToISO(b));
-        });
-
-        expenseChartInstance = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: sortedDates,
-                datasets: [{ label: 'Daily Spending (¥)', data: sortedDates.map(d => dailyAgg[d]), backgroundColor: '#2563eb' }]
-            },
-            options: { responsive: true, maintainAspectRatio: false }
-        });
-
-    } else if (currentExpenseViewMode === 'main_category') {
-        const catAgg = {};
-        data.forEach(d => {
-            const main = getMainCategory(d.subCategory, d.mainCategory);
-            catAgg[main] = (catAgg[main] || 0) + d.amount;
-        });
-
-        expenseChartInstance = new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: Object.keys(catAgg),
-                datasets: [{ data: Object.values(catAgg), backgroundColor: ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#64748b'] }]
-            },
-            options: { responsive: true, maintainAspectRatio: false }
-        });
-
-    } else if (currentExpenseViewMode === 'sub_category') {
-        const subAgg = {};
-        data.forEach(d => {
-            const main = getMainCategory(d.subCategory, d.mainCategory);
-            const label = `${main} > ${d.subCategory}`;
-            subAgg[label] = (subAgg[label] || 0) + d.amount;
-        });
-
-        expenseChartInstance = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: Object.keys(subAgg),
-                datasets: [{ label: 'Subcategory Spending (¥)', data: Object.values(subAgg), backgroundColor: '#8b5cf6' }]
-            },
-            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
-        });
-
-    } else if (currentExpenseViewMode === 'monthly') {
-        const monthAgg = {};
-        expenseData.forEach(d => {
-            if (d.date) {
-                const parts = d.date.split('/');
-                if (parts.length === 3) {
-                    const mKey = `${parts[1]}/${parts[2]}`; // MM/YYYY
-                    monthAgg[mKey] = (monthAgg[mKey] || 0) + d.amount;
-                }
+        let filtered = expenseData.filter(d => {
+            if (selectedMonth === 'ALL') return true;
+            if (!d.date) return false;
+            const parts = d.date.split('/');
+            if (parts.length === 3) {
+                const itemMonthYear = `${parts[1]}/${parts[2]}`;
+                return itemMonthYear === selectedMonth;
             }
+            return false;
         });
+        
+        let totalSpend = filtered.reduce((sum, item) => sum + item.amount, 0);
+        const uniqueDays = new Set(filtered.map(d => d.date)).size || 1;
 
-        // Sort MM/YYYY keys chronologically by converting to YYYY-MM
-        const sortedMonths = Object.keys(monthAgg).sort((a, b) => {
-            const [mA, yA] = a.split('/');
-            const [mB, yB] = b.split('/');
-            return `${yA}-${mA}`.localeCompare(`${yB}-${mB}`);
-        });
+        document.getElementById('m-total-spending').textContent = `¥${totalSpend.toLocaleString()}`;
+        document.getElementById('m-transaction-count').textContent = filtered.length;
+        document.getElementById('m-daily-avg').textContent = `¥${Math.round(totalSpend / uniqueDays).toLocaleString()}`;
 
-        expenseChartInstance = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: sortedMonths,
-                datasets: [{ label: 'Monthly Expense (¥)', data: sortedMonths.map(m => monthAgg[m]), backgroundColor: '#3b82f6' }]
-            },
-            options: { responsive: true, maintainAspectRatio: false }
-        });
+        renderChart(filtered);
+        renderTable(filtered);
     }
-}
+
+    function renderChart(data) {
+        if (expenseChartInstance) expenseChartInstance.destroy();
+        const ctx = document.getElementById('expenseChart').getContext('2d');
+
+        if (currentExpenseViewMode === 'daily') {
+            const dailyAgg = {};
+            data.forEach(d => dailyAgg[d.date] = (dailyAgg[d.date] || 0) + d.amount);
+            
+            const sortedDates = Object.keys(dailyAgg).sort((a, b) => {
+                return parseDDMMYYYYToISO(a).localeCompare(parseDDMMYYYYToISO(b));
+            });
+
+            expenseChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sortedDates,
+                    datasets: [{ label: 'Daily Spending (¥)', data: sortedDates.map(d => dailyAgg[d]), backgroundColor: '#2563eb' }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+        } else if (currentExpenseViewMode === 'main_category') {
+            const catAgg = {};
+            data.forEach(d => {
+                const main = getMainCategory(d.subCategory, d.mainCategory);
+                catAgg[main] = (catAgg[main] || 0) + d.amount;
+            });
+
+            expenseChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(catAgg),
+                    datasets: [{ data: Object.values(catAgg), backgroundColor: ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#64748b'] }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+        } else if (currentExpenseViewMode === 'sub_category') {
+            const subAgg = {};
+            data.forEach(d => {
+                const main = getMainCategory(d.subCategory, d.mainCategory);
+                const label = `${main} > ${d.subCategory}`;
+                subAgg[label] = (subAgg[label] || 0) + d.amount;
+            });
+
+            expenseChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(subAgg),
+                    datasets: [{ label: 'Subcategory Spending (¥)', data: Object.values(subAgg), backgroundColor: '#8b5cf6' }]
+                },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
+            });
+
+        } else if (currentExpenseViewMode === 'monthly') {
+            const monthAgg = {};
+            expenseData.forEach(d => {
+                if (d.date) {
+                    const parts = d.date.split('/');
+                    if (parts.length === 3) {
+                        const mKey = `${parts[1]}/${parts[2]}`;
+                        monthAgg[mKey] = (monthAgg[mKey] || 0) + d.amount;
+                    }
+                }
+            });
+
+            const sortedMonths = Object.keys(monthAgg).sort((a, b) => {
+                const [mA, yA] = a.split('/');
+                const [mB, yB] = b.split('/');
+                return `${yA}-${mA}`.localeCompare(`${yB}-${mB}`);
+            });
+
+            expenseChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sortedMonths,
+                    datasets: [{ label: 'Monthly Expense (¥)', data: sortedMonths.map(m => monthAgg[m]), backgroundColor: '#3b82f6' }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+    }
 
     function renderTable(data) {
         renderTableDataOnly(data);
     }
 
-function renderTableDataOnly(dataset) {
-    const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
-    
-    let baseData = dataset || expenseData.filter(d => {
-        if (selectedMonth === 'ALL') return true;
-        if (!d.date) return false;
-        const parts = d.date.split('/');
-        return parts.length === 3 && `${parts[1]}/${parts[2]}` === selectedMonth;
-    });
+    function renderTableDataOnly(dataset) {
+        const selectedMonth = document.getElementById('month-filter')?.value || '08/2025';
+        
+        let baseData = dataset || expenseData.filter(d => {
+            if (selectedMonth === 'ALL') return true;
+            if (!d.date) return false;
+            const parts = d.date.split('/');
+            return parts.length === 3 && `${parts[1]}/${parts[2]}` === selectedMonth;
+        });
 
-    const dateFilterVal = (document.getElementById('col-filter-date')?.value || '').toLowerCase().trim();
-    const mainCatFilterVal = document.getElementById('col-filter-main-cat')?.value || 'ALL';
-    const subCatFilterVal = document.getElementById('col-filter-sub-cat')?.value || 'ALL';
-    const descFilterVal = (document.getElementById('col-filter-desc')?.value || '').toLowerCase().trim();
+        const dateFilterVal = (document.getElementById('col-filter-date')?.value || '').toLowerCase().trim();
+        const mainCatFilterVal = document.getElementById('col-filter-main-cat')?.value || 'ALL';
+        const subCatFilterVal = document.getElementById('col-filter-sub-cat')?.value || 'ALL';
+        const descFilterVal = (document.getElementById('col-filter-desc')?.value || '').toLowerCase().trim();
 
-    let filtered = baseData.filter(item => {
-        const mainCat = getMainCategory(item.subCategory, item.mainCategory);
-        if (dateFilterVal && !item.date.toLowerCase().includes(dateFilterVal)) return false;
-        if (mainCatFilterVal !== 'ALL' && mainCat !== mainCatFilterVal) return false;
-        if (subCatFilterVal !== 'ALL' && item.subCategory !== subCatFilterVal) return false;
-        if (descFilterVal && !item.description.toLowerCase().includes(descFilterVal)) return false;
-        return true;
-    });
+        let filtered = baseData.filter(item => {
+            const mainCat = getMainCategory(item.subCategory, item.mainCategory);
+            if (dateFilterVal && !item.date.toLowerCase().includes(dateFilterVal)) return false;
+            if (mainCatFilterVal !== 'ALL' && mainCat !== mainCatFilterVal) return false;
+            if (subCatFilterVal !== 'ALL' && item.subCategory !== subCatFilterVal) return false;
+            if (descFilterVal && !item.description.toLowerCase().includes(descFilterVal)) return false;
+            return true;
+        });
 
-    const tbody = document.getElementById('expense-table-body');
-    if (!tbody) return;
-    tbody.innerHTML = '';
+        const tbody = document.getElementById('expense-table-body');
+        if (!tbody) return;
+        tbody.innerHTML = '';
 
-    // Sort chronologically using parseDDMMYYYYToISO
-    const sortedData = [...filtered].sort((a,b) => {
-        const isoA = parseDDMMYYYYToISO(a.date || '');
-        const isoB = parseDDMMYYYYToISO(b.date || '');
-        return isoB.localeCompare(isoA);
-    });
+        const sortedData = [...filtered].sort((a,b) => {
+            const isoA = parseDDMMYYYYToISO(a.date || '');
+            const isoB = parseDDMMYYYYToISO(b.date || '');
+            return isoB.localeCompare(isoA);
+        });
 
-    sortedData.forEach(item => {
-        const mainCat = getMainCategory(item.subCategory, item.mainCategory);
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td><input type="checkbox" class="item-checkbox" data-id="${item.id}" onchange="updateSelectedCount()"></td>
-            <td style="font-weight: 500;">${item.date}</td>
-            <td><span class="cat-tag">${mainCat}</span></td>
-            <td><span class="subcat-tag">${item.subCategory}</span></td>
-            <td>${item.description}</td>
-            <td style="font-weight: 700;">¥${item.amount.toLocaleString()}</td>
-            <td>
-                <button onclick="deleteExpense('${item.id}')" style="background: transparent; border: none; color: #ef4444; cursor: pointer;">🗑️ Delete</button>
-            </td>
-        `;
-        tbody.appendChild(row);
-    });
+        sortedData.forEach(item => {
+            const mainCat = getMainCategory(item.subCategory, item.mainCategory);
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><input type="checkbox" class="item-checkbox" data-id="${item.id}" onchange="updateSelectedCount()"></td>
+                <td style="font-weight: 500;">${item.date}</td>
+                <td><span class="cat-tag">${mainCat}</span></td>
+                <td><span class="subcat-tag">${item.subCategory}</span></td>
+                <td>${item.description}</td>
+                <td style="font-weight: 700;">¥${item.amount.toLocaleString()}</td>
+                <td>
+                    <button onclick="deleteExpense('${item.id}')" style="background: transparent; border: none; color: #ef4444; cursor: pointer;">🗑️ Delete</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
 
-    const selectAll = document.getElementById('select-all-checkbox');
-    if (selectAll) selectAll.checked = false;
-    updateSelectedCount();
-}
+        const selectAll = document.getElementById('select-all-checkbox');
+        if (selectAll) selectAll.checked = false;
+        updateSelectedCount();
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         syncAllDataMainCategories();
         initCategoryDropdowns();
