@@ -286,10 +286,8 @@
     <div class="card">
         <div class="card-header">
             <div class="btn-toggle-group">
-                <button id="btnViewDaily" class="btn-toggle active" onclick="setExpenseViewMode('daily')">Daily Trend</button>
-                <button id="btnViewMainCat" class="btn-toggle" onclick="setExpenseViewMode('main_category')">Main Categories</button>
+                <button id="btnViewMainCat" class="btn-toggle active" onclick="setExpenseViewMode('main_category')">Main Categories</button>
                 <button id="btnViewSubCat" class="btn-toggle" onclick="setExpenseViewMode('sub_category')">Subcategory Breakdown</button>
-                <button id="btnViewMonthly" class="btn-toggle" onclick="setExpenseViewMode('monthly')">Monthly Comparison</button>
             </div>
             <span id="expense-period-title" style="font-weight: 600; color: var(--text-muted); font-size: 0.85rem;"></span>
         </div>
@@ -594,7 +592,7 @@
     ];
     let processedFilesHashes = JSON.parse(localStorage.getItem('processed_file_hashes')) || [];
 
-    let currentExpenseViewMode = 'daily';
+    let currentExpenseViewMode = 'main_category';
     let expenseChartInstance;
 
     document.getElementById('exp-date').valueAsDate = new Date();
@@ -622,6 +620,12 @@
             
             const data = await response.json();
             expenseData = Array.isArray(data) ? data : [];
+            
+            // Normalize all incoming dates
+            expenseData.forEach(item => {
+                item.date = sanitizeDate(item.date) || item.date;
+            });
+
             syncAllDataMainCategories();
             renderDashboard();
             setSyncState('synced', 'Synced');
@@ -892,6 +896,16 @@
 
     function sanitizeDate(rawDateStr) {
         if (!rawDateStr) return null;
+
+        // Try standard Javascript Date parsing (handles formats like "Wed Sep 24 2025 00:00:00 GM...")
+        let parsedDate = new Date(rawDateStr);
+        if (!isNaN(parsedDate.getTime())) {
+            let day = String(parsedDate.getDate()).padStart(2, '0');
+            let month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+            let year = parsedDate.getFullYear();
+            return `${day}/${month}/${year}`;
+        }
+
         let dateOnly = String(rawDateStr).trim().split(' ')[0];
         let clean = dateOnly.replace(/\./g, '-').replace(/\//g, '-').replace(/年|月/g, '-').replace(/日/g, '').trim();
         
@@ -1152,30 +1166,43 @@
         const curMonth = monthSelect.value;
         monthSelect.innerHTML = '<option value="ALL">All Months</option>';
 
-        const months = new Set();
+        const monthMap = {};
         expenseData.forEach(s => { 
             if (s.date) {
                 const parts = s.date.split('/');
-                if (parts.length === 3) months.add(`${parts[1]}/${parts[2]}`);
+                if (parts.length === 3) {
+                    const mm = parts[1];
+                    const yyyy = parts[2];
+                    const dateObj = new Date(parseInt(yyyy, 10), parseInt(mm, 10) - 1, 1);
+                    if (!isNaN(dateObj.getTime())) {
+                        const monthName = dateObj.toLocaleString('en-US', { month: 'long' });
+                        const key = `${mm}/${yyyy}`;
+                        monthMap[key] = `${monthName} ${yyyy}`;
+                    }
+                }
             } 
         });
 
-        const sortedMonths = Array.from(months).sort().reverse();
-        sortedMonths.forEach(m => {
+        const sortedKeys = Object.keys(monthMap).sort((a, b) => {
+            const [mA, yA] = a.split('/');
+            const [mB, yB] = b.split('/');
+            return `${yB}${mB}`.localeCompare(`${yA}${mA}`);
+        });
+
+        sortedKeys.forEach(key => {
             const opt = document.createElement('option');
-            opt.value = m; opt.textContent = m;
+            opt.value = key;
+            opt.textContent = monthMap[key];
             monthSelect.appendChild(opt);
         });
 
-        if (curMonth && sortedMonths.includes(curMonth)) monthSelect.value = curMonth;
+        if (curMonth && sortedKeys.includes(curMonth)) monthSelect.value = curMonth;
     }
 
     function setExpenseViewMode(mode) {
         currentExpenseViewMode = mode;
-        document.getElementById('btnViewDaily').classList.toggle('active', mode === 'daily');
         document.getElementById('btnViewMainCat').classList.toggle('active', mode === 'main_category');
         document.getElementById('btnViewSubCat').classList.toggle('active', mode === 'sub_category');
-        document.getElementById('btnViewMonthly').classList.toggle('active', mode === 'monthly');
         renderDashboard();
     }
 
@@ -1209,21 +1236,7 @@
         if (expenseChartInstance) expenseChartInstance.destroy();
         const ctx = document.getElementById('expenseChart').getContext('2d');
 
-        if (currentExpenseViewMode === 'daily') {
-            const dailyAgg = {};
-            data.forEach(d => dailyAgg[d.date] = (dailyAgg[d.date] || 0) + d.amount);
-            const sortedDates = Object.keys(dailyAgg).sort();
-
-            expenseChartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: sortedDates,
-                    datasets: [{ label: 'Daily Spending (¥)', data: sortedDates.map(d => dailyAgg[d]), backgroundColor: '#2563eb' }]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
-
-        } else if (currentExpenseViewMode === 'main_category') {
+        if (currentExpenseViewMode === 'main_category') {
             const catAgg = {};
             const total = data.reduce((sum, item) => sum + item.amount, 0);
 
@@ -1274,27 +1287,6 @@
                 },
                 options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
             });
-
-        } else if (currentExpenseViewMode === 'monthly') {
-            const monthAgg = {};
-            expenseData.forEach(d => {
-                if (d.date) {
-                    const parts = d.date.split('/');
-                    if (parts.length === 3) {
-                        const m = `${parts[2]}-${parts[1]}`;
-                        monthAgg[m] = (monthAgg[m] || 0) + d.amount;
-                    }
-                }
-            });
-
-            expenseChartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: Object.keys(monthAgg).sort(),
-                    datasets: [{ label: 'Monthly Expense (¥)', data: Object.keys(monthAgg).sort().map(m => monthAgg[m]), backgroundColor: '#3b82f6' }]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
         }
     }
 
@@ -1318,7 +1310,7 @@
 
         let filtered = baseData.filter(item => {
             const mainCat = getMainCategory(item.subCategory, item.mainCategory);
-            if (dateFilterVal && !item.date.toLowerCase().includes(dateFilterVal)) return false;
+            if (dateFilterVal && !(item.date && item.date.toLowerCase().includes(dateFilterVal))) return false;
             if (mainCatFilterVal !== 'ALL' && mainCat !== mainCatFilterVal) return false;
             if (subCatFilterVal !== 'ALL' && item.subCategory !== subCatFilterVal) return false;
             if (descFilterVal && !item.description.toLowerCase().includes(descFilterVal)) return false;
@@ -1333,10 +1325,11 @@
 
         sortedData.forEach(item => {
             const mainCat = getMainCategory(item.subCategory, item.mainCategory);
+            const displayDate = item.date || 'N/A';
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td><input type="checkbox" class="item-checkbox" data-id="${item.id}" onchange="updateSelectedCount()"></td>
-                <td style="font-weight: 500;">${item.date}</td>
+                <td style="font-weight: 500;">${displayDate}</td>
                 <td><span class="cat-tag">${mainCat}</span></td>
                 <td><span class="subcat-tag">${item.subCategory}</span></td>
                 <td>${item.description}</td>
