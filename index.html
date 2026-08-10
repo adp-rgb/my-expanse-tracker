@@ -929,6 +929,17 @@
         if (!rawDateStr) return null;
         let str = String(rawDateStr).trim();
 
+        // 1. Check for Japanese Kanji Date Format (YYYY年MM月DD日)
+        let jpMatch = str.match(/(20\d{2}|\d{2})[年\/\.-](\d{1,2})[月\/\.-](\d{1,2})/);
+        if (jpMatch) {
+            let year = parseInt(jpMatch[1], 10);
+            if (year < 100) year += 2000;
+            let month = String(jpMatch[2]).padStart(2, '0');
+            let day = String(jpMatch[3]).padStart(2, '0');
+            return `${day}/${month}/${year}`;
+        }
+
+        // 2. Check for DD/MM/YYYY
         let strictMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
         if (strictMatch) {
             let d = String(strictMatch[1]).padStart(2, '0');
@@ -937,6 +948,7 @@
             return `${d}/${m}/${y}`;
         }
 
+        // 3. Check for YYYY-MM-DD or YYYY/MM/DD
         let ymdMatch = str.match(/^(20\d{2}|\d{2})[\/\.-](\d{1,2})[\/\.-](\d{1,2})/);
         if (ymdMatch) {
             let year = parseInt(ymdMatch[1], 10);
@@ -946,6 +958,7 @@
             return `${day}/${month}/${year}`;
         }
 
+        // 4. Native JS Date fallback
         let parsedDate = new Date(str);
         if (!isNaN(parsedDate.getTime())) {
             let day = String(parsedDate.getDate()).padStart(2, '0');
@@ -956,7 +969,7 @@
             }
         }
 
-        return null;
+        return str;
     }
 
     function handleAddExpense(event) {
@@ -964,8 +977,7 @@
         const rawDate = document.getElementById('exp-date').value;
         if (!rawDate) return;
 
-        const parts = rawDate.split('-');
-        const formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+        const formattedDate = sanitizeDate(rawDate);
 
         const subCategory = document.getElementById('exp-sub-category').value;
         const mainCategory = getMainCategory(subCategory);
@@ -1351,7 +1363,8 @@
 
         let filtered = baseData.filter(item => {
             const mainCat = getMainCategory(item.subCategory, item.mainCategory);
-            if (dateFilterVal && !(item.date && item.date.toLowerCase().includes(dateFilterVal))) return false;
+            const formattedDate = sanitizeDate(item.date) || item.date || '';
+            if (dateFilterVal && !formattedDate.toLowerCase().includes(dateFilterVal)) return false;
             if (mainCatFilterVal !== 'ALL' && mainCat !== mainCatFilterVal) return false;
             if (subCatFilterVal !== 'ALL' && item.subCategory !== subCatFilterVal) return false;
             if (descFilterVal && !item.description.toLowerCase().includes(descFilterVal)) return false;
@@ -1362,11 +1375,23 @@
         if (!tbody) return;
         tbody.innerHTML = '';
 
-        const sortedData = [...filtered].sort((a,b) => (b.date || '').localeCompare(a.date || ''));
+        const sortedData = [...filtered].sort((a,b) => {
+            let dateA = sanitizeDate(a.date) || '';
+            let dateB = sanitizeDate(b.date) || '';
+            let partsA = dateA.split('/');
+            let partsB = dateB.split('/');
+            
+            if (partsA.length === 3 && partsB.length === 3) {
+                let isoA = `${partsA[2]}-${partsA[1]}-${partsA[0]}`;
+                let isoB = `${partsB[2]}-${partsB[1]}-${partsB[0]}`;
+                return isoB.localeCompare(isoA);
+            }
+            return (dateB).localeCompare(dateA);
+        });
 
         sortedData.forEach(item => {
             const mainCat = getMainCategory(item.subCategory, item.mainCategory);
-            const displayDate = item.date ? item.date : 'N/A';
+            const displayDate = sanitizeDate(item.date) || 'N/A';
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td><input type="checkbox" class="item-checkbox" data-id="${item.id}" onchange="updateSelectedCount()"></td>
