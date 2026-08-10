@@ -377,17 +377,13 @@
     }
 
     function addFixedExpensesForMonth(targetMonthYear) {
-        // targetMonthYear format: "MM/YYYY" (e.g., "04/2026")
         if (!targetMonthYear || targetMonthYear === 'ALL') return;
 
         const [mm, yyyy] = targetMonthYear.split('/');
-        // Standardize date to 1st of the target month
         const fixedDateStr = `01/${mm.padStart(2, '0')}/${yyyy}`;
 
-        // Filter out any previous fixed expenses for this month to prevent stale/duplicate states
         expenseData = expenseData.filter(item => !(item.isFixed && item.date === fixedDateStr));
 
-        // Map and inject the FIXED_EXPENSES array for the target month
         const newFixedItems = FIXED_EXPENSES.map((fe, index) => ({
             id: `fixed_${yyyy}${mm}_${index}_${Date.now()}`,
             date: fixedDateStr,
@@ -399,10 +395,8 @@
             isFixed: true
         }));
 
-        // Add items into global dataset
         expenseData.push(...newFixedItems);
 
-        // Re-render components without losing newly added records
         if (typeof populateMonthFilter === 'function') populateMonthFilter();
         if (typeof renderDashboard === 'function') renderDashboard();
     }
@@ -549,7 +543,6 @@
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     }
 
-    // Updated Category Mapping with Investments, Loans, and Expanded Education Categories
     const CATEGORY_MAP = {
         "Food & Dining": ["Groceries", "Restaurants & Dining Out", "Cafes & Bakeries", "Delivery Services", "Convenience Store"],
         "Housing & Utilities": ["Electricity", "Water & Gas", "Rent & Mortgage", "Internet & Mobile"],
@@ -616,7 +609,6 @@
             const data = await response.json();
             expenseData = Array.isArray(data) ? data : [];
             
-            // Normalize all incoming dates strictly to DD/MM/YYYY
             expenseData.forEach(item => {
                 if (item.date) {
                     item.date = sanitizeDate(item.date) || item.date;
@@ -895,7 +887,6 @@
         if (!rawDateStr) return null;
         let str = String(rawDateStr).trim();
 
-        // Direct match for standard DD/MM/YYYY
         let strictMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
         if (strictMatch) {
             let d = String(strictMatch[1]).padStart(2, '0');
@@ -904,7 +895,6 @@
             return `${d}/${m}/${y}`;
         }
 
-        // Match YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD
         let ymdMatch = str.match(/^(20\d{2}|\d{2})[\/\.-](\d{1,2})[\/\.-](\d{1,2})/);
         if (ymdMatch) {
             let year = parseInt(ymdMatch[1], 10);
@@ -914,7 +904,6 @@
             return `${day}/${month}/${year}`;
         }
 
-        // Fallback standard Date parsing
         let parsedDate = new Date(str);
         if (!isNaN(parsedDate.getTime())) {
             let day = String(parsedDate.getDate()).padStart(2, '0');
@@ -1177,7 +1166,6 @@
                     const mm = parts[1];
                     const yyyy = parts[2];
                     
-                    // Validate month and 4-digit year range
                     if (yyyy.length === 4 && parseInt(mm, 10) >= 1 && parseInt(mm, 10) <= 12) {
                         const dateObj = new Date(parseInt(yyyy, 10), parseInt(mm, 10) - 1, 1);
                         if (!isNaN(dateObj.getTime())) {
