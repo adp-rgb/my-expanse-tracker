@@ -884,7 +884,7 @@
         return isNaN(num) ? 0 : Math.abs(num);
     }
 
-    // Hardened Cross-Browser & Japanese Statement Date Parser
+  // Hardened Cross-Browser & Japanese Statement Date Parser
     function sanitizeDate(rawDateStr) {
         if (!rawDateStr && rawDateStr !== 0) {
             let today = new Date();
@@ -940,19 +940,23 @@
             return `${day}/${month}/${year}`;
         }
 
-        let delimMatch = str.match(/^(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})$/);
+        // Fixed Delimiter Match supporting YYYY/MM/DD, YY/MM/DD, and DD/MM/YYYY formats
+        let delimMatch = str.match(/^(\d{1,4})[\/\.-](\d{1,2})[\/\.-](\d{2,4})$/);
         if (delimMatch) {
             let p1 = parseInt(delimMatch[1], 10);
             let p2 = parseInt(delimMatch[2], 10);
-            let rawYear = delimMatch[3];
-            let year = rawYear.length === 2 ? `20${rawYear}` : rawYear;
+            let p3 = parseInt(delimMatch[3], 10);
 
+            // If first part is a 4-digit year (e.g., YYYY/MM/DD)
             if (delimMatch[1].length === 4) {
                 let y = delimMatch[1];
                 let m = String(delimMatch[2]).padStart(2, '0');
                 let d = String(delimMatch[3]).padStart(2, '0');
                 return `${d}/${m}/${y}`;
             }
+
+            let rawYear = delimMatch[3];
+            let year = rawYear.length === 2 ? `20${rawYear}` : rawYear;
 
             let d = String(p1 > 12 ? p1 : (p2 > 12 ? p2 : p1)).padStart(2, '0');
             let m = String(p1 > 12 ? p2 : (p2 > 12 ? p1 : p2)).padStart(2, '0');
@@ -964,6 +968,9 @@
 
             return `${d}/${m}/${year}`;
         }
+
+        return null;
+    }
 
         let parsed = new Date(str);
         if (!isNaN(parsed.getTime())) {
