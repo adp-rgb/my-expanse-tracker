@@ -78,6 +78,7 @@
         .sync-status.syncing { background: #fef3c7; color: #b45309; }
         .sync-status.synced { background: #dcfce7; color: #15803d; }
         .sync-status.error { background: #fee2e2; color: #b91c1c; }
+        .sync-status.local { background: #e0f2fe; color: #0369a1; }
 
         .card {
             background: var(--surface);
@@ -401,8 +402,8 @@
         { description: "Solar Loan / Maintenance", amount: 17346, mainCategory: "Loans & Liabilities", subCategory: "Solar / Asset Loan" },
         { description: "Singing Class", amount: 4100, mainCategory: "Education & Sports", subCategory: "Tuition & School" },
         { description: "Japanese Class", amount: 7800, mainCategory: "Education & Sports", subCategory: "Books & Study Materials" },
-        { description: "School Expenses", amount: 120000, mainCategory: "Education & Sports", subCategory: "Tuition & School" }
-        { description: "Diving", amount: 14800, mainCategory: "Education & Sports", subCategory: "Swimming & Sports Club" },
+        { description: "School Expenses", amount: 120000, mainCategory: "Education & Sports", subCategory: "Tuition & School" },
+        { description: "Diving", amount: 14800, mainCategory: "Education & Sports", subCategory: "Swimming & Sports Club" }
     ];
 
     async function handleReceiptPhotos(event) {
@@ -575,7 +576,7 @@
         return SUB_TO_MAIN_MAP[subCategory] || fallbackMain;
     }
 
-    let expenseData = [];
+    let expenseData = JSON.parse(localStorage.getItem('household_expense_data')) || [];
     let customRules = JSON.parse(localStorage.getItem('household_custom_rules')) || [
         { id: '1', keyword: 'suica', mainCategory: 'Transportation', subCategory: 'Trains & Bus' },
         { id: '2', keyword: 'supermarket', mainCategory: 'Food & Dining', subCategory: 'Groceries' },
@@ -598,7 +599,8 @@
 
     async function fetchDataFromSheets() {
         if (!API_URL || API_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) {
-            setSyncState('error', 'API URL Not Configured');
+            setSyncState('local', 'Local Mode');
+            renderDashboard();
             return;
         }
         setSyncState('syncing', 'Syncing...');
@@ -611,23 +613,29 @@
             if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
             
             const data = await response.json();
-            expenseData = Array.isArray(data) ? data : [];
-            
-            expenseData.forEach(item => {
-                let rawDate = item.date !== undefined ? item.date : (item.Date !== undefined ? item.Date : item.DATE);
-                item.date = sanitizeDate(rawDate);
-            });
+            if (Array.isArray(data) && data.length > 0) {
+                expenseData = data;
+                expenseData.forEach(item => {
+                    let rawDate = item.date !== undefined ? item.date : (item.Date !== undefined ? item.Date : item.DATE);
+                    item.date = sanitizeDate(rawDate);
+                });
+            }
             syncAllDataMainCategories();
             renderDashboard();
             setSyncState('synced', 'Synced');
         } catch (e) {
-            console.error("Fetch failed:", e);
-            setSyncState('error', 'Sync Failed');
+            console.warn("Fetch from Google Sheets failed, falling back to local data storage:", e);
+            setSyncState('local', 'Local Mode');
+            renderDashboard();
         }
     }
 
     async function syncToSheets() {
-        if (!API_URL || API_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) return;
+        localStorage.setItem('household_expense_data', JSON.stringify(expenseData));
+        if (!API_URL || API_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) {
+            setSyncState('local', 'Local Mode');
+            return;
+        }
         setSyncState('syncing', 'Saving...');
         try {
             await fetch(API_URL, {
@@ -639,7 +647,7 @@
             setSyncState('synced', 'Synced');
         } catch (e) {
             console.error("Save failed:", e);
-            setSyncState('error', 'Save Failed');
+            setSyncState('local', 'Local Mode (Saved Locally)');
         }
     }
 
@@ -885,7 +893,6 @@
         return isNaN(num) ? 0 : Math.abs(num);
     }
 
-    // Hardened Cross-Browser & Japanese Statement Date Parser
     function sanitizeDate(rawDateStr) {
         if (!rawDateStr && rawDateStr !== 0) {
             let today = new Date();
@@ -1083,7 +1090,7 @@
         event.target.value = '';
     }
 
-   async function processExpenseCSV(file) {
+    async function processExpenseCSV(file) {
         const fileContent = await readFileAsTextWithEncoding(file);
         return new Promise((resolve) => {
             Papa.parse(fileContent, {
@@ -1136,14 +1143,13 @@
                             let amount = parseNum(rawAmountOut);
                             let cleanDate = sanitizeDate(rawDate);
 
-                            let transactionDate = cleanDate; // Default purchase date
+                            let transactionDate = cleanDate;
 
-                            // Check for Payment / Withdrawal Date column (お支払い日) for credit cards (SMBC, AEON, etc.)
                             if (row['お支払い日'] || row['Payment Date']) {
                                 const rawPayDate = row['お支払い日'] || row['Payment Date'];
                                 const sanitizedPayDate = sanitizeDate(rawPayDate);
                                 if (sanitizedPayDate) {
-                                    transactionDate = sanitizedPayDate; // Overwrite date to use payment date for filtering
+                                    transactionDate = sanitizedPayDate;
                                 }
                             }
 
@@ -1178,14 +1184,13 @@
                             }
                             
                             let cleanDate = sanitizeDate(rawDate);
-                            let transactionDate = cleanDate; // Default purchase date
+                            let transactionDate = cleanDate;
 
-                            // Check for Payment / Withdrawal Date column (お支払い日) for credit cards (SMBC, AEON, etc.)
                             if (rowArr['お支払い日'] || rowArr['Payment Date']) {
                                 const rawPayDate = rowArr['お支払い日'] || rowArr['Payment Date'];
                                 const sanitizedPayDate = sanitizeDate(rawPayDate);
                                 if (sanitizedPayDate) {
-                                    transactionDate = sanitizedPayDate; // Overwrite date to use payment date for filtering
+                                    transactionDate = sanitizedPayDate;
                                 }
                             }
 
@@ -1296,6 +1301,7 @@
             expenseData = [];
             processedFilesHashes = [];
             localStorage.removeItem('processed_file_hashes');
+            localStorage.removeItem('household_expense_data');
             renderDashboard();
             syncToSheets();
         }
