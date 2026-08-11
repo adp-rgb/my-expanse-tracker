@@ -1368,9 +1368,9 @@
             }
             return false;
         });
-        let totalSpend = filtered.reduce((sum, item) => sum + item.amount, 0);
-
 // Only count valid unique dates present in the filtered transactions
+let totalSpend = filtered.reduce((sum, item) => sum + item.amount, 0);
+
 const validDates = filtered.map(d => sanitizeDate(d.date)).filter(Boolean);
 const uniqueDays = new Set(validDates).size || 1;
 
@@ -1521,6 +1521,7 @@ document.getElementById('m-daily-avg').textContent = `¥${Math.round(totalSpend 
         renderRules();
         fetchDataFromSheets();
     });
+  }
 </script>
 </body>
 </html>
