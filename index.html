@@ -1075,7 +1075,7 @@
         event.target.value = '';
     }
 
- async function processExpenseCSV(file) {
+async function processExpenseCSV(file) {
         const fileContent = await readFileAsTextWithEncoding(file);
         return new Promise((resolve) => {
             Papa.parse(fileContent, {
@@ -1087,40 +1087,40 @@
 
                     let extracted = [];
                     let headerIndex = -1;
-                    let is_aeon_format = false;
-                    let aeonPaymentDate = null; // Store extracted お支払い日
+                    let is_card_statement = false;
+                    let targetPaymentDate = null; // Universal payment date storage for Aeon or SMBC
                     const dateHeaders = ['Date & Time', 'Date', '日付', '取引日時', '利用日', '利用年月日', 'ご利用日'];
 
                     for (let i = 0; i < rows.length; i++) {
                         let rowStr = rows[i].join('');
                         
-                        // Detect Aeon format and extract お支払い日
+                        // Detect Payment Date (お支払い日) for Aeon or SMBC statements
                         if (rowStr.includes('お支払い日')) {
+                            is_card_statement = true;
                             for (let colIdx = 0; colIdx < rows[i].length; colIdx++) {
                                 let cellVal = String(rows[i][colIdx]).trim();
-                                if (cellVal.includes('お支払い日') && i + 1 < rows.length) {
-                                    // Look in same row or next row for the date string like "2026年 3月 2日"
+                                if (cellVal.includes('お支払い日')) {
+                                    // Search across the row or subsequent rows for YYYY年M月D日
                                     for (let searchIdx = 0; searchIdx < rows[i].length; searchIdx++) {
                                         let candidate = String(rows[i][searchIdx]).trim();
                                         let matchDate = candidate.match(/(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/);
                                         if (matchDate) {
-                                            aeonPaymentDate = `${matchDate[3].padStart(2, '0')}/${matchDate[2].padStart(2, '0')}/${matchDate[1]}`;
+                                            targetPaymentDate = `${matchDate[3].padStart(2, '0')}/${matchDate[2].padStart(2, '0')}/${matchDate[1]}`;
                                             break;
                                         }
                                     }
                                 }
                             }
-                            if (!aeonPaymentDate) {
-                                // Fallback check across nearby cells
+                            if (!targetPaymentDate) {
                                 let matchDate = rowStr.match(/(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/);
                                 if (matchDate) {
-                                    aeonPaymentDate = `${matchDate[3].padStart(2, '0')}/${matchDate[2].padStart(2, '0')}/${matchDate[1]}`;
+                                    targetPaymentDate = `${matchDate[3].padStart(2, '0')}/${matchDate[2].padStart(2, '0')}/${matchDate[1]}`;
                                 }
                             }
                         }
 
-                        if (rowStr.includes('イオン') || rowStr.includes('ご利用先') || rowStr.includes('お支払い日')) {
-                            is_aeon_format = true;
+                        if (rowStr.includes('イオン') || rowStr.includes('三井住友カード') || rowStr.includes('ご利用先')) {
+                            is_card_statement = true;
                         }
 
                         let cleanedRow = rows[i].map(cleanHeader);
@@ -1130,11 +1130,11 @@
                         }
                     }
 
-                    if (headerIndex === -1 || is_aeon_format) {
+                    if (headerIndex === -1) {
                         for (let i = 0; i < rows.length; i++) {
-                            if (/^\d{6}$/.test(String(rows[i][0]).trim())) {
-                                headerIndex = i > 0 ? i - 1 : 0; 
-                                is_aeon_format = true;
+                            let rowStr = rows[i].join('');
+                            if (rowStr.includes('ご利用日') || rowStr.includes('ご利用金額')) {
+                                headerIndex = i;
                                 break;
                             }
                         }
@@ -1148,7 +1148,7 @@
                         let rowArr = rows[i];
                         let rowStr = rowArr.join('');
 
-                        if (rowStr.includes('分割・ボーナス払い明細') || rowStr.includes('お知らせ') || rowStr.includes('キャッシング')) {
+                        if (rowStr.includes('お支払金額総合計') || rowStr.includes('お知らせ') || rowStr.includes('分割・ボーナス払い明細')) {
                             break; 
                         }
 
@@ -1158,24 +1158,28 @@
                         });
 
                         let rawDate = row['Date & Time'] || row['Date'] || row['取引日時'] || row['日付'] || row['利用日'] || row['利用年月日'] || row['ご利用日'];
-                        if (is_aeon_format && !rawDate) rawDate = String(rowArr[0]).trim(); 
+                        if (!rawDate && rowArr.length > 0) rawDate = String(rowArr[0]).trim(); 
                         
-                        // If it's an Aeon statement and we found お支払い日, use that payment date so it groups under the payment month
-                        let cleanDate = (is_aeon_format && aeonPaymentDate) ? aeonPaymentDate : sanitizeDate(rawDate);
+                        // If a statement-level payment date was found (Aeon/SMBC), force transactions into that payment month
+                        let cleanDate = targetPaymentDate ? targetPaymentDate : sanitizeDate(rawDate);
 
                         let description = row['Business Name'] || row['加盟店名/支払い先'] || row['内容'] || row['利用店名・商品名'] || row['Transaction Type'] || row['取引種別'] || row['ご利用先'] || 'Unknown Payment';
-                        if (is_aeon_format && description === 'Unknown Payment') description = String(rowArr[1]).trim();
+                        if (description === 'Unknown Payment' && rowArr.length > 1) description = String(rowArr[1]).trim();
                         description = normalizeJapaneseText(description);
 
-                        let rawAmountOut = row['ご利用金額'] || row['お買上金額'] || row['Amount Outgoing (Yen)'] || row['金額（出金）'] || row['Amount'] || row['金額'] || row['利用金額(円)'];
-                        if (is_aeon_format && !rawAmountOut) rawAmountOut = String(rowArr[rowArr.length > 2 ? 2 : rowArr.length - 1]).trim();
+                        let rawAmountOut = row['ご利用金額'] || row['お買上金額'] || row['Amount Outgoing (Yen)'] || row['金額（出金）'] || row['Amount'] || row['金額'] || row['利用金額(円)'] || row['お支払い金額'];
+                        if (!rawAmountOut) {
+                            // Fallback numeric column detection for card statements
+                            for (let c = 0; c < rowArr.length; c++) {
+                                let val = parseNum(rowArr[c]);
+                                if (val > 0 && c >= 2) {
+                                    rawAmountOut = rowArr[c];
+                                    break;
+                                }
+                            }
+                        }
 
                         let amount = parseNum(rawAmountOut);
-
-                        let typeStr = (row['Transaction Type'] || row['取引種別'] || '').toLowerCase();
-                        if (typeStr.includes('top-up') || typeStr.includes('チャージ') || typeStr.includes('points') || typeStr.includes('ポイント')) {
-                            amount = 0;
-                        }
 
                         let cats = autoCategorize(description);
 
@@ -1194,7 +1198,7 @@
                 }
             });
         });
-    }
+    }   
     async function processExpensePDF(file) {
         let extracted = [];
         try {
