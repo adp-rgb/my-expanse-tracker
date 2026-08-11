@@ -402,6 +402,7 @@
         { description: "Singing Class", amount: 4100, mainCategory: "Education & Sports", subCategory: "Tuition & School" },
         { description: "Japanese Class", amount: 7800, mainCategory: "Education & Sports", subCategory: "Books & Study Materials" },
         { description: "School Expenses", amount: 120000, mainCategory: "Education & Sports", subCategory: "Tuition & School" }
+        { description: "Diving", amount: 14800, mainCategory: "Education & Sports", subCategory: "Swimming & Sports Club" },
     ];
 
     async function handleReceiptPhotos(event) {
@@ -1082,7 +1083,7 @@
         event.target.value = '';
     }
 
-    async function processExpenseCSV(file) {
+   async function processExpenseCSV(file) {
         const fileContent = await readFileAsTextWithEncoding(file);
         return new Promise((resolve) => {
             Papa.parse(fileContent, {
@@ -1135,11 +1136,22 @@
                             let amount = parseNum(rawAmountOut);
                             let cleanDate = sanitizeDate(rawDate);
 
+                            let transactionDate = cleanDate; // Default purchase date
+
+                            // Check for Payment / Withdrawal Date column (お支払い日) for credit cards (SMBC, AEON, etc.)
+                            if (row['お支払い日'] || row['Payment Date']) {
+                                const rawPayDate = row['お支払い日'] || row['Payment Date'];
+                                const sanitizedPayDate = sanitizeDate(rawPayDate);
+                                if (sanitizedPayDate) {
+                                    transactionDate = sanitizedPayDate; // Overwrite date to use payment date for filtering
+                                }
+                            }
+
                             if (cleanDate && amount > 0) {
                                 let cats = autoCategorize(description);
                                 extracted.push({
                                     id: (Date.now() + Math.random()).toString(),
-                                    date: targetPaymentDate ? targetPaymentDate : cleanDate,
+                                    date: targetPaymentDate ? targetPaymentDate : transactionDate,
                                     originalDate: cleanDate,
                                     mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
                                     subCategory: cats.subCategory,
@@ -1164,8 +1176,19 @@
                             if (!rawDate.match(/^\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2}$/)) {
                                 continue;
                             }
-
+                            
                             let cleanDate = sanitizeDate(rawDate);
+                            let transactionDate = cleanDate; // Default purchase date
+
+                            // Check for Payment / Withdrawal Date column (お支払い日) for credit cards (SMBC, AEON, etc.)
+                            if (rowArr['お支払い日'] || rowArr['Payment Date']) {
+                                const rawPayDate = rowArr['お支払い日'] || rowArr['Payment Date'];
+                                const sanitizedPayDate = sanitizeDate(rawPayDate);
+                                if (sanitizedPayDate) {
+                                    transactionDate = sanitizedPayDate; // Overwrite date to use payment date for filtering
+                                }
+                            }
+
                             let description = normalizeJapaneseText(rawDesc);
                             let amount = parseNum(rawAmount);
 
@@ -1173,7 +1196,7 @@
                                 let cats = autoCategorize(description);
                                 extracted.push({
                                     id: (Date.now() + Math.random()).toString(),
-                                    date: targetPaymentDate ? targetPaymentDate : cleanDate,
+                                    date: targetPaymentDate ? targetPaymentDate : transactionDate,
                                     originalDate: cleanDate,
                                     mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
                                     subCategory: cats.subCategory,
@@ -1551,4 +1574,3 @@
 </script>
 </body>
 </html>
-index.html
