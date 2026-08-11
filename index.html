@@ -1080,74 +1080,49 @@
         event.target.value = '';
     }
 
-    async function processExpenseCSV(file) {
-        const fileContent = await readFileAsTextWithEncoding(file);
-        return new Promise((resolve) => {
-            Papa.parse(fileContent, {
-                header: false,
-                skipEmptyLines: true,
-                complete: function(results) {
-                    let rows = results.data;
-                    if (!rows || rows.length === 0) return resolve([]);
+   async function processExpenseCSV(file) {
+    const fileContent = await readFileAsTextWithEncoding(file);
+    return new Promise((resolve) => {
+        Papa.parse(fileContent, {
+            header: false,
+            skipEmptyLines: true,
+            complete: function(results) {
+                let rows = results.data;
+                if (!rows || rows.length === 0) return resolve([]);
 
-                    let extracted = [];
-                    let headerIndex = -1;
-                    let targetPaymentDate = null;
-                    const dateHeaders = ['Date & Time', 'Date', '日付', '取引日時', '利用日', '利用年月日', 'ご利用日'];
+                let extracted = [];
+                let targetPaymentDate = null;
+                let headerIndex = -1;
+                const dateHeaders = ['Date & Time', 'Date', '日付', '取引日時', '利用日', '利用年月日', 'ご利用日'];
 
-                    for (let i = 0; i < rows.length; i++) {
-                        let rowStr = rows[i].join('');
-                        
-                        if (rowStr.includes('お支払い日') || rowStr.includes('お支払日')) {
-                            for (let colIdx = 0; colIdx < rows[i].length; colIdx++) {
-                                let cellVal = String(rows[i][colIdx]).trim();
-                                if (cellVal.includes('お支払い日') || cellVal.includes('お支払日')) {
-                                    for (let searchIdx = 0; searchIdx < rows[i].length; searchIdx++) {
-                                        let candidate = String(rows[i][searchIdx]).trim();
-                                        let matchDate = candidate.match(/(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/);
-                                        if (matchDate) {
-                                            targetPaymentDate = `${matchDate[3].padStart(2, '0')}/${matchDate[2].padStart(2, '0')}/${matchDate[1]}`;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                            if (!targetPaymentDate) {
-                                let matchDate = rowStr.match(/(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/);
-                                if (matchDate) {
-                                    targetPaymentDate = `${matchDate[3].padStart(2, '0')}/${matchDate[2].padStart(2, '0')}/${matchDate[1]}`;
-                                }
-                            }
-                        }
-
-                        let cleanedRow = rows[i].map(cleanHeader);
-                        if (cleanedRow.some(col => dateHeaders.includes(col))) {
-                            headerIndex = i; 
-                            break;
-                        }
+                // 1. Scan for Payment Date (お支払い日) across the file
+                for (let i = 0; i < rows.length; i++) {
+                    let rowStr = rows[i].join('');
+                    let matchDate = rowStr.match(/お支払[い日]*\D*(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/);
+                    if (matchDate) {
+                        targetPaymentDate = `${matchDate[3].padStart(2, '0')}/${matchDate[2].padStart(2, '0')}/${matchDate[1]}`;
+                        break;
                     }
+                }
 
-                    if (headerIndex === -1) {
-                        for (let i = 0; i < rows.length; i++) {
-                            let rowStr = rows[i].join('');
-                            if (rowStr.includes('ご利用日') || rowStr.includes('ご利用金額')) {
-                                headerIndex = i;
-                                break;
-                            }
-                        }
+                // 2. Check if CSV has structured headers
+                for (let i = 0; i < rows.length; i++) {
+                    let cleanedRow = rows[i].map(cleanHeader);
+                    if (cleanedRow.some(col => dateHeaders.includes(col))) {
+                        headerIndex = i;
+                        break;
                     }
+                }
 
-                    if (headerIndex === -1) return resolve([]);
-
+                // 3. Process based on format type
+                if (headerIndex !== -1) {
+                    // --- Structured CSV Format (e.g., AEON / Standard with headers) ---
                     let headers = rows[headerIndex].map(cleanHeader);
-
                     for (let i = headerIndex + 1; i < rows.length; i++) {
                         let rowArr = rows[i];
                         let rowStr = rowArr.join('');
 
-                        if (rowStr.includes('お支払金額総合計') || rowStr.includes('お知らせ') || rowStr.includes('分割・ボーナス払い明細')) {
-                            break; 
-                        }
+                        if (rowStr.includes('お支払金額総合計') || rowStr.includes('分割・ボーナス払い明細')) break;
 
                         let row = {};
                         headers.forEach((h, idx) => {
@@ -1155,19 +1130,15 @@
                         });
 
                         let rawDate = row['Date & Time'] || row['Date'] || row['取引日時'] || row['日付'] || row['利用日'] || row['利用年月日'] || row['ご利用日'];
-                        if (!rawDate && rowArr.length > 0) rawDate = String(rowArr[0]).trim(); 
-                        
-                        let cleanDate = targetPaymentDate ? targetPaymentDate : sanitizeDate(rawDate);
-
-                        let description = row['Business Name'] || row['加盟店名/支払い先'] || row['内容'] || row['利用店名・商品名'] || row['Transaction Type'] || row['取引種別'] || row['ご利用先'] || 'Unknown Payment';
-                        if (description === 'Unknown Payment' && rowArr.length > 1) description = String(rowArr[1]).trim();
+                        let description = row['Business Name'] || row['加盟店名/支払い先'] || row['内容'] || row['利用店名・商品名'] || row['ご利用先'] || 'Unknown Payment';
                         description = normalizeJapaneseText(description);
 
                         let rawAmountOut = row['ご利用金額'] || row['お買上金額'] || row['Amount Outgoing (Yen)'] || row['金額（出金）'] || row['Amount'] || row['金額'] || row['利用金額(円)'] || row['お支払い金額'];
                         let amount = parseNum(rawAmountOut);
-                        let cats = autoCategorize(description);
+                        let cleanDate = targetPaymentDate ? targetPaymentDate : sanitizeDate(rawDate);
 
                         if (cleanDate && amount > 0) {
+                            let cats = autoCategorize(description);
                             extracted.push({
                                 id: (Date.now() + Math.random()).toString(),
                                 date: cleanDate,
@@ -1178,11 +1149,47 @@
                             });
                         }
                     }
-                    resolve(extracted);
+                } else {
+                    // --- Headerless Web Statement Format (e.g., SMBC web CSV export like 20260302.csv) ---
+                    for (let i = 0; i < rows.length; i++) {
+                        let rowArr = rows[i];
+                        let rowStr = rowArr.join('');
+
+                        if (rowStr.includes('お支払金額総合計') || rowStr.includes('お支払い合計額') || rowStr.includes('様') || rowArr.length < 3) {
+                            continue;
+                        }
+
+                        let rawDate = String(rowArr[0] || '').trim();
+                        let rawDesc = String(rowArr[1] || '').trim();
+                        let rawAmount = String(rowArr[5] || rowArr[2] || '').trim();
+
+                        // Validate date format (e.g., 2026/02/07)
+                        if (!rawDate.match(/^\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2}$/)) {
+                            continue;
+                        }
+
+                        let cleanDate = sanitizeDate(rawDate);
+                        let description = normalizeJapaneseText(rawDesc);
+                        let amount = parseNum(rawAmount);
+
+                        if (cleanDate && amount > 0 && description) {
+                            let cats = autoCategorize(description);
+                            extracted.push({
+                                id: (Date.now() + Math.random()).toString(),
+                                date: cleanDate,
+                                mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
+                                subCategory: cats.subCategory,
+                                description: description,
+                                amount: amount
+                            });
+                        }
+                    }
                 }
-            });
+                resolve(extracted);
+            }
         });
-    }
+    });
+}
 
   async function processExpensePDF(file) {
         let extracted = [];
