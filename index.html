@@ -1075,7 +1075,7 @@
         event.target.value = '';
     }
 
-    async function processExpenseCSV(file) {
+ async function processExpenseCSV(file) {
         const fileContent = await readFileAsTextWithEncoding(file);
         return new Promise((resolve) => {
             Papa.parse(fileContent, {
@@ -1088,11 +1088,38 @@
                     let extracted = [];
                     let headerIndex = -1;
                     let is_aeon_format = false;
+                    let aeonPaymentDate = null; // Store extracted お支払い日
                     const dateHeaders = ['Date & Time', 'Date', '日付', '取引日時', '利用日', '利用年月日', 'ご利用日'];
 
                     for (let i = 0; i < rows.length; i++) {
                         let rowStr = rows[i].join('');
-                        if (rowStr.includes('イオン') || rowStr.includes('ご利用先')) {
+                        
+                        // Detect Aeon format and extract お支払い日
+                        if (rowStr.includes('お支払い日')) {
+                            for (let colIdx = 0; colIdx < rows[i].length; colIdx++) {
+                                let cellVal = String(rows[i][colIdx]).trim();
+                                if (cellVal.includes('お支払い日') && i + 1 < rows.length) {
+                                    // Look in same row or next row for the date string like "2026年 3月 2日"
+                                    for (let searchIdx = 0; searchIdx < rows[i].length; searchIdx++) {
+                                        let candidate = String(rows[i][searchIdx]).trim();
+                                        let matchDate = candidate.match(/(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/);
+                                        if (matchDate) {
+                                            aeonPaymentDate = `${matchDate[3].padStart(2, '0')}/${matchDate[2].padStart(2, '0')}/${matchDate[1]}`;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            if (!aeonPaymentDate) {
+                                // Fallback check across nearby cells
+                                let matchDate = rowStr.match(/(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/);
+                                if (matchDate) {
+                                    aeonPaymentDate = `${matchDate[3].padStart(2, '0')}/${matchDate[2].padStart(2, '0')}/${matchDate[1]}`;
+                                }
+                            }
+                        }
+
+                        if (rowStr.includes('イオン') || rowStr.includes('ご利用先') || rowStr.includes('お支払い日')) {
                             is_aeon_format = true;
                         }
 
@@ -1133,7 +1160,8 @@
                         let rawDate = row['Date & Time'] || row['Date'] || row['取引日時'] || row['日付'] || row['利用日'] || row['利用年月日'] || row['ご利用日'];
                         if (is_aeon_format && !rawDate) rawDate = String(rowArr[0]).trim(); 
                         
-                        let cleanDate = sanitizeDate(rawDate);
+                        // If it's an Aeon statement and we found お支払い日, use that payment date so it groups under the payment month
+                        let cleanDate = (is_aeon_format && aeonPaymentDate) ? aeonPaymentDate : sanitizeDate(rawDate);
 
                         let description = row['Business Name'] || row['加盟店名/支払い先'] || row['内容'] || row['利用店名・商品名'] || row['Transaction Type'] || row['取引種別'] || row['ご利用先'] || 'Unknown Payment';
                         if (is_aeon_format && description === 'Unknown Payment') description = String(rowArr[1]).trim();
@@ -1167,7 +1195,6 @@
             });
         });
     }
-
     async function processExpensePDF(file) {
         let extracted = [];
         try {
@@ -1363,24 +1390,14 @@ function renderDashboard() {
     const validDates = filtered.map(d => sanitizeDate(d.date)).filter(Boolean);
     
     // Updated Daily Average Logic
-    let divisor = 1;
-    if (selectedMonth !== 'ALL') {
-        // Option A: Divide by total calendar days in the selected month
-        divisor = getDaysInMonth(selectedMonth);
-    } else {
-        // Option B: For 'ALL', use the date span (from earliest to latest date)
-        if (validDates.length > 0) {
-            const parsedDates = validDates.map(d => {
-                const [day, month, year] = d.split('/');
-                return new Date(year, month - 1, day);
-            });
-            const minDate = Math.min(...parsedDates);
-            const maxDate = Math.max(...parsedDates);
-            const diffDays = Math.ceil(Math.abs(maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
-            divisor = diffDays > 0 ? diffDays : 1;
-        }
-    }
-
+   let divisor = 1;
+if (selectedMonth !== 'ALL') {
+    const [mm, yyyy] = selectedMonth.split('/');
+    divisor = new Date(parseInt(yyyy, 10), parseInt(mm, 10), 0).getDate(); // Total days in selected month (e.g., 31 for March)
+} else {
+    const uniqueDays = new Set(validDates).size;
+    divisor = uniqueDays > 0 ? uniqueDays : 1; // Fallback to unique active days for 'ALL'
+}
     document.getElementById('m-total-spending').textContent = `¥${totalSpend.toLocaleString()}`;
     document.getElementById('m-transaction-count').textContent = filtered.length;
     document.getElementById('m-daily-avg').textContent = `¥${Math.round(totalSpend / divisor).toLocaleString()}`;
