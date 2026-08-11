@@ -390,7 +390,7 @@
 </div>
 
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbwNuJnAEAZBWnUCZVCCJ7CN3utDm20NPUF18lU5G6HMrwnkVmaMrJgmS3a2AJ1Vlkrb/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbxvM3-ySK06XeKYC5SEU9wQ_iIzEvG3aw1syo9pjXx9J0xvWuYmike3S7kvhb3HLxIE/exec";
         
     // Fixed Monthly Expenses Array
     const FIXED_EXPENSES = [
@@ -668,20 +668,21 @@
             const data = await response.json();
             expenseData = Array.isArray(data) ? data : [];
             
-            expenseData.forEach(item => {
-                if (item.date) {
-                    item.date = sanitizeDate(item.date) || item.date;
-                }
-            });
-
-            syncAllDataMainCategories();
-            renderDashboard();
-            setSyncState('synced', 'Synced');
-        } catch (e) {
-            console.error("Fetch failed:", e);
-            setSyncState('error', 'Sync Failed');
-        }
+           expenseData.forEach(item => {
+            // Check all common date key name variations returned from API/Sheets
+            let rawDate = item.date !== undefined ? item.date : (item.Date !== undefined?item.Date:item.DATE);
+            
+            // Pass rawDate to sanitizeDate even if empty/null to get proper default handling
+            item.date = sanitizeDate(rawDate);
+        });
+        syncAllDataMainCategories();
+        renderDashboard();
+        setSyncState('synced', 'Synced');
+    } catch (e) {
+        console.error("Fetch failed:", e);
+        setSyncState('error', 'Sync Failed');
     }
+}
 
     async function syncToSheets() {
         if (!API_URL || API_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) return;
