@@ -115,7 +115,7 @@
 
     <!-- Application JavaScript Logic -->
     <script>
-        // Updated Fixed Expenses List including the new Sports/Diving category (¥14,800)
+        // Fixed Expenses List including the new Diving entry (¥14,800)
         const FIXED_EXPENSES = [
             { description: "House Loan", amount: 191824, mainCategory: "Loans & Liabilities", subCategory: "Housing Loan / Mortgage" },
             { description: "Diving", amount: 14800, mainCategory: "Education & Sports", subCategory: "Swimming & Sports Club" }
@@ -150,13 +150,13 @@
             return { main: "Variable Expenses", sub: "General" };
         }
 
-        // Process CSV Data with strict support for SMBC & AEON credit cards payment date (お支払い日)
+        // Process CSV Data and map Payment Date (お支払い日 / Payment Date) for credit cards (SMBC, AEON, etc.)
         function processExpenseCSV(results) {
             const rows = results.data;
             const newTransactions = rows.map((row, index) => {
                 let cleanDate = sanitizeDate(row['利用日'] || row['Date'] || row['date'] || '');
                 
-                // SMBC & AEON credit card payment date column mapping (お支払い日 / Payment Date)
+                // Credit Card Payment Date check (お支払い日 / Payment Date)
                 let paymentDate = row['お支払い日'] || row['Payment Date'] || row['payment_date'] || '';
                 let finalDate = sanitizeDate(paymentDate) || cleanDate || new Date().toLocaleDateString();
 
@@ -229,6 +229,7 @@
                             extractedText += textContent.items.map(item => item.str).join(' ') + "\n";
                         }
                         
+                        // Basic PDF text regex parsing or fallback
                         expenseData.push({
                             id: `pdf_${Date.now()}`,
                             date: new Date().toLocaleDateString(),
@@ -244,6 +245,7 @@
                     };
                     reader.readAsArrayBuffer(file);
                 } else {
+                    // Image OCR using Tesseract
                     const { createWorker } = Tesseract;
                     const worker = await createWorker('eng+jpn');
                     const ret = await worker.recognize(file);
@@ -273,12 +275,12 @@
             }
         });
 
-        // Combine regular transactions filtered by payment date with fixed expenses assigned to the 1st day of the selected month
+        // Combine regular transactions with dynamic fixed expenses for the selected month
         function getCombinedData(selectedMonthStr) {
             let [year, month] = selectedMonthStr.split('-');
             let fixedDateStr = `01/${month}/${year}`;
 
-            // Fixed expenses are generated strictly for the 1st day of the selected month (e.g., March 1, 2026)
+            // Fixed expenses assigned to the 1st day of the selected month
             const dynamicFixed = FIXED_EXPENSES.map((fe, index) => ({
                 id: `fixed_${year}${month}_${index}`,
                 date: fixedDateStr,
@@ -290,7 +292,7 @@
                 isFixed: true
             }));
 
-            // Filter transactions (including SMBC & AEON credit cards mapped to payment date お支払い日) matching the selected month YYYY-MM
+            // Filter regular transactions matching the selected payment/transaction month YYYY-MM
             const filteredRegular = expenseData.filter(item => {
                 if (!item.date) return false;
                 const parts = item.date.split('/');
