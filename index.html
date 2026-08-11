@@ -1218,17 +1218,16 @@
                 }
             });
 
-            // Join all extracted lines into a single searchable text blob to handle multi-line wraps robustly
-            let fullText = extractedLines.join('\n');
+            // Flatten all text lines into a single continuous string with normalized spaces
+            let fullText = extractedLines.join(' ');
             
-            // Regex to capture Date, Description (including multi-line wrapped text), and Amount
-            // Matches formats like: 26/02/07 [Description] [Amount]
-            const smbcRegex = /(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})\s+([^\r\n]+?)\s+(\d{1,3}(?:,\d{3})*)\s+[1-9]\s+[1-9]/g;
+            // Robust regex to capture date, multi-word/multi-line description, and amount
+            const smbcRegex = /(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})\s+([^\d]+?)\s+(\d{1,3}(?:,\d{3})*)\s+[1-9]\s+[1-9]/g;
             
             let match;
             while ((match = smbcRegex.exec(fullText)) !== null) {
                 let rawDate = match[1];
-                let description = normalizeJapaneseText(match[2].replace(/[\r\n]+/g, ''));
+                let description = normalizeJapaneseText(match[2].replace(/\s+/g, ' ').trim());
                 let amount = parseNum(match[3]);
 
                 if (description.includes("お支払い合計額") || description.includes("お支払金額総合計") || description.includes("最低支払額")) {
@@ -1254,7 +1253,6 @@
         }
         return extracted;
     }
-
     function saveAndRender() {
         syncAllDataMainCategories();
         localStorage.setItem('household_custom_rules', JSON.stringify(customRules));
