@@ -612,18 +612,18 @@
             const data = await response.json();
             expenseData = Array.isArray(data) ? data : [];
             
-           expenseData.forEach(item => {
-            let rawDate = item.date !== undefined ? item.date : (item.Date !== undefined?item.Date:item.DATE);
-            item.date = sanitizeDate(rawDate);
-        });
-        syncAllDataMainCategories();
-        renderDashboard();
-        setSyncState('synced', 'Synced');
-    } catch (e) {
-        console.error("Fetch failed:", e);
-        setSyncState('error', 'Sync Failed');
+            expenseData.forEach(item => {
+                let rawDate = item.date !== undefined ? item.date : (item.Date !== undefined ? item.Date : item.DATE);
+                item.date = sanitizeDate(rawDate);
+            });
+            syncAllDataMainCategories();
+            renderDashboard();
+            setSyncState('synced', 'Synced');
+        } catch (e) {
+            console.error("Fetch failed:", e);
+            setSyncState('error', 'Sync Failed');
+        }
     }
-}
 
     async function syncToSheets() {
         if (!API_URL || API_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) return;
@@ -866,7 +866,6 @@
     }
 
     function toggleSelectAll(masterCb) {
-        // Ignore disabled checkboxes (Fixed Expenses)
         const checkboxes = document.querySelectorAll('.item-checkbox:not(:disabled)');
         checkboxes.forEach(cb => cb.checked = masterCb.checked);
         updateSelectedCount();
@@ -896,7 +895,7 @@
         }
         
         if (rawDateStr instanceof Date) {
-            if (isNaN(rawDateStr.getTime())) return 'N/A';
+            if (isNaN(rawDateStr.getTime())) return null;
             let d = String(rawDateStr.getDate()).padStart(2, '0');
             let m = String(rawDateStr.getMonth() + 1).padStart(2, '0');
             let y = rawDateStr.getFullYear();
@@ -969,11 +968,7 @@
             if (y >= 1900 && y <= 2099) return `${d}/${m}/${y}`;
         }
 
-        let today = new Date();
-        let d = String(today.getDate()).padStart(2, '0');
-        let m = String(today.getMonth() + 1).padStart(2, '0');
-        let y = today.getFullYear();
-        return `${d}/${m}/${y}`;
+        return null;
     }
 
     function handleAddExpense(event) {
@@ -1012,7 +1007,7 @@
 
     function deleteExpense(id) {
         if(String(id).startsWith('fixed_')) {
-            return; // Prevent UI deleting dynamically generated fixed expenses
+            return;
         }
         expenseData = expenseData.filter(item => item.id !== id);
         saveAndRender();
@@ -1023,11 +1018,9 @@
             const reader = new FileReader();
             reader.onload = function(e) {
                 let text = e.target.result;
-                
-                const isMisencoded = text.includes('');
                 const isLikelyJapaneseCSV = file.name.toLowerCase().endsWith('.csv') && !text.includes('Date');
 
-                if (isMisencoded || isLikelyJapaneseCSV) {
+                if (isLikelyJapaneseCSV) {
                     const readerSJIS = new FileReader();
                     readerSJIS.onload = function(eSJIS) { resolve(eSJIS.target.result); };
                     readerSJIS.readAsText(file, 'Shift_JIS');
@@ -1306,7 +1299,6 @@
         renderDashboard();
     }
 
-    // NEW: Gets existing data and dynamically injects fixed expenses purely for visualization
     function getCombinedData() {
         let combined = [...expenseData];
         const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
@@ -1316,14 +1308,12 @@
         if (selectedMonth !== 'ALL') {
             monthsToProcess.add(selectedMonth);
         } else {
-            // Find all active months in the system
             expenseData.forEach(d => {
                 if (d.date) {
                     const parts = d.date.split('/');
                     if (parts.length === 3) monthsToProcess.add(`${parts[1].padStart(2, '0')}/${parts[2]}`);
                 }
             });
-            // If empty database, fallback to current month
             if (monthsToProcess.size === 0) {
                 const today = new Date();
                 monthsToProcess.add(`${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`);
@@ -1355,7 +1345,6 @@
         populateMonthFilter();
         const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
         
-        // Grab combined data (real + dynamic fixed expenses)
         let allData = getCombinedData();
 
         let filtered = allData.filter(d => {
@@ -1368,15 +1357,19 @@
             }
             return false;
         });
-// Only count valid unique dates present in the filtered transactions
-let totalSpend = filtered.reduce((sum, item) => sum + item.amount, 0);
 
-const validDates = filtered.map(d => sanitizeDate(d.date)).filter(Boolean);
-const uniqueDays = new Set(validDates).size || 1;
+        let totalSpend = filtered.reduce((sum, item) => sum + item.amount, 0);
 
-document.getElementById('m-total-spending').textContent = `¥${totalSpend.toLocaleString()}`;
-document.getElementById('m-transaction-count').textContent = filtered.length;
-document.getElementById('m-daily-avg').textContent = `¥${Math.round(totalSpend / uniqueDays).toLocaleString()}`;
+        const validDates = filtered.map(d => sanitizeDate(d.date)).filter(Boolean);
+        const uniqueDays = new Set(validDates).size || 1;
+
+        document.getElementById('m-total-spending').textContent = `¥${totalSpend.toLocaleString()}`;
+        document.getElementById('m-transaction-count').textContent = filtered.length;
+        document.getElementById('m-daily-avg').textContent = `¥${Math.round(totalSpend / uniqueDays).toLocaleString()}`;
+
+        renderChart(filtered);
+        renderTable(filtered);
+    }
         
     function renderChart(data) {
         if (expenseChartInstance) expenseChartInstance.destroy();
@@ -1488,7 +1481,6 @@ document.getElementById('m-daily-avg').textContent = `¥${Math.round(totalSpend 
             const displayDate = sanitizeDate(item.date) || 'N/A';
             const isFixed = String(item.id).startsWith('fixed_');
 
-            // Generate conditional HTML to prevent modifying/deleting dynamic fixed expenses
             const checkboxHTML = isFixed ? 
                 `<input type="checkbox" disabled title="Automated record">` : 
                 `<input type="checkbox" class="item-checkbox" data-id="${item.id}" onchange="updateSelectedCount()">`;
@@ -1521,7 +1513,6 @@ document.getElementById('m-daily-avg').textContent = `¥${Math.round(totalSpend 
         renderRules();
         fetchDataFromSheets();
     });
-  }
 </script>
 </body>
 </html>
