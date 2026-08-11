@@ -214,7 +214,7 @@
         <div class="navbar-controls">
             <label for="month-filter" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-right: 2px;">Filter Month:</label>
             <select id="month-filter" onchange="renderDashboard()"></select>
-            <button class="btn btn-primary" onclick="applyFixedExpenses()">➕ Add Fixed Expenses</button>
+           <button type="button" class="btn btn-primary" onclick="applyFixedExpenses()">➕ Add Fixed Expenses</button>
             <button class="btn btn-secondary" onclick="fetchDataFromSheets()">🔄 Refresh</button>
         </div>
     </div>
@@ -391,7 +391,7 @@
 
 <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbwNuJnAEAZBWnUCZVCCJ7CN3utDm20NPUF18lU5G6HMrwnkVmaMrJgmS3a2AJ1Vlkrb/exec";
-
+        
     // Fixed Monthly Expenses Array
     const FIXED_EXPENSES = [
         { description: "House Loan", amount: 191824, mainCategory: "Loans & Liabilities", subCategory: "Housing Loan / Mortgage" },
@@ -405,19 +405,36 @@
         { description: "School Expenses", amount: 120000, mainCategory: "Education & Sports", subCategory: "Tuition & School" }
     ];
 
-    function applyFixedExpenses() {
-        const selectedMonth = document.getElementById('month-filter')?.value;
-        if (selectedMonth && selectedMonth !== 'ALL') {
-            addFixedExpensesForMonth(selectedMonth);
-        } else {
-            const today = new Date();
-            const mm = String(today.getMonth() + 1).padStart(2, '0');
-            const yyyy = today.getFullYear();
-            addFixedExpensesForMonth(`${mm}/${yyyy}`);
+   function applyFixedExpenses() {
+    const expDateInput = document.getElementById('exp-date')?.value;
+    const selectedFilterMonth = document.getElementById('month-filter')?.value;
+
+    let targetMonthYear = '';
+
+    if (expDateInput) {
+        // 1. Prioritize the date selected in the Add New Expense form
+        const dateObj = new Date(expDateInput);
+        if (!isNaN(dateObj.getTime())) {
+            const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const yyyy = dateObj.getFullYear();
+            targetMonthYear = `${mm}/${yyyy}`;
         }
-        saveAndRender();
     }
 
+    if (!targetMonthYear && selectedFilterMonth && selectedFilterMonth !== 'ALL') {
+        // 2. Fall back to active month filter
+        targetMonthYear = selectedFilterMonth;
+    } else if (!targetMonthYear) {
+        // 3. Fall back to current calendar month
+        const today = new Date();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const yyyy = today.getFullYear();
+        targetMonthYear = `${mm}/${yyyy}`;
+    }
+
+    addFixedExpensesForMonth(targetMonthYear);
+    saveAndRender();
+}
     function addFixedExpensesForMonth(targetMonthYear) {
         if (!targetMonthYear || targetMonthYear === 'ALL') return;
 
