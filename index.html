@@ -885,91 +885,108 @@
     }
 
     // Fixed Cross-Browser Mobile-Safe Date Parser
-    function sanitizeDate(rawDateStr) {
-        if (!rawDateStr && rawDateStr !== 0) {
-            let today = new Date();
-            let d = String(today.getDate()).padStart(2, '0');
-            let m = String(today.getMonth() + 1).padStart(2, '0');
-            let y = today.getFullYear();
-            return `${d}/${m}/${y}`;
-        }
-        
-        if (rawDateStr instanceof Date) {
-            if (isNaN(rawDateStr.getTime())) return null;
-            let d = String(rawDateStr.getDate()).padStart(2, '0');
-            let m = String(rawDateStr.getMonth() + 1).padStart(2, '0');
-            let y = rawDateStr.getFullYear();
-            return `${d}/${m}/${y}`;
-        }
-
-        let str = String(rawDateStr).trim();
-
-        if (/^\d{1,2}$/.test(str)) {
-            let dayNum = parseInt(str, 10);
-            if (dayNum >= 1 && dayNum <= 31) {
-                let today = new Date();
-                let d = String(dayNum).padStart(2, '0');
-                let m = String(today.getMonth() + 1).padStart(2, '0');
-                let y = today.getFullYear();
-                return `${d}/${m}/${y}`;
-            }
-        }
-
-        let aeonMatch = str.match(/^(\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])$/);
-        if (aeonMatch) {
-            let year = `20${aeonMatch[1]}`;
-            let month = aeonMatch[2];
-            let day = aeonMatch[3];
-            return `${day}/${month}/${year}`;
-        }
-
-        let jpMatch = str.match(/(?:20(\d{2})|(\d{2}))年\s*(\d{1,2})月\s*(\d{1,2})日/);
-        if (jpMatch) {
-            let year = jpMatch[1] ? `20${jpMatch[1]}` : `20${jpMatch[2]}`;
-            let month = String(jpMatch[3]).padStart(2, '0');
-            let day = String(jpMatch[4]).padStart(2, '0');
-            return `${day}/${month}/${year}`;
-        }
-
-        let slashMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-        if (slashMatch) {
-            let p1 = parseInt(slashMatch[1], 10);
-            let p2 = parseInt(slashMatch[2], 10);
-            let y = slashMatch[3];
-
-            if (p1 > 12) {
-                let d = String(p1).padStart(2, '0');
-                let m = String(p2).padStart(2, '0');
-                return `${d}/${m}/${y}`;
-            }
-            if (p2 > 12) {
-                let m = String(p1).padStart(2, '0');
-                let d = String(p2).padStart(2, '0');
-                return `${d}/${m}/${y}`;
-            }
-            let d = String(p1).padStart(2, '0');
-            let m = String(p2).padStart(2, '0');
-            return `${d}/${m}/${y}`;
-        }
-
-        let ymdMatch = str.match(/^(19\d{2}|20\d{2})[\/\.-](\d{1,2})[\/\.-](\d{1,2})/);
-        if (ymdMatch) {
-            let year = ymdMatch[1];
-            let month = String(ymdMatch[2]).padStart(2, '0');
-            let day = String(ymdMatch[3]).padStart(2, '0');
-            return `${day}/${month}/${year}`;
-        }
-
-        let parsed = new Date(str);
-        if (!isNaN(parsed.getTime())) {
-            let d = String(parsed.getDate()).padStart(2, '0');
-            let m = String(parsed.getMonth() + 1).padStart(2, '0');
-            let y = parsed.getFullYear();
-            if (y >= 1900 && y <= 2099) return `${d}/${m}/${y}`;
-        }
-
-        return null;
+   // Hardened Cross-Browser & Japanese Statement Date Parser
+function sanitizeDate(rawDateStr) {
+    if (!rawDateStr && rawDateStr !== 0) {
+        let today = new Date();
+        return `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
     }
+    
+    if (rawDateStr instanceof Date) {
+        if (isNaN(rawDateStr.getTime())) return null;
+        return `${String(rawDateStr.getDate()).padStart(2, '0')}/${String(rawDateStr.getMonth() + 1).padStart(2, '0')}/${rawDateStr.getFullYear()}`;
+    }
+
+    // Normalize full-width (Zenkaku) numbers and spaces to standard ASCII
+    let str = normalizeJapaneseText(String(rawDateStr)).trim();
+
+    // 1. Single day fallback (e.g. "27")
+    if (/^\d{1,2}$/.test(str)) {
+        let dayNum = parseInt(str, 10);
+        if (dayNum >= 1 && dayNum <= 31) {
+            let today = new Date();
+            return `${String(dayNum).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
+        }
+    }
+
+    // 2. Japanese Era support (e.g., 令和8年3月27日 or R8/3/27)
+    letwaMatch = str.match(/(?:令和|R)\s*(\d{1,2})年\s*(\d{1,2})月\s*(\d{1,2})日/i);
+    if (waMatch) {
+        let reiwaYear = parseInt(waMatch[1], 10);
+        let year = 2018 + reiwaYear; // Reiwa 1 = 2019
+        let month = String(waMatch[2]).padStart(2, '0');
+        let day = String(waMatch[3]).padStart(2, '0');
+        return `${day}/${month}/${year}`;
+    }
+
+    // 3. Standard Japanese Year format (e.g., 2026年3月27日 or 26年3月27日)
+    let jpMatch = str.match(/(?:20(\d{2})|(\d{2}))年\s*(\d{1,2})月\s*(\d{1,2})日/);
+    if (jpMatch) {
+        let year = jpMatch[1] ? `20${jpMatch[1]}` : `20${jpMatch[2]}`;
+        let month = String(jpMatch[3]).padStart(2, '0');
+        let day = String(jpMatch[4]).padStart(2, '0');
+        return `${day}/${month}/${year}`;
+    }
+
+    // 4. Month & Day only format with implied current year (e.g., 3月27日)
+    let mdMatch = str.match(/^(\d{1,2})月\s*(\d{1,2})日$/);
+    if (mdMatch) {
+        let today = new Date();
+        let year = today.getFullYear();
+        let month = String(mdMatch[1]).padStart(2, '0');
+        let day = String(mdMatch[2]).padStart(2, '0');
+        return `${day}/${month}/${year}`;
+    }
+
+    // 5. Aeon Compact format (e.g., 260327)
+    let aeonMatch = str.match(/^(\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])$/);
+    if (aeonMatch) {
+        let year = `20${aeonMatch[1]}`;
+        let month = aeonMatch[2];
+        let day = aeonMatch[3];
+        return `${day}/${month}/${year}`;
+    }
+
+    // 6. Slash, Hyphen, or Dot delimiters (e.g. DD/MM/YYYY, YYYY-MM-DD, YY.MM.DD)
+    let delimMatch = str.match(/^(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})$/);
+    if (delimMatch) {
+        let p1 = parseInt(delimMatch[1], 10);
+        let p2 = parseInt(delimMatch[2], 10);
+        let rawYear = delimMatch[3];
+        let year = rawYear.length === 2 ? `20${rawYear}` : rawYear;
+
+        // If first part looks like a 4-digit year (YYYY-MM-DD)
+        if (delimMatch[1].length === 4) {
+            let y = delimMatch[1];
+            let m = String(delimMatch[2]).padStart(2, '0');
+            let d = String(delimMatch[3]).padStart(2, '0');
+            return `${d}/${m}/${y}`;
+        }
+
+        // Handle DD/MM vs MM/DD ambiguity
+        let d = String(p1 > 12 ? p1 : (p2 > 12 ? p2 : p1)).padStart(2, '0');
+        let m = String(p1 > 12 ? p2 : (p2 > 12 ? p1 : p2)).padStart(2, '0');
+        
+        // If second part is clearly month (> 12 implies first is day)
+        if (p2 > 12 && p1 <= 12) {
+            m = String(p1).padStart(2, '0');
+            d = String(p2).padStart(2, '0');
+        }
+
+        return `${d}/${m}/${year}`;
+    }
+
+    // 7. Standard JS Date Fallback
+    let parsed = new Date(str);
+    if (!isNaN(parsed.getTime())) {
+        let d = String(parsed.getDate()).padStart(2, '0');
+        let m = String(parsed.getMonth() + 1).padStart(2, '0');
+        let y = parsed.getFullYear();
+        if (y >= 1900 && y <= 2099) return `${d}/${m}/${y}`;
+    }
+
+    return null;
+}
 
     function handleAddExpense(event) {
         event.preventDefault();
@@ -1076,171 +1093,98 @@
     }
 
 async function processExpenseCSV(file) {
-        const fileContent = await readFileAsTextWithEncoding(file);
-        return new Promise((resolve) => {
-            Papa.parse(fileContent, {
-                header: false,
-                skipEmptyLines: true,
-                complete: function(results) {
-                    let rows = results.data;
-                    if (!rows || rows.length === 0) return resolve([]);
+    const fileContent = await readFileAsTextWithEncoding(file);
+    return new Promise((resolve) => {
+        Papa.parse(fileContent, {
+            header: false,
+            skipEmptyLines: true,
+            complete: function(results) {
+                let rows = results.data;
+                if (!rows || rows.length === 0) return resolve([]);
 
-                    let extracted = [];
-                    let headerIndex = -1;
-                    let is_card_statement = false;
-                    let targetPaymentDate = null; // Universal payment date storage for Aeon or SMBC
-                    const dateHeaders = ['Date & Time', 'Date', '日付', '取引日時', '利用日', '利用年月日', 'ご利用日'];
+                let extracted = [];
+                let headerIndex = -1;
+                let targetPaymentDate = null; // Stores extracted お支払い日
+                const dateHeaders = ['Date & Time', 'Date', '日付', '取引日時', '利用日', '利用年月日', 'ご利用日'];
 
-                    for (let i = 0; i < rows.length; i++) {
-                        let rowStr = rows[i].join('');
-                        
-                        // Detect Payment Date (お支払い日) for Aeon or SMBC statements
-                        if (rowStr.includes('お支払い日')) {
-                            is_card_statement = true;
-                            for (let colIdx = 0; colIdx < rows[i].length; colIdx++) {
-                                let cellVal = String(rows[i][colIdx]).trim();
-                                if (cellVal.includes('お支払い日')) {
-                                    // Search across the row or subsequent rows for YYYY年M月D日
-                                    for (let searchIdx = 0; searchIdx < rows[i].length; searchIdx++) {
-                                        let candidate = String(rows[i][searchIdx]).trim();
-                                        let matchDate = candidate.match(/(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/);
-                                        if (matchDate) {
-                                            targetPaymentDate = `${matchDate[3].padStart(2, '0')}/${matchDate[2].padStart(2, '0')}/${matchDate[1]}`;
-                                            break;
-                                        }
+                for (let i = 0; i < rows.length; i++) {
+                    let rowStr = rows[i].join('');
+                    
+                    // Detect Payment Date (お支払い日) label and extract value
+                    if (rowStr.includes('お支払い日') || rowStr.includes('お支払日')) {
+                        for (let colIdx = 0; colIdx < rows[i].length; colIdx++) {
+                            let cellVal = String(rows[i][colIdx]).trim();
+                            if (cellVal.includes('お支払い日') || cellVal.includes('お支払日')) {
+                                for (let searchIdx = 0; searchIdx < rows[i].length; searchIdx++) {
+                                    let candidate = String(rows[i][searchIdx]).trim();
+                                    let matchDate = candidate.match(/(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/);
+                                    if (matchDate) {
+                                        targetPaymentDate = `${matchDate[3].padStart(2, '0')}/${matchDate[2].padStart(2, '0')}/${matchDate[1]}`;
+                                        break;
                                     }
                                 }
                             }
-                            if (!targetPaymentDate) {
-                                let matchDate = rowStr.match(/(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/);
-                                if (matchDate) {
-                                    targetPaymentDate = `${matchDate[3].padStart(2, '0')}/${matchDate[2].padStart(2, '0')}/${matchDate[1]}`;
-                                }
+                        }
+                        if (!targetPaymentDate) {
+                            let matchDate = rowStr.match(/(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/);
+                            if (matchDate) {
+                                targetPaymentDate = `${matchDate[3].padStart(2, '0')}/${matchDate[2].padStart(2, '0')}/${matchDate[1]}`;
                             }
                         }
+                    }
 
-                        if (rowStr.includes('イオン') || rowStr.includes('三井住友カード') || rowStr.includes('ご利用先')) {
-                            is_card_statement = true;
-                        }
+                    let cleanedRow = rows[i].map(cleanHeader);
+                    if (cleanedRow.some(col => dateHeaders.includes(col))) {
+                        headerIndex = i; 
+                        break;
+                    }
+                }
 
-                        let cleanedRow = rows[i].map(cleanHeader);
-                        if (cleanedRow.some(col => dateHeaders.includes(col))) {
-                            headerIndex = i; 
+                if (headerIndex === -1) {
+                    for (let i = 0; i < rows.length; i++) {
+                        let rowStr = rows[i].join('');
+                        if (rowStr.includes('ご利用日') || rowStr.includes('ご利用金額')) {
+                            headerIndex = i;
                             break;
                         }
                     }
-
-                    if (headerIndex === -1) {
-                        for (let i = 0; i < rows.length; i++) {
-                            let rowStr = rows[i].join('');
-                            if (rowStr.includes('ご利用日') || rowStr.includes('ご利用金額')) {
-                                headerIndex = i;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (headerIndex === -1) return resolve([]);
-
-                    let headers = rows[headerIndex].map(cleanHeader);
-
-                    for (let i = headerIndex + 1; i < rows.length; i++) {
-                        let rowArr = rows[i];
-                        let rowStr = rowArr.join('');
-
-                        if (rowStr.includes('お支払金額総合計') || rowStr.includes('お知らせ') || rowStr.includes('分割・ボーナス払い明細')) {
-                            break; 
-                        }
-
-                        let row = {};
-                        headers.forEach((h, idx) => {
-                            row[h] = rowArr[idx] !== undefined ? String(rowArr[idx]).trim() : '';
-                        });
-
-                        let rawDate = row['Date & Time'] || row['Date'] || row['取引日時'] || row['日付'] || row['利用日'] || row['利用年月日'] || row['ご利用日'];
-                        if (!rawDate && rowArr.length > 0) rawDate = String(rowArr[0]).trim(); 
-                        
-                        // If a statement-level payment date was found (Aeon/SMBC), force transactions into that payment month
-                        let cleanDate = targetPaymentDate ? targetPaymentDate : sanitizeDate(rawDate);
-
-                        let description = row['Business Name'] || row['加盟店名/支払い先'] || row['内容'] || row['利用店名・商品名'] || row['Transaction Type'] || row['取引種別'] || row['ご利用先'] || 'Unknown Payment';
-                        if (description === 'Unknown Payment' && rowArr.length > 1) description = String(rowArr[1]).trim();
-                        description = normalizeJapaneseText(description);
-
-                        let rawAmountOut = row['ご利用金額'] || row['お買上金額'] || row['Amount Outgoing (Yen)'] || row['金額（出金）'] || row['Amount'] || row['金額'] || row['利用金額(円)'] || row['お支払い金額'];
-                        if (!rawAmountOut) {
-                            // Fallback numeric column detection for card statements
-                            for (let c = 0; c < rowArr.length; c++) {
-                                let val = parseNum(rowArr[c]);
-                                if (val > 0 && c >= 2) {
-                                    rawAmountOut = rowArr[c];
-                                    break;
-                                }
-                            }
-                        }
-
-                        let amount = parseNum(rawAmountOut);
-
-                        let cats = autoCategorize(description);
-
-                        if (cleanDate && amount > 0) {
-                            extracted.push({
-                                id: (Date.now() + Math.random()).toString(),
-                                date: cleanDate,
-                                mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
-                                subCategory: cats.subCategory,
-                                description: description,
-                                amount: amount
-                            });
-                        }
-                    }
-                    resolve(extracted);
                 }
-            });
-        });
-    }   
-    async function processExpensePDF(file) {
-        let extracted = [];
-        try {
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-            let extractedLines = [];
 
-            for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const textContent = await page.getTextContent();
-                let lineMap = {};
+                if (headerIndex === -1) return resolve([]);
 
-                textContent.items.forEach(item => {
-                    let y = Math.round(item.transform[5]); 
-                    if (!lineMap[y]) lineMap[y] = [];
-                    lineMap[y].push(item.str);
-                });
+                let headers = rows[headerIndex].map(cleanHeader);
 
-                Object.keys(lineMap).sort((a, b) => b - a).forEach(y => {
-                    let lineText = lineMap[y].join(' ').trim();
-                    if (lineText) extractedLines.push(lineText);
-                });
-            }
+                for (let i = headerIndex + 1; i < rows.length; i++) {
+                    let rowArr = rows[i];
+                    let rowStr = rowArr.join('');
 
-            const smbcLineRegex = /(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})\s+([^\d\n]+?)\s+([\d,]+)/;
-
-            extractedLines.forEach(line => {
-                let match = line.match(smbcLineRegex);
-                if (match) {
-                    let cleanDate = sanitizeDate(match[1]);
-                    let description = normalizeJapaneseText(match[2]);
-                    let amount = parseNum(match[3]);
-
-                    if (description.includes("お支払い合計額") || description.includes("お支払金額総合計") || description.includes("最低支払額")) {
-                        return;
+                    if (rowStr.includes('お支払金額総合計') || rowStr.includes('お知らせ') || rowStr.includes('分割・ボーナス払い明細')) {
+                        break; 
                     }
 
-                    if (cleanDate && amount > 0 && description) {
-                        let cats = autoCategorize(description);
+                    let row = {};
+                    headers.forEach((h, idx) => {
+                        row[h] = rowArr[idx] !== undefined ? String(rowArr[idx]).trim() : '';
+                    });
+
+                    let rawDate = row['Date & Time'] || row['Date'] || row['取引日時'] || row['日付'] || row['利用日'] || row['利用年月日'] || row['ご利用日'];
+                    if (!rawDate && rowArr.length > 0) rawDate = String(rowArr[0]).trim(); 
+                    
+                    // Crucial: Fall back or override transaction date with payment date if specified
+                    let cleanDate = targetPaymentDate ? targetPaymentDate : sanitizeDate(rawDate);
+
+                    let description = row['Business Name'] || row['加盟店名/支払い先'] || row['内容'] || row['利用店名・商品名'] || row['Transaction Type'] || row['取引種別'] || row['ご利用先'] || 'Unknown Payment';
+                    if (description === 'Unknown Payment' && rowArr.length > 1) description = String(rowArr[1]).trim();
+                    description = normalizeJapaneseText(description);
+
+                    let rawAmountOut = row['ご利用金額'] || row['お買上金額'] || row['Amount Outgoing (Yen)'] || row['金額（出金）'] || row['Amount'] || row['金額'] || row['利用金額(円)'] || row['お支払い金額'];
+                    let amount = parseNum(rawAmountOut);
+                    let cats = autoCategorize(description);
+
+                    if (cleanDate && amount > 0) {
                         extracted.push({
                             id: (Date.now() + Math.random()).toString(),
-                            date: cleanDate,
+                            date: cleanDate, // Grouped by Payment Date
                             mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
                             subCategory: cats.subCategory,
                             description: description,
@@ -1248,13 +1192,80 @@ async function processExpenseCSV(file) {
                         });
                     }
                 }
-            });
-        } catch (err) {
-            console.error("PDF Parsing Error:", err);
-        }
-        return extracted;
-    }
+                resolve(extracted);
+            }
+        });
+    });
+}   
+    async function processExpensePDF(file) {
+    let extracted = [];
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let extractedLines = [];
+        let targetPaymentDate = null; // Stores extracted お支払い日 for the PDF statement
 
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            let lineMap = {};
+
+            textContent.items.forEach(item => {
+                let y = Math.round(item.transform[5]); 
+                if (!lineMap[y]) lineMap[y] = [];
+                lineMap[y].push(item.str);
+            });
+
+            Object.keys(lineMap).sort((a, b) => b - a).forEach(y => {
+                let lineText = lineMap[y].join(' ').trim();
+                if (lineText) extractedLines.push(lineText);
+            });
+        }
+
+        // 1. Scan extracted lines for Payment Date (お支払い日 / お支払日)
+        extractedLines.forEach(line => {
+            if (!targetPaymentDate && (line.includes('お支払い日') || line.includes('お支払日'))) {
+                let matchDate = line.match(/(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/);
+                if (matchDate) {
+                    targetPaymentDate = `${matchDate[3].padStart(2, '0')}/${matchDate[2].padStart(2, '0')}/${matchDate[1]}`;
+                }
+            }
+        });
+
+        const smbcLineRegex = /(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})\s+([^\d\n]+?)\s+([\d,]+)/;
+
+        extractedLines.forEach(line => {
+            let match = line.match(smbcLineRegex);
+            if (match) {
+                let rawDate = match[1];
+                let description = normalizeJapaneseText(match[2]);
+                let amount = parseNum(match[3]);
+
+                if (description.includes("お支払い合計額") || description.includes("お支払金額総合計") || description.includes("最低支払額")) {
+                    return;
+                }
+
+                // 2. Use statement payment date if available, otherwise fallback to transaction date
+                let cleanDate = targetPaymentDate ? targetPaymentDate : sanitizeDate(rawDate);
+
+                if (cleanDate && amount > 0 && description) {
+                    let cats = autoCategorize(description);
+                    extracted.push({
+                        id: (Date.now() + Math.random()).toString(),
+                        date: cleanDate, // Grouped by Payment Date
+                        mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
+                        subCategory: cats.subCategory,
+                        description: description,
+                        amount: amount
+                    });
+                }
+            }
+        });
+    } catch (err) {
+        console.error("PDF Parsing Error:", err);
+    }
+    return extracted;
+}
     function saveAndRender() {
         syncAllDataMainCategories();
         localStorage.setItem('household_custom_rules', JSON.stringify(customRules));
@@ -1397,19 +1408,14 @@ function renderDashboard() {
    let divisor = 1;
 if (selectedMonth !== 'ALL') {
     const [mm, yyyy] = selectedMonth.split('/');
-    divisor = new Date(parseInt(yyyy, 10), parseInt(mm, 10), 0).getDate(); // Total days in selected month (e.g., 31 for March)
+    // Computes exact days in the selected payment month (e.g., 28 or 31 days)
+    divisor = new Date(parseInt(yyyy, 10), parseInt(mm, 10), 0).getDate(); 
 } else {
     const uniqueDays = new Set(validDates).size;
-    divisor = uniqueDays > 0 ? uniqueDays : 1; // Fallback to unique active days for 'ALL'
-}
-    document.getElementById('m-total-spending').textContent = `¥${totalSpend.toLocaleString()}`;
-    document.getElementById('m-transaction-count').textContent = filtered.length;
-    document.getElementById('m-daily-avg').textContent = `¥${Math.round(totalSpend / divisor).toLocaleString()}`;
-
-    renderChart(filtered);
-    renderTable(filtered);
+    divisor = uniqueDays > 0 ? uniqueDays : 1;
 }
 
+document.getElementById('m-daily-avg').textContent = `¥${Math.round(totalSpend / divisor).toLocaleString()}`;
 // Helper to get total days in a given MM/YYYY string
 function getDaysInMonth(monthYearStr) {
     const [month, year] = monthYearStr.split('/');
