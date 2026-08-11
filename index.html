@@ -884,7 +884,7 @@
         return isNaN(num) ? 0 : Math.abs(num);
     }
 
-  // Hardened Cross-Browser & Japanese Statement Date Parser
+// Hardened Cross-Browser & Japanese Statement Date Parser
     function sanitizeDate(rawDateStr) {
         if (!rawDateStr && rawDateStr !== 0) {
             let today = new Date();
@@ -969,9 +969,16 @@
             return `${d}/${m}/${year}`;
         }
 
+        let parsed = new Date(str);
+        if (!isNaN(parsed.getTime())) {
+            let d = String(parsed.getDate()).padStart(2, '0');
+            let m = String(parsed.getMonth() + 1).padStart(2, '0');
+            let y = parsed.getFullYear();
+            if (y >= 1900 && y <= 2099) return `${d}/${m}/${y}`;
+        }
+
         return null;
     }
-
         let parsed = new Date(str);
         if (!isNaN(parsed.getTime())) {
             let d = String(parsed.getDate()).padStart(2, '0');
@@ -1087,19 +1094,7 @@
         event.target.value = '';
     }
 
-   async function processExpenseCSV(file) {
-
-       extracted.push({
-    id: (Date.now() + Math.random()).toString(),
-    date: targetPaymentDate,         // <--- Mapped to お支払い日 (Payment Date) for filtering & monthly grouping
-    originalDate: cleanDate,         // <--- Actual transaction date (optional, for reference)
-    mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
-    subCategory: cats.subCategory,
-    description: description,
-    amount: amount
-});
-
-       {
+  async function processExpenseCSV(file) {
     const fileContent = await readFileAsTextWithEncoding(file);
     return new Promise((resolve) => {
         Papa.parse(fileContent, {
@@ -1154,13 +1149,15 @@
 
                         let rawAmountOut = row['ご利用金額'] || row['お買上金額'] || row['Amount Outgoing (Yen)'] || row['金額（出金）'] || row['Amount'] || row['金額'] || row['利用金額(円)'] || row['お支払い金額'];
                         let amount = parseNum(rawAmountOut);
-                        let cleanDate = targetPaymentDate ? targetPaymentDate : sanitizeDate(rawDate);
+                        let cleanDate = sanitizeDate(rawDate);
+                        let finalDate = targetPaymentDate ? targetPaymentDate : cleanDate;
 
                         if (cleanDate && amount > 0) {
                             let cats = autoCategorize(description);
                             extracted.push({
                                 id: (Date.now() + Math.random()).toString(),
-                                date: cleanDate,
+                                date: finalDate,
+                                originalDate: cleanDate,
                                 mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
                                 subCategory: cats.subCategory,
                                 description: description,
@@ -1190,12 +1187,14 @@
                         let cleanDate = sanitizeDate(rawDate);
                         let description = normalizeJapaneseText(rawDesc);
                         let amount = parseNum(rawAmount);
+                        let finalDate = targetPaymentDate ? targetPaymentDate : cleanDate;
 
                         if (cleanDate && amount > 0 && description) {
                             let cats = autoCategorize(description);
                             extracted.push({
                                 id: (Date.now() + Math.random()).toString(),
-                                date: cleanDate,
+                                date: finalDate,
+                                originalDate: cleanDate,
                                 mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
                                 subCategory: cats.subCategory,
                                 description: description,
@@ -1206,18 +1205,9 @@
                 }
                 resolve(extracted);
             }
-        extracted.push({
-    id: (Date.now() + Math.random()).toString(),
-    date: targetPaymentDate, // Ensures transactions group under the Payment Date month (e.g., March 2026)
-    originalDate: cleanDate, // Keeps the actual transaction date for reference if needed
-    mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
-    subCategory: cats.subCategory,
-    description: description,
-    amount: amount
-});
-});
+        });
+    });
 }
-
   async function processExpensePDF(file) {
         let extracted = [];
         try {
@@ -1540,42 +1530,22 @@
         if (selectAll) selectAll.checked = false;
         updateSelectedCount();
     }
+function renderDashboard() {
+    populateMonthFilter();
+    
+    const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
+    let allData = getCombinedData();
 
-    function renderDashboard() {
-
-        function getFilteredTransactions() {
-    const selectedMonth = document.getElementById('month-filter').value;
-    const allTransactions = window.allTransactions || []; // Or wherever your global transactions array is stored
-
-    if (!selectedMonth || selectedMonth === 'all') {
-        return allTransactions;
-    }
-
-    return allTransactions.filter(tx => {
-        if (!tx.date) return false;
-        let parts = tx.date.split('/'); // DD/MM/YYYY
-        if (parts.length !== 3) return false;
-        let txYearMonth = `${parts[2]}-${parts[1]}`;
-        return txYearMonth === selectedMonth;
+    let filtered = allData.filter(d => {
+        if (selectedMonth === 'ALL') return true;
+        if (!d.date) return false;
+        const parts = d.date.split('/');
+        if (parts.length === 3) {
+            const itemMonthYear = `${parts[1].padStart(2, '0')}/${parts[2]}`;
+            return itemMonthYear === selectedMonth;
+        }
+        return false;
     });
-}
-        {
-        populateMonthFilter();
-        const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
-        
-        let allData = getCombinedData();
-
-        let filtered = allData.filter(d => {
-            if (selectedMonth === 'ALL') return true;
-            if (!d.date) return false;
-            const parts = d.date.split('/');
-            if (parts.length === 3) {
-                const itemMonthYear = `${parts[1].padStart(2, '0')}/${parts[2]}`;
-                return itemMonthYear === selectedMonth;
-            }
-            return false;
-        });
-
         let totalSpend = filtered.reduce((sum, item) => sum + item.amount, 0);
         document.getElementById('m-total-spending').textContent = `¥${totalSpend.toLocaleString()}`;
         document.getElementById('m-transaction-count').textContent = filtered.length.toLocaleString();
