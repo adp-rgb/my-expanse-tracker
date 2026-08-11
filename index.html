@@ -390,7 +390,7 @@
 </div>
 
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbxvM3-ySK06XeKYC5SEU9wQ_iIzEvG3aw1syo9pjXx9J0xvWuYmike3S7kvhb3HLxIE/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbxyEW6_AbPQZBrTJYLIpfFD-vqu8MSC2R0Zl-Fi2rxBAvBpf-wVEXfR7Uq9DRGQFXbN/exec";
         
     // Fixed Monthly Expenses Array
     const FIXED_EXPENSES = [
@@ -945,7 +945,13 @@
 
 // Fixed Cross-Browser Mobile-Safe Date Parser
 function sanitizeDate(rawDateStr) {
-    if (!rawDateStr && rawDateStr !== 0) return 'N/A';
+    if (!rawDateStr && rawDateStr !== 0) {
+        let today = new Date();
+        let d = String(today.getDate()).padStart(2, '0');
+        let m = String(today.getMonth() + 1).padStart(2, '0');
+        let y = today.getFullYear();
+        return `${d}/${m}/${y}`;
+    }
     
     // 1. Handle JS Date objects directly
     if (rawDateStr instanceof Date) {
@@ -1013,7 +1019,7 @@ function sanitizeDate(rawDateStr) {
         return `${day}/${month}/${year}`;
     }
 
-    // 6. Native JS Date parse fallback for full timestamp strings
+    // 6. Native JS Date parse fallback for full timestamp/GMT strings (e.g. "Sun Nov 08 2026 00:00:00 GMT+0900")
     let parsed = new Date(str);
     if (!isNaN(parsed.getTime())) {
         let d = String(parsed.getDate()).padStart(2, '0');
@@ -1022,7 +1028,12 @@ function sanitizeDate(rawDateStr) {
         if (y >= 1900 && y <= 2099) return `${d}/${m}/${y}`;
     }
 
-    return str || 'N/A';
+    // 7. Fallback: Default to current date if parsing completely fails or value is missing/blank
+    let today = new Date();
+    let d = String(today.getDate()).padStart(2, '0');
+    let m = String(today.getMonth() + 1).padStart(2, '0');
+    let y = today.getFullYear();
+    return `${d}/${m}/${y}`;
 }
     function handleAddExpense(event) {
         event.preventDefault();
