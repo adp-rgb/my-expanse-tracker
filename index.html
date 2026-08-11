@@ -1089,7 +1089,17 @@
 
    async function processExpenseCSV(file) {
 
-    
+       extracted.push({
+    id: (Date.now() + Math.random()).toString(),
+    date: targetPaymentDate,         // <--- Mapped to お支払い日 (Payment Date) for filtering & monthly grouping
+    originalDate: cleanDate,         // <--- Actual transaction date (optional, for reference)
+    mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
+    subCategory: cats.subCategory,
+    description: description,
+    amount: amount
+});
+
+       {
     const fileContent = await readFileAsTextWithEncoding(file);
     return new Promise((resolve) => {
         Papa.parse(fileContent, {
@@ -1308,28 +1318,29 @@
     const monthSet = new Set();
     transactions.forEach(tx => {
         if (tx.date) {
-            // Expecting tx.date in "DD/MM/YYYY" or similar format
-            const parts = tx.date.split('/');
+            let parts = tx.date.split('/'); // Expecting DD/MM/YYYY format
             if (parts.length === 3) {
-                // Format as "YYYY-MM" for sorting and filtering keys
-                monthSet.add(`${parts[2]}-${parts[1]}`);
+                monthSet.add(`${parts[2]}-${parts[1]}`); // Stores as "YYYY-MM"
             }
         }
     });
 
-    const monthFilterSelect = document.getElementById('month-filter'); // Replace with your actual filter element ID
+    const monthFilterSelect = document.getElementById('month-filter'); // Match your HTML select ID
     if (!monthFilterSelect) return;
 
+    let currentVal = monthFilterSelect.value;
     monthFilterSelect.innerHTML = '<option value="all">All Months</option>';
+    
     Array.from(monthSet).sort().reverse().forEach(yearMonth => {
         let [year, month] = yearMonth.split('-');
         let option = document.createElement('option');
         option.value = yearMonth;
-        option.textContent = `${year}年 ${parseInt(month, 10)}月`; // Displays as e.g., "2026年 3月"
+        option.textContent = `${year}年 ${parseInt(month, 10)}月`; // Displays cleanly as e.g., "2026年 3月"
         monthFilterSelect.appendChild(option);
     });
-}
 
+    if (currentVal) monthFilterSelect.value = currentVal;
+}
         const sortedKeys = Object.keys(monthMap).sort((a, b) => {
             const [mA, yA] = a.split('/');
             const [mB, yB] = b.split('/');
@@ -1531,6 +1542,24 @@
     }
 
     function renderDashboard() {
+
+        function getFilteredTransactions() {
+    const selectedMonth = document.getElementById('month-filter').value;
+    const allTransactions = window.allTransactions || []; // Or wherever your global transactions array is stored
+
+    if (!selectedMonth || selectedMonth === 'all') {
+        return allTransactions;
+    }
+
+    return allTransactions.filter(tx => {
+        if (!tx.date) return false;
+        let parts = tx.date.split('/'); // DD/MM/YYYY
+        if (parts.length !== 3) return false;
+        let txYearMonth = `${parts[2]}-${parts[1]}`;
+        return txYearMonth === selectedMonth;
+    });
+}
+        {
         populateMonthFilter();
         const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
         
