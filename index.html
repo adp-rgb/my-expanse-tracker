@@ -884,7 +884,7 @@
         return isNaN(num) ? 0 : Math.abs(num);
     }
 
-  // Hardened Cross-Browser & Japanese Statement Date Parser
+    // Hardened Cross-Browser & Japanese Statement Date Parser
     function sanitizeDate(rawDateStr) {
         if (!rawDateStr && rawDateStr !== 0) {
             let today = new Date();
@@ -940,14 +940,12 @@
             return `${day}/${month}/${year}`;
         }
 
-        // Fixed Delimiter Match supporting YYYY/MM/DD, YY/MM/DD, and DD/MM/YYYY formats
         let delimMatch = str.match(/^(\d{1,4})[\/\.-](\d{1,2})[\/\.-](\d{2,4})$/);
         if (delimMatch) {
             let p1 = parseInt(delimMatch[1], 10);
             let p2 = parseInt(delimMatch[2], 10);
             let p3 = parseInt(delimMatch[3], 10);
 
-            // If first part is a 4-digit year (e.g., YYYY/MM/DD)
             if (delimMatch[1].length === 4) {
                 let y = delimMatch[1];
                 let m = String(delimMatch[2]).padStart(2, '0');
@@ -968,9 +966,6 @@
 
             return `${d}/${m}/${year}`;
         }
-
-        return null;
-    }
 
         let parsed = new Date(str);
         if (!isNaN(parsed.getTime())) {
@@ -1087,128 +1082,114 @@
         event.target.value = '';
     }
 
-   async function processExpenseCSV(file) {
+    async function processExpenseCSV(file) {
+        const fileContent = await readFileAsTextWithEncoding(file);
+        return new Promise((resolve) => {
+            Papa.parse(fileContent, {
+                header: false,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    let rows = results.data;
+                    if (!rows || rows.length === 0) return resolve([]);
 
-    
-    const fileContent = await readFileAsTextWithEncoding(file);
-    return new Promise((resolve) => {
-        Papa.parse(fileContent, {
-            header: false,
-            skipEmptyLines: true,
-            complete: function(results) {
-                let rows = results.data;
-                if (!rows || rows.length === 0) return resolve([]);
+                    let extracted = [];
+                    let targetPaymentDate = null;
+                    let headerIndex = -1;
+                    const dateHeaders = ['Date & Time', 'Date', '日付', '取引日時', '利用日', '利用年月日', 'ご利用日'];
 
-                let extracted = [];
-                let targetPaymentDate = null;
-                let headerIndex = -1;
-                const dateHeaders = ['Date & Time', 'Date', '日付', '取引日時', '利用日', '利用年月日', 'ご利用日'];
-
-                // 1. Scan for Payment Date (お支払い日) across the file
-                for (let i = 0; i < rows.length; i++) {
-                    let rowStr = rows[i].join('');
-                    let matchDate = rowStr.match(/お支払[い日]*\D*(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/);
-                    if (matchDate) {
-                        targetPaymentDate = `${matchDate[3].padStart(2, '0')}/${matchDate[2].padStart(2, '0')}/${matchDate[1]}`;
-                        break;
-                    }
-                }
-
-                // 2. Check if CSV has structured headers
-                for (let i = 0; i < rows.length; i++) {
-                    let cleanedRow = rows[i].map(cleanHeader);
-                    if (cleanedRow.some(col => dateHeaders.includes(col))) {
-                        headerIndex = i;
-                        break;
-                    }
-                }
-
-                // 3. Process based on format type
-                if (headerIndex !== -1) {
-                    // --- Structured CSV Format (e.g., AEON / Standard with headers) ---
-                    let headers = rows[headerIndex].map(cleanHeader);
-                    for (let i = headerIndex + 1; i < rows.length; i++) {
-                        let rowArr = rows[i];
-                        let rowStr = rowArr.join('');
-
-                        if (rowStr.includes('お支払金額総合計') || rowStr.includes('分割・ボーナス払い明細')) break;
-
-                        let row = {};
-                        headers.forEach((h, idx) => {
-                            row[h] = rowArr[idx] !== undefined ? String(rowArr[idx]).trim() : '';
-                        });
-
-                        let rawDate = row['Date & Time'] || row['Date'] || row['取引日時'] || row['日付'] || row['利用日'] || row['利用年月日'] || row['ご利用日'];
-                        let description = row['Business Name'] || row['加盟店名/支払い先'] || row['内容'] || row['利用店名・商品名'] || row['ご利用先'] || 'Unknown Payment';
-                        description = normalizeJapaneseText(description);
-
-                        let rawAmountOut = row['ご利用金額'] || row['お買上金額'] || row['Amount Outgoing (Yen)'] || row['金額（出金）'] || row['Amount'] || row['金額'] || row['利用金額(円)'] || row['お支払い金額'];
-                        let amount = parseNum(rawAmountOut);
-                        let cleanDate = targetPaymentDate ? targetPaymentDate : sanitizeDate(rawDate);
-
-                        if (cleanDate && amount > 0) {
-                            let cats = autoCategorize(description);
-                            extracted.push({
-                                id: (Date.now() + Math.random()).toString(),
-                                date: cleanDate,
-                                mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
-                                subCategory: cats.subCategory,
-                                description: description,
-                                amount: amount
-                            });
-                        }
-                    }
-                } else {
-                    // --- Headerless Web Statement Format (e.g., SMBC web CSV export like 20260302.csv) ---
                     for (let i = 0; i < rows.length; i++) {
-                        let rowArr = rows[i];
-                        let rowStr = rowArr.join('');
-
-                        if (rowStr.includes('お支払金額総合計') || rowStr.includes('お支払い合計額') || rowStr.includes('様') || rowArr.length < 3) {
-                            continue;
-                        }
-
-                        let rawDate = String(rowArr[0] || '').trim();
-                        let rawDesc = String(rowArr[1] || '').trim();
-                        let rawAmount = String(rowArr[5] || rowArr[2] || '').trim();
-
-                        // Validate date format (e.g., 2026/02/07)
-                        if (!rawDate.match(/^\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2}$/)) {
-                            continue;
-                        }
-
-                        let cleanDate = sanitizeDate(rawDate);
-                        let description = normalizeJapaneseText(rawDesc);
-                        let amount = parseNum(rawAmount);
-
-                        if (cleanDate && amount > 0 && description) {
-                            let cats = autoCategorize(description);
-                            extracted.push({
-                                id: (Date.now() + Math.random()).toString(),
-                                date: cleanDate,
-                                mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
-                                subCategory: cats.subCategory,
-                                description: description,
-                                amount: amount
-                            });
+                        let rowStr = rows[i].join('');
+                        let matchDate = rowStr.match(/お支払[い日]*\D*(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/);
+                        if (matchDate) {
+                            targetPaymentDate = `${matchDate[3].padStart(2, '0')}/${matchDate[2].padStart(2, '0')}/${matchDate[1]}`;
+                            break;
                         }
                     }
-                }
-                resolve(extracted);
-            }
-        extracted.push({
-    id: (Date.now() + Math.random()).toString(),
-    date: targetPaymentDate, // Ensures transactions group under the Payment Date month (e.g., March 2026)
-    originalDate: cleanDate, // Keeps the actual transaction date for reference if needed
-    mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
-    subCategory: cats.subCategory,
-    description: description,
-    amount: amount
-});
-});
-}
 
-  async function processExpensePDF(file) {
+                    for (let i = 0; i < rows.length; i++) {
+                        let cleanedRow = rows[i].map(cleanHeader);
+                        if (cleanedRow.some(col => dateHeaders.includes(col))) {
+                            headerIndex = i;
+                            break;
+                        }
+                    }
+
+                    if (headerIndex !== -1) {
+                        let headers = rows[headerIndex].map(cleanHeader);
+                        for (let i = headerIndex + 1; i < rows.length; i++) {
+                            let rowArr = rows[i];
+                            let rowStr = rowArr.join('');
+
+                            if (rowStr.includes('お支払金額総合計') || rowStr.includes('分割・ボーナス払い明細')) break;
+
+                            let row = {};
+                            headers.forEach((h, idx) => {
+                                row[h] = rowArr[idx] !== undefined ? String(rowArr[idx]).trim() : '';
+                            });
+
+                            let rawDate = row['Date & Time'] || row['Date'] || row['取引日時'] || row['日付'] || row['利用日'] || row['利用年月日'] || row['ご利用日'];
+                            let description = row['Business Name'] || row['加盟店名/支払い先'] || row['内容'] || row['利用店名・商品名'] || row['ご利用先'] || 'Unknown Payment';
+                            description = normalizeJapaneseText(description);
+
+                            let rawAmountOut = row['ご利用金額'] || row['お買上金額'] || row['Amount Outgoing (Yen)'] || row['金額（出金）'] || row['Amount'] || row['金額'] || row['利用金額(円)'] || row['お支払い金額'];
+                            let amount = parseNum(rawAmountOut);
+                            let cleanDate = sanitizeDate(rawDate);
+
+                            if (cleanDate && amount > 0) {
+                                let cats = autoCategorize(description);
+                                extracted.push({
+                                    id: (Date.now() + Math.random()).toString(),
+                                    date: targetPaymentDate ? targetPaymentDate : cleanDate,
+                                    originalDate: cleanDate,
+                                    mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
+                                    subCategory: cats.subCategory,
+                                    description: description,
+                                    amount: amount
+                                });
+                            }
+                        }
+                    } else {
+                        for (let i = 0; i < rows.length; i++) {
+                            let rowArr = rows[i];
+                            let rowStr = rowArr.join('');
+
+                            if (rowStr.includes('お支払金額総合計') || rowStr.includes('お支払い合計額') || rowStr.includes('様') || rowArr.length < 3) {
+                                continue;
+                            }
+
+                            let rawDate = String(rowArr[0] || '').trim();
+                            let rawDesc = String(rowArr[1] || '').trim();
+                            let rawAmount = String(rowArr[5] || rowArr[2] || '').trim();
+
+                            if (!rawDate.match(/^\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2}$/)) {
+                                continue;
+                            }
+
+                            let cleanDate = sanitizeDate(rawDate);
+                            let description = normalizeJapaneseText(rawDesc);
+                            let amount = parseNum(rawAmount);
+
+                            if (cleanDate && amount > 0 && description) {
+                                let cats = autoCategorize(description);
+                                extracted.push({
+                                    id: (Date.now() + Math.random()).toString(),
+                                    date: targetPaymentDate ? targetPaymentDate : cleanDate,
+                                    originalDate: cleanDate,
+                                    mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
+                                    subCategory: cats.subCategory,
+                                    description: description,
+                                    amount: amount
+                                });
+                            }
+                        }
+                    }
+                    resolve(extracted);
+                }
+            });
+        });
+    }
+
+    async function processExpensePDF(file) {
         let extracted = [];
         try {
             const arrayBuffer = await file.arrayBuffer();
@@ -1242,11 +1223,7 @@
                 }
             });
 
-            // Join everything with a newline character so we can inspect block structures
             let fullText = extractedLines.join('\n');
-
-            // Global regex looking for transaction date format (YY/MM/DD or YYYY/MM/DD)
-            // Followed by description text (spanning multiple lines if needed) up to the amount numbers
             const smbcGlobalRegex = /(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})\s+([^\r\n]+?(?:\r?\n[^\r\n]+?)*?)\s+(\d{1,3}(?:,\d{3})*)\s+[1-9]\s+[1-9]/g;
 
             let match;
@@ -1255,7 +1232,6 @@
                 let rawDesc = match[2];
                 let amountStr = match[3];
 
-                // Clean up any internal newlines or excessive spaces within the description
                 let description = normalizeJapaneseText(rawDesc.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim());
                 let amount = parseNum(amountStr);
 
@@ -1263,13 +1239,14 @@
                     continue;
                 }
 
-                let cleanDate = targetPaymentDate ? targetPaymentDate : sanitizeDate(rawDate);
+                let cleanDate = sanitizeDate(rawDate);
 
                 if (cleanDate && amount > 0 && description) {
                     let cats = autoCategorize(description);
                     extracted.push({
                         id: (Date.now() + Math.random()).toString(),
-                        date: cleanDate,
+                        date: targetPaymentDate ? targetPaymentDate : cleanDate,
+                        originalDate: cleanDate,
                         mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
                         subCategory: cats.subCategory,
                         description: description,
@@ -1282,6 +1259,7 @@
         }
         return extracted;
     }
+
     function saveAndRender() {
         syncAllDataMainCategories();
         localStorage.setItem('household_custom_rules', JSON.stringify(customRules));
@@ -1304,31 +1282,27 @@
         return hdr ? String(hdr).replace(/^\uFEFF/, '').replace(/["']/g, '').trim() : '';
     }
 
-   function populateMonthFilter(transactions) {
-    const monthSet = new Set();
-    transactions.forEach(tx => {
-        if (tx.date) {
-            // Expecting tx.date in "DD/MM/YYYY" or similar format
-            const parts = tx.date.split('/');
-            if (parts.length === 3) {
-                // Format as "YYYY-MM" for sorting and filtering keys
-                monthSet.add(`${parts[2]}-${parts[1]}`);
+    function populateMonthFilter(transactions) {
+        const monthSelect = document.getElementById('month-filter');
+        if (!monthSelect) return;
+        const curMonth = monthSelect.value;
+
+        const monthMap = {};
+        let combined = transactions || getCombinedData();
+
+        combined.forEach(tx => {
+            if (tx.date) {
+                const parts = tx.date.split('/');
+                if (parts.length === 3) {
+                    const mm = parts[1].padStart(2, '0');
+                    const yyyy = parts[2];
+                    const key = `${mm}/${yyyy}`;
+                    monthMap[key] = `${yyyy}年 ${parseInt(mm, 10)}月`;
+                }
             }
-        }
-    });
+        });
 
-    const monthFilterSelect = document.getElementById('month-filter'); // Replace with your actual filter element ID
-    if (!monthFilterSelect) return;
-
-    monthFilterSelect.innerHTML = '<option value="all">All Months</option>';
-    Array.from(monthSet).sort().reverse().forEach(yearMonth => {
-        let [year, month] = yearMonth.split('-');
-        let option = document.createElement('option');
-        option.value = yearMonth;
-        option.textContent = `${year}年 ${parseInt(month, 10)}月`; // Displays as e.g., "2026年 3月"
-        monthFilterSelect.appendChild(option);
-    });
-}
+        monthSelect.innerHTML = '<option value="ALL">All Months</option>';
 
         const sortedKeys = Object.keys(monthMap).sort((a, b) => {
             const [mA, yA] = a.split('/');
