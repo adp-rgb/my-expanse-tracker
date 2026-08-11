@@ -1341,35 +1341,62 @@
         return combined;
     }
 
-    function renderDashboard() {
-        populateMonthFilter();
-        const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
-        
-        let allData = getCombinedData();
+function renderDashboard() {
+    populateMonthFilter();
+    const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
+    
+    let allData = getCombinedData();
 
-        let filtered = allData.filter(d => {
-            if (selectedMonth === 'ALL') return true;
-            if (!d.date) return false;
-            const parts = d.date.split('/');
-            if (parts.length === 3) {
-                const itemMonthYear = `${parts[1].padStart(2, '0')}/${parts[2]}`;
-                return itemMonthYear === selectedMonth;
-            }
-            return false;
-        });
+    let filtered = allData.filter(d => {
+        if (selectedMonth === 'ALL') return true;
+        if (!d.date) return false;
+        const parts = d.date.split('/');
+        if (parts.length === 3) {
+            const itemMonthYear = `${parts[1].padStart(2, '0')}/${parts[2]}`;
+            return itemMonthYear === selectedMonth;
+        }
+        return false;
+    });
 
-        let totalSpend = filtered.reduce((sum, item) => sum + item.amount, 0);
+    let totalSpend = filtered.reduce((sum, item) => sum + item.amount, 0);
 
-        const validDates = filtered.map(d => sanitizeDate(d.date)).filter(Boolean);
-        const uniqueDays = new Set(validDates).size || 1;
-
-        document.getElementById('m-total-spending').textContent = `¥${totalSpend.toLocaleString()}`;
-        document.getElementById('m-transaction-count').textContent = filtered.length;
-        document.getElementById('m-daily-avg').textContent = `¥${Math.round(totalSpend / uniqueDays).toLocaleString()}`;
-
-        renderChart(filtered);
-        renderTable(filtered);
+    const validDates = filtered.map(d => sanitizeDate(d.date)).filter(Boolean);
+    
+    // Updated Daily Average Logic
+    let divisor = 1;
+    if (selectedMonth !== 'ALL') {
+        // Option A: Divide by total calendar days in the selected month
+        divisor = getDaysInMonth(selectedMonth);
+    } else {
+        // Option B: For 'ALL', use the date span (from earliest to latest date)
+        if (validDates.length > 0) {
+            const parsedDates = validDates.map(d => {
+                const [day, month, year] = d.split('/');
+                return new Date(year, month - 1, day);
+            });
+            const minDate = Math.min(...parsedDates);
+            const maxDate = Math.max(...parsedDates);
+            const diffDays = Math.ceil(Math.abs(maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
+            divisor = diffDays > 0 ? diffDays : 1;
+        }
     }
+
+    document.getElementById('m-total-spending').textContent = `¥${totalSpend.toLocaleString()}`;
+    document.getElementById('m-transaction-count').textContent = filtered.length;
+    document.getElementById('m-daily-avg').textContent = `¥${Math.round(totalSpend / divisor).toLocaleString()}`;
+
+    renderChart(filtered);
+    renderTable(filtered);
+}
+
+// Helper function to get days in month
+function getDaysInMonth(monthYearStr) {
+    const parts = monthYearStr.split('/');
+    if (parts.length !== 2) return 30;
+    const month = parseInt(parts[0], 10);
+    const year = parseInt(parts[1], 10);
+    return new Date(year, month, 0).getDate();
+}
         
     function renderChart(data) {
         if (expenseChartInstance) expenseChartInstance.destroy();
