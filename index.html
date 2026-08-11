@@ -1389,12 +1389,9 @@ function renderDashboard() {
     renderTable(filtered);
 }
 
-// Helper function to get days in month
+// Helper to get total days in a given MM/YYYY string
 function getDaysInMonth(monthYearStr) {
-    const parts = monthYearStr.split('/');
-    if (parts.length !== 2) return 30;
-    const month = parseInt(parts[0], 10);
-    const year = parseInt(parts[1], 10);
+    const [month, year] = monthYearStr.split('/');
     return new Date(year, month, 0).getDate();
 }
         
