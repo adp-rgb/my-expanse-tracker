@@ -976,6 +976,16 @@ function sanitizeDate(rawDateStr) {
         }
     }
 
+    // 2.5. AEON 6-digit format (YYMMDD, e.g., "260412" -> 12/04/2026)
+    // The regex ensures the month is 01-12 and the day is 01-31 to prevent false positives.
+    let aeonMatch = str.match(/^(\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])$/);
+    if (aeonMatch) {
+        let year = `20${aeonMatch[1]}`;
+        let month = aeonMatch[2];
+        let day = aeonMatch[3];
+        return `${day}/${month}/${year}`;
+    }
+
     // 3. Japanese Kanji Date Format (2026年08月20日 or 26年08月20日)
     let jpMatch = str.match(/(?:20(\d{2})|(\d{2}))年\s*(\d{1,2})月\s*(\d{1,2})日/);
     if (jpMatch) {
@@ -1074,22 +1084,29 @@ function sanitizeDate(rawDateStr) {
         saveAndRender();
     }
 
-    function readFileAsTextWithEncoding(file) {
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                let text = e.target.result;
-                if (text.includes('')) {
-                    const readerSJIS = new FileReader();
-                    readerSJIS.onload = function(eSJIS) { resolve(eSJIS.target.result); };
-                    readerSJIS.readAsText(file, 'Shift_JIS');
-                } else {
-                    resolve(text);
-                }
-            };
-            reader.readAsText(file, 'UTF-8');
-        });
-    }
+function readFileAsTextWithEncoding(file) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            let text = e.target.result;
+            
+            // Explicit CP932 / Shift-JIS Dynamic Fallback
+            // Triggers Shift_JIS if the replacement character '' is found, 
+            // OR if it's a CSV file that looks heavily mis-encoded without standard English headers.
+            const isMisencoded = text.includes('');
+            const isLikelyJapaneseCSV = file.name.toLowerCase().endsWith('.csv') && !text.includes('Date');
+
+            if (isMisencoded || isLikelyJapaneseCSV) {
+                const readerSJIS = new FileReader();
+                readerSJIS.onload = function(eSJIS) { resolve(eSJIS.target.result); };
+                readerSJIS.readAsText(file, 'Shift_JIS');
+            } else {
+                resolve(text);
+            }
+        };
+        reader.readAsText(file, 'UTF-8');
+    });
+}
 
     async function handleFileUpload(event) {
         const files = Array.from(event.target.files);
@@ -1134,70 +1151,106 @@ function sanitizeDate(rawDateStr) {
         event.target.value = '';
     }
 
-    async function processExpenseCSV(file) {
-        const fileContent = await readFileAsTextWithEncoding(file);
-        return new Promise((resolve) => {
-            Papa.parse(fileContent, {
-                header: false,
-                skipEmptyLines: true,
-                complete: function(results) {
-                    let rows = results.data;
-                    if (!rows || rows.length === 0) return resolve([]);
+  async function processExpenseCSV(file) {
+    const fileContent = await readFileAsTextWithEncoding(file);
+    return new Promise((resolve) => {
+        Papa.parse(fileContent, {
+            header: false,
+            skipEmptyLines: true,
+            complete: function(results) {
+                let rows = results.data;
+                if (!rows || rows.length === 0) return resolve([]);
 
-                    let extracted = [];
-                    let headerIndex = -1;
-                    const dateHeaders = ['Date & Time', 'Date', '日付', '取引日時', '利用日', '利用年月日', 'ご利用日'];
+                let extracted = [];
+                let headerIndex = -1;
+                let is_aeon_format = false;
+                const dateHeaders = ['Date & Time', 'Date', '日付', '取引日時', '利用日', '利用年月日', 'ご利用日'];
 
-                    for (let i = 0; i < rows.length; i++) {
-                        let cleanedRow = rows[i].map(cleanHeader);
-                        if (cleanedRow.some(col => dateHeaders.includes(col))) {
-                            headerIndex = i; break;
-                        }
+                // 1. AEON Header Check & Initial Header Scan
+                for (let i = 0; i < rows.length; i++) {
+                    let rowStr = rows[i].join('');
+                    // Detect AEON specific metadata or headers
+                    if (rowStr.includes('イオン') || rowStr.includes('ご利用先')) {
+                        is_aeon_format = true;
                     }
 
-                    if (headerIndex === -1) return resolve([]);
-                    let headers = rows[headerIndex].map(cleanHeader);
-
-                    for (let i = headerIndex + 1; i < rows.length; i++) {
-                        let rowArr = rows[i];
-                        let row = {};
-                        headers.forEach((h, idx) => {
-                            row[h] = rowArr[idx] !== undefined ? String(rowArr[idx]).trim() : '';
-                        });
-
-                        let rawDate = row['Date & Time'] || row['Date'] || row['取引日時'] || row['日付'] || row['利用日'] || row['利用年月日'] || row['ご利用日'];
-                        let cleanDate = sanitizeDate(rawDate);
-
-                        let description = row['Business Name'] || row['加盟店名/支払い先'] || row['内容'] || row['利用店名・商品名'] || row['Transaction Type'] || row['取引種別'] || row['ご利用先'] || 'PayPay Payment';
-                        description = normalizeJapaneseText(description);
-
-                        let rawAmountOut = row['ご利用金額'] || row['お買上金額'] || row['Amount Outgoing (Yen)'] || row['金額（出金）'] || row['Amount'] || row['金額'] || row['利用金額(円)'];
-                        let amount = parseNum(rawAmountOut);
-
-                        let typeStr = (row['Transaction Type'] || row['取引種別'] || '').toLowerCase();
-                        if (typeStr.includes('top-up') || typeStr.includes('チャージ') || typeStr.includes('points') || typeStr.includes('ポイント')) {
-                            amount = 0;
-                        }
-
-                        let cats = autoCategorize(description);
-
-                        if (cleanDate && amount > 0) {
-                            extracted.push({
-                                id: (Date.now() + Math.random()).toString(),
-                                date: cleanDate,
-                                mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
-                                subCategory: cats.subCategory,
-                                description: description,
-                                amount: amount
-                            });
-                        }
+                    let cleanedRow = rows[i].map(cleanHeader);
+                    if (cleanedRow.some(col => dateHeaders.includes(col))) {
+                        headerIndex = i; 
+                        break;
                     }
-                    resolve(extracted);
                 }
-            });
-        });
-    }
 
+                // 2. Date Pattern Fallback (skiprows for YYMMDD)
+                // If no standard header was found, scan for a row where column 0 is a 6-digit date (e.g., "260412")
+                if (headerIndex === -1 || is_aeon_format) {
+                    for (let i = 0; i < rows.length; i++) {
+                        if (/^\d{6}$/.test(String(rows[i][0]).trim())) {
+                            // Treat the row immediately preceding the data as the header row
+                            headerIndex = i > 0 ? i - 1 : 0; 
+                            is_aeon_format = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (headerIndex === -1) return resolve([]); // Failed to find headers or valid data
+
+                let headers = rows[headerIndex].map(cleanHeader);
+
+                for (let i = headerIndex + 1; i < rows.length; i++) {
+                    let rowArr = rows[i];
+                    let rowStr = rowArr.join('');
+
+                    // 3. Footer Section Isolation
+                    // Stop parsing before secondary tables like installment payments or notices
+                    if (rowStr.includes('分割・ボーナス払い明細') || rowStr.includes('お知らせ') || rowStr.includes('キャッシング')) {
+                        break; 
+                    }
+
+                    let row = {};
+                    headers.forEach((h, idx) => {
+                        row[h] = rowArr[idx] !== undefined ? String(rowArr[idx]).trim() : '';
+                    });
+
+                    // Date Fallback logic
+                    let rawDate = row['Date & Time'] || row['Date'] || row['取引日時'] || row['日付'] || row['利用日'] || row['利用年月日'] || row['ご利用日'];
+                    if (is_aeon_format && !rawDate) rawDate = String(rowArr[0]).trim(); // AEON typically uses column 0
+                    
+                    let cleanDate = sanitizeDate(rawDate);
+
+                    let description = row['Business Name'] || row['加盟店名/支払い先'] || row['内容'] || row['利用店名・商品名'] || row['Transaction Type'] || row['取引種別'] || row['ご利用先'] || 'Unknown Payment';
+                    if (is_aeon_format && description === 'Unknown Payment') description = String(rowArr[1]).trim();
+                    description = normalizeJapaneseText(description);
+
+                    let rawAmountOut = row['ご利用金額'] || row['お買上金額'] || row['Amount Outgoing (Yen)'] || row['金額（出金）'] || row['Amount'] || row['金額'] || row['利用金額(円)'];
+                    if (is_aeon_format && !rawAmountOut) rawAmountOut = String(rowArr[rowArr.length > 2 ? 2 : rowArr.length - 1]).trim(); // Guess amount col if standard headers failed
+
+                    let amount = parseNum(rawAmountOut);
+
+                    let typeStr = (row['Transaction Type'] || row['取引種別'] || '').toLowerCase();
+                    if (typeStr.includes('top-up') || typeStr.includes('チャージ') || typeStr.includes('points') || typeStr.includes('ポイント')) {
+                        amount = 0;
+                    }
+
+                    let cats = autoCategorize(description);
+
+                    if (cleanDate && amount > 0) {
+                        extracted.push({
+                            id: (Date.now() + Math.random()).toString(),
+                            date: cleanDate,
+                            mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
+                            subCategory: cats.subCategory,
+                            description: description,
+                            amount: amount
+                        });
+                    }
+                }
+                resolve(extracted);
+            }
+        });
+    });
+}
     async function processExpensePDF(file) {
         let extracted = [];
         try {
