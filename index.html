@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Household Expense Tracker</title>
-    <!-- External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -214,7 +213,6 @@
         </div>
     </div>
 
-    <!-- Manual Expense Entry -->
     <div class="card">
         <div class="card-header"><h3 class="card-title">➕ Add New Expense</h3></div>
         <form id="expense-form" onsubmit="handleAddExpense(event)">
@@ -246,7 +244,6 @@
         </form>
     </div>
 
-    <!-- Custom Categorization Rules Manager -->
     <div class="card">
         <div class="card-header">
             <h3 class="card-title">⚙️ Custom Rule Manager</h3>
@@ -274,7 +271,6 @@
         <div style="margin-top: 16px;" id="custom-rules-list"></div>
     </div>
 
-    <!-- Upload Statements -->
     <div class="card">
         <div class="card-header">
             <h3 class="card-title">📁 Import Statements (CSV & PDF)</h3>
@@ -287,7 +283,6 @@
         <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 10px; font-weight: 500;" id="expense-upload-status">Ready to import.</div>
     </div>
 
-    <!-- Receipt Photo / Camera Capture -->
     <div class="card">
         <div class="card-header">
             <h3 class="card-title">📷 Scan Receipt Photo</h3>
@@ -303,7 +298,6 @@
         </div>
     </div>
 
-    <!-- KPI Summary Cards -->
     <div class="metrics-grid">
         <div class="metric-card" style="border-top: 4px solid var(--primary);">
             <span>Total Spending</span>
@@ -319,7 +313,6 @@
         </div>
     </div>
 
-    <!-- Analytics Chart View -->
     <div class="card">
         <div class="card-header">
             <div class="btn-toggle-group">
@@ -333,14 +326,12 @@
         </div>
     </div>
 
-    <!-- Data Table & Bulk Categorization -->
     <div class="card">
         <div class="card-header">
             <h3 class="card-title">Expense Transactions</h3>
             <button class="btn btn-secondary" onclick="clearExpenseData()">🧹 Clear All</button>
         </div>
 
-        <!-- Bulk Category Modifier Interface -->
         <div class="bulk-bar">
             <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-main); width: 100%;">⚡ Bulk Category Modifier</span>
             <select id="bulk-main-category" onchange="updateSubCategoryDropdown('bulk-main-category', 'bulk-sub-category')"></select>
@@ -613,6 +604,36 @@
         el.textContent = text;
     }
 
+    // ==========================================
+    // OPTION A: Robust Timeout & Fallback Sync
+    // ==========================================
+    async function fetchDataFromSheets() {
+        setSyncState('syncing', 'Connecting...');
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000); // 4-second timeout
+
+        try {
+            const response = await fetch(API_URL, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            
+            const data = await response.json();
+            if (Array.isArray(data)) {
+                expenseData = data.map(normalizeExpenseItem);
+                saveAndRender();
+                setSyncState('synced', 'Synced with Sheet');
+            } else {
+                throw new Error("Invalid format received");
+            }
+        } catch (error) {
+            clearTimeout(timeoutId);
+            console.warn("Google Sheets connection failed or timed out. Falling back to local storage.", error);
+            setSyncState('local', 'Local Mode');
+            renderDashboard(); // Render local data immediately
+        }
+    }
+
     function formatToYYYYMM(dateString) {
         if (!dateString) return "";
         let d = new Date(dateString);
@@ -775,6 +796,11 @@
             source: item.source
         };
     }
+
+    // Initial trigger on load
+    window.addEventListener('DOMContentLoaded', () => {
+        fetchDataFromSheets();
+    });
 </script>
 </body>
 </html>
