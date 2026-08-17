@@ -168,10 +168,6 @@
             letter-spacing: normal;
         }
 
-        .cat-tag { background: #eff6ff; color: #1d4ed8; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.78rem; display: inline-block; white-space: nowrap; }
-        .subcat-tag { background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 4px; font-weight: 500; font-size: 0.78rem; display: inline-block; white-space: nowrap; margin-top: 2px; }
-        .rule-chip { background: #fef3c7; color: #92400e; padding: 6px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; margin: 4px 4px 4px 0; word-break: break-word; }
-
         .bulk-bar {
             background: #f1f5f9;
             padding: 12px;
@@ -183,7 +179,6 @@
             flex-wrap: wrap;
         }
 
-        /* Mobile Adjustments */
         @media (min-width: 640px) {
             body { padding: 32px 20px; }
             .card { padding: 24px; }
@@ -360,8 +355,12 @@
                     <tr>
                         <th style="width: 30px;"><input type="checkbox" id="select-all-checkbox" onchange="toggleSelectAll(this)"></th>
                         <th style="width: 110px;">
-                            Date
+                            Usage Date
                             <input type="text" id="col-filter-date" class="column-filter-input" placeholder="Filter..." oninput="renderTableDataOnly()">
+                        </th>
+                        <th>
+                            Source
+                            <input type="text" id="col-filter-source" class="column-filter-input" placeholder="Filter..." oninput="renderTableDataOnly()">
                         </th>
                         <th>
                             Main Category
@@ -392,19 +391,30 @@
 <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbwK9DR-2CqwHngBFAaFf2UPMnTpaVFGcY3tnK6RySi7rUXvLifHMyww5W840MKsl6nL/exec";
         
-    // Fixed Monthly Expenses Array
+    // Fixed Monthly Expenses Array with Default Source and Usage Date Defaults
     const FIXED_EXPENSES = [
-        { description: "House Loan", amount: 191824, mainCategory: "Loans & Liabilities", subCategory: "Housing Loan / Mortgage" },
-        { description: "NISA Investment", amount: 30000, mainCategory: "Investments & Wealth", subCategory: "NISA & Stocks" },
-        { description: "Swimming Club", amount: 15000, mainCategory: "Education & Sports", subCategory: "Swimming & Sports Club" },
-        { description: "Car Loan", amount: 19204, mainCategory: "Loans & Liabilities", subCategory: "Auto Loan" },
-        { description: "Fx Investment", amount: 6500, mainCategory: "Investments & Wealth", subCategory: "FX & Trading" },
-        { description: "Solar Loan / Maintenance", amount: 17346, mainCategory: "Loans & Liabilities", subCategory: "Solar / Asset Loan" },
-        { description: "Singing Class", amount: 4100, mainCategory: "Education & Sports", subCategory: "Tuition & School" },
-        { description: "Japanese Class", amount: 7800, mainCategory: "Education & Sports", subCategory: "Books & Study Materials" },
-        { description: "School Expenses", amount: 120000, mainCategory: "Education & Sports", subCategory: "Tuition & School" },
-        { description: "Diving", amount: 14800, mainCategory: "Education & Sports", subCategory: "Swimming & Sports Club" }
+        { description: "House Loan", amount: 191824, mainCategory: "Loans & Liabilities", subCategory: "Housing Loan / Mortgage", source: "Fixed Expense" },
+        { description: "NISA Investment", amount: 30000, mainCategory: "Investments & Wealth", subCategory: "NISA & Stocks", source: "Fixed Expense" },
+        { description: "Swimming Club", amount: 15000, mainCategory: "Education & Sports", subCategory: "Swimming & Sports Club", source: "Fixed Expense" },
+        { description: "Car Loan", amount: 19204, mainCategory: "Loans & Liabilities", subCategory: "Auto Loan", source: "Fixed Expense" },
+        { description: "Fx Investment", amount: 6500, mainCategory: "Investments & Wealth", subCategory: "FX & Trading", source: "Fixed Expense" },
+        { description: "Solar Loan / Maintenance", amount: 17346, mainCategory: "Loans & Liabilities", subCategory: "Solar / Asset Loan", source: "Fixed Expense" },
+        { description: "Singing Class", amount: 4100, mainCategory: "Education & Sports", subCategory: "Tuition & School", source: "Fixed Expense" },
+        { description: "Japanese Class", amount: 7800, mainCategory: "Education & Sports", subCategory: "Books & Study Materials", source: "Fixed Expense" },
+        { description: "School Expenses", amount: 120000, mainCategory: "Education & Sports", subCategory: "Tuition & School", source: "Fixed Expense" },
+        { description: "Diving", amount: 14800, mainCategory: "Education & Sports", subCategory: "Swimming & Sports Club", source: "Fixed Expense" }
     ];
+
+    // Helper: Normalize item properties so usageDate and source are never blank
+    function normalizeExpenseItem(item) {
+        if (!item.usageDate || item.usageDate.trim() === "") {
+            item.usageDate = item.fullPaymentDate || item.date || new Date().toISOString().split('T')[0];
+        }
+        if (!item.source || item.source.trim() === "") {
+            item.source = "Manual";
+        }
+        return item;
+    }
 
     async function handleReceiptPhotos(event) {
         const files = Array.from(event.target.files);
@@ -425,6 +435,7 @@
                 const parsedItem = parseJapaneseReceiptText(text);
 
                 if (parsedItem && parsedItem.amount > 0) {
+                    normalizeExpenseItem(parsedItem);
                     const hash = getTransactionHash(parsedItem);
 
                     if (!processedFilesHashes.includes(hash)) {
@@ -462,7 +473,7 @@
         const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
         let extractedDate = null;
-        const dateRegex = /(20\d{2}|\d{2})[年\/\.-](\d{1,2})[月\/\.-](\d{1,2})/;
+        const dateRegex = /(20\d{2}|\d{2})[年\/\.-](\d{1,2})[年\/\.-](\d{1,2})/;
         const altDateRegex = /(\d{1,2})\/(\d{1,2})\/(20\d{2})/;
 
         for (let line of lines) {
@@ -482,7 +493,7 @@
             const d = String(today.getDate()).padStart(2, '0');
             const m = String(today.getMonth() + 1).padStart(2, '0');
             const y = today.getFullYear();
-            extractedDate = `${d}/${m}/${y}`;
+            extractedDate = `${y}-${m}-${d}`;
         }
 
         let extractedAmount = 0;
@@ -537,10 +548,12 @@
         return {
             id: (Date.now() + Math.random()).toString(),
             date: extractedDate,
+            usageDate: extractedDate,
             mainCategory: getMainCategory(identifiedSub),
             subCategory: identifiedSub,
             description: description,
-            amount: extractedAmount
+            amount: extractedAmount,
+            source: "Receipt OCR"
         };
     }
 
@@ -576,7 +589,10 @@
         return SUB_TO_MAIN_MAP[subCategory] || fallbackMain;
     }
 
-    let expenseData = JSON.parse(localStorage.getItem('household_expense_data')) || [];
+    // Load and auto-normalize cached local data
+    let rawExpenseData = JSON.parse(localStorage.getItem('household_expense_data')) || [];
+    let expenseData = rawExpenseData.map(normalizeExpenseItem);
+
     let customRules = JSON.parse(localStorage.getItem('household_custom_rules')) || [
         { id: '1', keyword: 'suica', mainCategory: 'Transportation', subCategory: 'Trains & Bus' },
         { id: '2', keyword: 'supermarket', mainCategory: 'Food & Dining', subCategory: 'Groceries' },
@@ -596,10 +612,7 @@
         el.className = `sync-status ${state}`;
         el.textContent = text;
     }
-    
-    // --- CORE LOGIC: UNIFIED PARSERS & YYYYMM PAYMENT DATE FORMATTING ---
 
-    // Helper: Convert any date string into YYYYMM format
     function formatToYYYYMM(dateString) {
         if (!dateString) return "";
         let d = new Date(dateString);
@@ -615,10 +628,9 @@
         return `${year}${month}`;
     }
 
-    // Custom Parser for AEON CSV Files (Extracts payment date and maps rows)
     function parseAeonCSVText(text) {
         const lines = text.split('\n');
-        let paymentDateStr = "2026-03-02"; // Fallback
+        let paymentDateStr = "2026-03-02";
         
         for (let i = 0; i < Math.min(5, lines.length); i++) {
             if (lines[i].includes("お支払い日")) {
@@ -648,7 +660,7 @@
                 const description = cols[2];
                 const amount = parseFloat(cols[6]) || 0;
 
-                parsed.push({
+                parsed.push(normalizeExpenseItem({
                     date: paymentYYYYMM,          
                     fullPaymentDate: paymentDateStr,
                     usageDate: usageDate,
@@ -657,13 +669,12 @@
                     description: description,
                     amount: amount,
                     source: "AEON"
-                });
+                }));
             }
         });
         return parsed;
     }
 
-    // Custom Parser for SMBC / ANA Master Gold CSV Files
     function parseStandardCardCSVText(text, sourceName) {
         const lines = text.split('\n');
         let parsed = [];
@@ -682,7 +693,7 @@
                 const paymentDateStr = d.toISOString().split('T')[0];
                 const paymentYYYYMM = formatToYYYYMM(paymentDateStr);
 
-                parsed.push({
+                parsed.push(normalizeExpenseItem({
                     date: paymentYYYYMM,          
                     fullPaymentDate: paymentDateStr,
                     usageDate: usageDate,
@@ -691,7 +702,7 @@
                     description: description,
                     amount: amount,
                     source: sourceName
-                });
+                }));
             }
         });
         return parsed;
@@ -724,6 +735,7 @@
             }
 
             newItems.forEach(item => {
+                normalizeExpenseItem(item);
                 const hash = getTransactionHash(item);
                 const existingIndex = expenseData.findIndex(e => getTransactionHash(e) === hash);
                 const freshCat = autoCategorize(item.description);
@@ -731,6 +743,8 @@
                 if (existingIndex !== -1) {
                     expenseData[existingIndex].subCategory = freshCat.subCategory;
                     expenseData[existingIndex].mainCategory = getMainCategory(freshCat.subCategory, freshCat.mainCategory);
+                    expenseData[existingIndex].usageDate = item.usageDate;
+                    expenseData[existingIndex].source = item.source;
                     updatedCount++;
                 } else {
                     processedFilesHashes.push(hash);
@@ -747,957 +761,20 @@
         event.target.value = '';
     }
 
-    // Updated preparePayloadForSheet function with proper fallbacks for Usage Date and Source
     function preparePayloadForSheet(item) {
+        normalizeExpenseItem(item);
         return {
             id: item.id || getTransactionHash(item),
-            date: item.date,                 // YYYYMM format (e.g., "202603")
+            date: item.date,
             fullPaymentDate: item.fullPaymentDate || "", 
-            usageDate: item.usageDate || item.date || "",     
+            usageDate: item.usageDate,     
             mainCategory: item.mainCategory,
             subCategory: item.subCategory,
             description: item.description,
             amount: item.amount,
-            source: item.source || "Manual"
+            source: item.source
         };
     }
-
-    async function syncToSheets() {
-        localStorage.setItem('household_expense_data', JSON.stringify(expenseData));
-        if (!API_URL || API_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) {
-            setSyncState('local', 'Local Mode');
-            return;
-        }
-        setSyncState('syncing', 'Saving...');
-        try {
-            await fetch(API_URL, {
-                method: "POST",
-                mode: "no-cors",
-                headers: { "Content-Type": "text/plain;charset=utf-8" },
-                body: JSON.stringify({ action: "saveAll", data: expenseData })
-            });
-            setSyncState('synced', 'Synced');
-        } catch (e) {
-            console.error("Save failed:", e);
-            setSyncState('local', 'Local Mode (Saved Locally)');
-        }
-    }
-
-    async function fetchDataFromSheets() {
-        if (!API_URL || API_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) {
-            setSyncState('local', 'Local Mode');
-            renderDashboard();
-            return;
-        }
-        setSyncState('syncing', 'Loading...');
-        try {
-            const response = await fetch(API_URL);
-            const result = await response.json();
-            if (result && Array.isArray(result.data)) {
-                expenseData = result.data;
-                localStorage.setItem('household_expense_data', JSON.stringify(expenseData));
-                setSyncState('synced', 'Synced');
-            } else {
-                setSyncState('local', 'Local Mode (Empty remote)');
-            }
-        } catch (e) {
-            console.error("Fetch failed:", e);
-            setSyncState('local', 'Local Mode (Offline)');
-        }
-        renderDashboard();
-    }
-
-    function getTransactionHash(item) {
-        return `${item.date}_${item.description}_${item.amount}`;
-    }
-
-    function autoSyncMainCategory(subSelectId, mainSelectId) {
-        const subVal = document.getElementById(subSelectId)?.value;
-        const mainSelect = document.getElementById(mainSelectId);
-        if (!subVal || !mainSelect) return;
-
-        mainSelect.value = getMainCategory(subVal);
-    }
-
-    function initCategoryDropdowns() {
-        const dropIds = ['exp-main-category', 'rule-main-category', 'bulk-main-category'];
-        dropIds.forEach(id => {
-            const select = document.getElementById(id);
-            if (!select) return;
-            select.innerHTML = '';
-            Object.keys(CATEGORY_MAP).forEach(mainCat => {
-                const opt = document.createElement('option');
-                opt.value = mainCat; opt.textContent = mainCat;
-                select.appendChild(opt);
-            });
-        });
-
-        updateSubCategoryDropdown('exp-main-category', 'exp-sub-category');
-        updateSubCategoryDropdown('rule-main-category', 'rule-sub-category');
-        updateSubCategoryDropdown('bulk-main-category', 'bulk-sub-category');
-        populateTableColumnFilterOptions();
-    }
-
-    function updateSubCategoryDropdown(mainId, subId) {
-        const mainEl = document.getElementById(mainId);
-        const subSelect = document.getElementById(subId);
-        if (!mainEl || !subSelect) return;
-        
-        subSelect.innerHTML = '';
-        const subCats = CATEGORY_MAP[mainEl.value] || ["General Expense"];
-        subCats.forEach(sub => {
-            const opt = document.createElement('option');
-            opt.value = sub; opt.textContent = sub;
-            subSelect.appendChild(opt);
-        });
-    }
-
-    function populateTableColumnFilterOptions() {
-        const mainCatFilter = document.getElementById('col-filter-main-cat');
-        if (!mainCatFilter) return;
-        const currentVal = mainCatFilter.value || 'ALL';
-        mainCatFilter.innerHTML = '<option value="ALL">All</option>';
-
-        Object.keys(CATEGORY_MAP).forEach(mainCat => {
-            const opt = document.createElement('option');
-            opt.value = mainCat; opt.textContent = mainCat;
-            mainCatFilter.appendChild(opt);
-        });
-        mainCatFilter.value = currentVal;
-        updateTableSubCatFilterOptions();
-    }
-
-    function updateTableSubCatFilterOptions() {
-        const mainCatFilter = document.getElementById('col-filter-main-cat');
-        const subCatFilter = document.getElementById('col-filter-sub-cat');
-        if (!mainCatFilter || !subCatFilter) return;
-
-        const mainCatVal = mainCatFilter.value;
-        const currentSubVal = subCatFilter.value || 'ALL';
-        subCatFilter.innerHTML = '<option value="ALL">All</option>';
-
-        let optionsToDisplay = [];
-        if (mainCatVal !== 'ALL' && CATEGORY_MAP[mainCatVal]) {
-            optionsToDisplay = CATEGORY_MAP[mainCatVal];
-        } else {
-            let allSubs = new Set();
-            Object.values(CATEGORY_MAP).forEach(list => list.forEach(s => allSubs.add(s)));
-            optionsToDisplay = Array.from(allSubs);
-        }
-
-        optionsToDisplay.forEach(sub => {
-            const opt = document.createElement('option');
-            opt.value = sub; opt.textContent = sub;
-            subCatFilter.appendChild(opt);
-        });
-
-        subCatFilter.value = optionsToDisplay.includes(currentSubVal) ? currentSubVal : 'ALL';
-    }
-
-    function normalizeJapaneseText(str) {
-        if (!str) return '';
-        return str.replace(/[Ａ-Ｚａ-ｚ０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/ /g, ' ').trim();
-    }
-
-    function autoCategorize(description) {
-        const desc = normalizeJapaneseText(description).toLowerCase();
-
-        for (let rule of customRules) {
-            if (desc.includes(rule.keyword.toLowerCase())) {
-                return { mainCategory: getMainCategory(rule.subCategory, rule.mainCategory), subCategory: rule.subCategory };
-            }
-        }
-
-        let subCategory = "General Expense";
-
-        if (/スーパー|イオン|イトーヨーカドー|ダイエー|ライフ|オーケー|ヤオコー|西友|コストコ|まいばすけっと|業務スーパー|サミット|ロピア|セブン|ファミマ|ローソン|オリジン|supermarket|grocery/i.test(desc)) {
-            subCategory = "Groceries";
-        } else if (/マクドナルド|スターバックス|ドトール|カフェ|ガスト|サイゼリヤ|すき家|吉野家|松屋|スシロー|居酒屋|レストラン|ラーメン|はま寿司|ポポラマーマ|gordon|restaurant|cafe/i.test(desc)) {
-            subCategory = "Restaurants & Dining Out";
-        } else if (/ウーバーイーツ|出前館|uber\s*eats|delivery/i.test(desc)) {
-            subCategory = "Delivery Services";
-        } else if (/電力|東京電力|電気|power|electric/i.test(desc)) {
-            subCategory = "Electricity";
-        } else if (/ガス|東京ガス|水道|東京都水道局/i.test(desc)) {
-            subCategory = "Water & Gas";
-        } else if (/nuro|ソフトバンク|softbank|ワイヤレスゲート|新聞|simcard/i.test(desc)) {
-            subCategory = "Internet & Mobile";
-        } else if (/suica|pasmo|icoca|jr|電車|バス|metro|train/i.test(desc)) {
-            subCategory = "Trains & Bus";
-        } else if (/タクシー|taxi|rideshare/i.test(desc)) {
-            subCategory = "Taxi & Rideshare";
-        } else if (/高速|etc|首都高|関東支社|東京支社|八王子支社|パラカ|タイムズ/i.test(desc)) {
-            subCategory = "Fuel & Parking";
-        } else if (/スイミング|水泳|arena|speedo|mizuno|スポーツ|ジム|フィットネス|swim|pool/i.test(desc)) {
-            subCategory = "Swimming & Sports Club";
-        } else if (/病院|クリニック|診療所|歯科|歯医者|内科|外科|眼科|耳鼻科|hospital|clinic|doctor/i.test(desc)) {
-            subCategory = "Doctor & Clinic";
-        } else if (/薬局|ドラッグストア|処方箋|調剤|マツモトキヨシ|ウェルシア|ウエルシア|サンドラッグ|ツルハ|スギ薬局|ココカラファイン|pharmacy|drugstore/i.test(desc)) {
-            subCategory = "Pharmacy & Medicine";
-        } else if (/健康保険|国保|健保|国民健康保険/i.test(desc)) {
-            subCategory = "Health Insurance";
-        } else if (/生命保険|損害保険|共済|かんぽ|アフラック|保険|insurance/i.test(desc)) {
-            subCategory = "Life & Other Insurance";
-        } else if (/hotel|jamahkiri/i.test(desc)) {
-            subCategory = "Hotels & Accommodation";
-        } else if (/アトレ|ラゾーナ|ニトリ|amazon|アマゾン/i.test(desc)) {
-            subCategory = "Home Goods & Supplies";
-        } else if (/ネットフリックス|netflix|apple|google/i.test(desc)) {
-            subCategory = "Hobbies & Entertainment";
-        }
-
-        return { mainCategory: getMainCategory(subCategory), subCategory: subCategory };
-    }
-
-    function syncAllDataMainCategories() {
-        expenseData.forEach(item => {
-            item.mainCategory = getMainCategory(item.subCategory, item.mainCategory);
-        });
-    }
-
-    function handleAddRule(event) {
-        event.preventDefault();
-        const keyword = document.getElementById('rule-keyword').value.trim();
-        const subCategory = document.getElementById('rule-sub-category').value;
-        const mainCategory = getMainCategory(subCategory);
-
-        if (!keyword) return;
-
-        customRules.push({ id: Date.now().toString(), keyword, mainCategory, subCategory });
-        localStorage.setItem('household_custom_rules', JSON.stringify(customRules));
-        
-        document.getElementById('rule-keyword').value = '';
-        renderRules();
-
-        expenseData.forEach(item => {
-            let cat = autoCategorize(item.description);
-            item.subCategory = cat.subCategory;
-            item.mainCategory = getMainCategory(cat.subCategory, cat.mainCategory);
-        });
-
-        saveAndRender();
-    }
-
-    function deleteRule(id) {
-        customRules = customRules.filter(r => r.id !== id);
-        localStorage.setItem('household_custom_rules', JSON.stringify(customRules));
-        renderRules();
-
-        expenseData.forEach(item => {
-            let cat = autoCategorize(item.description);
-            item.subCategory = cat.subCategory;
-            item.mainCategory = getMainCategory(cat.subCategory, cat.mainCategory);
-        });
-        saveAndRender();
-    }
-
-    function renderRules() {
-        const container = document.getElementById('custom-rules-list');
-        if (!container) return;
-        container.innerHTML = '<strong>Active Rules: </strong>';
-        if (customRules.length === 0) {
-            container.innerHTML += '<span style="font-size:0.8rem; color: var(--text-muted);">None</span>';
-            return;
-        }
-        customRules.forEach(r => {
-            const chip = document.createElement('span');
-            chip.className = 'rule-chip';
-            chip.innerHTML = `"${r.keyword}" ➔ ${r.mainCategory} (${r.subCategory}) <button onclick="deleteRule('${r.id}')" style="border:none; background:transparent; cursor:pointer; font-weight:bold; color:#92400e;">✕</button>`;
-            container.appendChild(chip);
-        });
-    }
-
-    function applyBulkCategorization() {
-        const selectedBoxes = document.querySelectorAll('.item-checkbox:checked');
-        if (selectedBoxes.length === 0) {
-            alert('Please select at least one transaction from the table.');
-            return;
-        }
-
-        const subCategory = document.getElementById('bulk-sub-category').value;
-        const mainCategory = getMainCategory(subCategory);
-        const selectedIds = Array.from(selectedBoxes).map(cb => cb.dataset.id);
-
-        expenseData.forEach(item => {
-            if (selectedIds.includes(item.id)) {
-                item.subCategory = subCategory;
-                item.mainCategory = mainCategory;
-            }
-        });
-
-        saveAndRender();
-        document.getElementById('select-all-checkbox').checked = false;
-        updateSelectedCount();
-    }
-
-    function toggleSelectAll(masterCb) {
-        const checkboxes = document.querySelectorAll('.item-checkbox:not(:disabled)');
-        checkboxes.forEach(cb => cb.checked = masterCb.checked);
-        updateSelectedCount();
-    }
-
-    function updateSelectedCount() {
-        const count = document.querySelectorAll('.item-checkbox:checked').length;
-        const label = document.getElementById('selected-count-label');
-        if (label) label.textContent = `${count} items selected`;
-    }
-
-    function parseNum(val) {
-        if (val === undefined || val === null || val === '') return 0;
-        let cleaned = String(val).replace(/,/g, '').replace(/円/g, '').replace(/¥/g, '').replace(/-/g, '').trim();
-        let num = parseFloat(cleaned);
-        return isNaN(num) ? 0 : Math.abs(num);
-    }
-
-    function sanitizeDate(rawDateStr) {
-        if (!rawDateStr && rawDateStr !== 0) {
-            let today = new Date();
-            return `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
-        }
-        
-        if (rawDateStr instanceof Date) {
-            if (isNaN(rawDateStr.getTime())) return null;
-            return `${String(rawDateStr.getDate()).padStart(2, '0')}/${String(rawDateStr.getMonth() + 1).padStart(2, '0')}/${rawDateStr.getFullYear()}`;
-        }
-
-        let str = normalizeJapaneseText(String(rawDateStr)).trim();
-
-        if (/^\d{1,2}$/.test(str)) {
-            let dayNum = parseInt(str, 10);
-            if (dayNum >= 1 && dayNum <= 31) {
-                let today = new Date();
-                return `${String(dayNum).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
-            }
-        }
-
-        let waMatch = str.match(/(?:令和|R)\s*(\d{1,2})年\s*(\d{1,2})月\s*(\d{1,2})日/i);
-        if (waMatch) {
-            let reiwaYear = parseInt(waMatch[1], 10);
-            let year = 2018 + reiwaYear;
-            let month = String(waMatch[2]).padStart(2, '0');
-            let day = String(waMatch[3]).padStart(2, '0');
-            return `${day}/${month}/${year}`;
-        }
-
-        let jpMatch = str.match(/(?:20(\d{2})|(\d{2}))年\s*(\d{1,2})月\s*(\d{1,2})日/);
-        if (jpMatch) {
-            let year = jpMatch[1] ? `20${jpMatch[1]}` : `20${jpMatch[2]}`;
-            let month = String(jpMatch[3]).padStart(2, '0');
-            let day = String(jpMatch[4]).padStart(2, '0');
-            return `${day}/${month}/${year}`;
-        }
-
-        let mdMatch = str.match(/^(\d{1,2})月\s*(\d{1,2})日$/);
-        if (mdMatch) {
-            let today = new Date();
-            let year = today.getFullYear();
-            let month = String(mdMatch[1]).padStart(2, '0');
-            let day = String(mdMatch[2]).padStart(2, '0');
-            return `${day}/${month}/${year}`;
-        }
-
-        let aeonMatch = str.match(/^(\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])$/);
-        if (aeonMatch) {
-            let year = `20${aeonMatch[1]}`;
-            let month = aeonMatch[2];
-            let day = aeonMatch[3];
-            return `${day}/${month}/${year}`;
-        }
-
-        let delimMatch = str.match(/^(\d{1,4})[\/\.-](\d{1,2})[\/\.-](\d{2,4})$/);
-        if (delimMatch) {
-            let p1 = parseInt(delimMatch[1], 10);
-            let p2 = parseInt(delimMatch[2], 10);
-            let p3 = parseInt(delimMatch[3], 10);
-
-            if (delimMatch[1].length === 4) {
-                let y = delimMatch[1];
-                let m = String(delimMatch[2]).padStart(2, '0');
-                let d = String(delimMatch[3]).padStart(2, '0');
-                return `${d}/${m}/${y}`;
-            }
-
-            let rawYear = delimMatch[3];
-            let year = rawYear.length === 2 ? `20${rawYear}` : rawYear;
-
-            let d = String(p1 > 12 ? p1 : (p2 > 12 ? p2 : p1)).padStart(2, '0');
-            let m = String(p1 > 12 ? p2 : (p2 > 12 ? p1 : p2)).padStart(2, '0');
-            
-            if (p2 > 12 && p1 <= 12) {
-                m = String(p1).padStart(2, '0');
-                d = String(p2).padStart(2, '0');
-            }
-
-            return `${d}/${m}/${year}`;
-        }
-
-        let parsed = new Date(str);
-        if (!isNaN(parsed.getTime())) {
-            let d = String(parsed.getDate()).padStart(2, '0');
-            let m = String(parsed.getMonth() + 1).padStart(2, '0');
-            let y = parsed.getFullYear();
-            if (y >= 1900 && y <= 2099) return `${d}/${m}/${y}`;
-        }
-
-        return null;
-    }
-
-    function handleAddExpense(event) {
-        event.preventDefault();
-        const rawDate = document.getElementById('exp-date').value;
-        if (!rawDate) return;
-
-        const formattedDate = sanitizeDate(rawDate);
-
-        const subCategory = document.getElementById('exp-sub-category').value;
-        const mainCategory = getMainCategory(subCategory);
-        const description = document.getElementById('exp-description').value.trim();
-        const amount = parseNum(document.getElementById('exp-amount').value);
-
-        if (!description || amount <= 0) return;
-
-        const newItem = { 
-            id: Date.now().toString(), 
-            date: formattedDate, 
-            mainCategory: mainCategory, 
-            subCategory: subCategory, 
-            description: description, 
-            amount: amount,
-            usageDate: formattedDate,
-            source: "Manual"
-        };
-        const hash = getTransactionHash(newItem);
-
-        if (!processedFilesHashes.includes(hash)) {
-            processedFilesHashes.push(hash);
-            expenseData.push(newItem);
-            saveAndRender();
-        }
-
-        document.getElementById('exp-description').value = '';
-        document.getElementById('exp-amount').value = '';
-    }
-
-    function deleteExpense(id) {
-        if(String(id).startsWith('fixed_')) {
-            return;
-        }
-        expenseData = expenseData.filter(item => item.id !== id);
-        saveAndRender();
-    }
-
-    function readFileAsTextWithEncoding(file) {
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                let text = e.target.result;
-                const isLikelyJapaneseCSV = file.name.toLowerCase().endsWith('.csv') && !text.includes('Date');
-
-                if (isLikelyJapaneseCSV) {
-                    const readerSJIS = new FileReader();
-                    readerSJIS.onload = function(eSJIS) { resolve(eSJIS.target.result); };
-                    readerSJIS.readAsText(file, 'Shift_JIS');
-                } else {
-                    resolve(text);
-                }
-            };
-            reader.readAsText(file, 'UTF-8');
-        });
-    }
-
-    async function processExpenseCSV(file) {
-        const fileContent = await readFileAsTextWithEncoding(file);
-        return new Promise((resolve) => {
-            Papa.parse(fileContent, {
-                header: false,
-                skipEmptyLines: true,
-                complete: function(results) {
-                    let rows = results.data;
-                    if (!rows || rows.length === 0) return resolve([]);
-
-                    let extracted = [];
-                    let targetPaymentDate = null;
-                    let headerIndex = -1;
-                    const dateHeaders = ['Date & Time', 'Date', '日付', '取引日時', '利用日', '利用年月日', 'ご利用日'];
-
-                    for (let i = 0; i < rows.length; i++) {
-                        let rowStr = rows[i].join('');
-                        let matchDate = rowStr.match(/お支払[い日]*\D*(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/);
-                        if (matchDate) {
-                            targetPaymentDate = `${matchDate[3].padStart(2, '0')}/${matchDate[2].padStart(2, '0')}/${matchDate[1]}`;
-                            break;
-                        }
-                    }
-
-                    for (let i = 0; i < rows.length; i++) {
-                        let cleanedRow = rows[i].map(cleanHeader);
-                        if (cleanedRow.some(col => dateHeaders.includes(col))) {
-                            headerIndex = i;
-                            break;
-                        }
-                    }
-
-                    if (headerIndex !== -1) {
-                        let headers = rows[headerIndex].map(cleanHeader);
-                        for (let i = headerIndex + 1; i < rows.length; i++) {
-                            let rowArr = rows[i];
-                            let rowStr = rowArr.join('');
-
-                            if (rowStr.includes('お支払金額総合計') || rowStr.includes('分割・ボーナス払い明細')) break;
-
-                            let row = {};
-                            headers.forEach((h, idx) => {
-                                row[h] = rowArr[idx] !== undefined ? String(rowArr[idx]).trim() : '';
-                            });
-
-                            let rawDate = row['Date & Time'] || row['Date'] || row['取引日時'] || row['日付'] || row['利用日'] || row['利用年月日'] || row['ご利用日'];
-                            let description = row['Business Name'] || row['加盟店名/支払い先'] || row['内容'] || row['利用店名・商品名'] || row['ご利用先'] || 'Unknown Payment';
-                            description = normalizeJapaneseText(description);
-
-                            let rawAmountOut = row['ご利用金額'] || row['お買上金額'] || row['Amount Outgoing (Yen)'] || row['金額（出金）'] || row['Amount'] || row['金額'] || row['利用金額(円)'] || row['お支払い金額'];
-                            let amount = parseNum(rawAmountOut);
-                            let cleanDate = sanitizeDate(rawDate);
-
-                            let transactionDate = cleanDate;
-
-                            if (row['お支払い日'] || row['Payment Date']) {
-                                const rawPayDate = row['お支払い日'] || row['Payment Date'];
-                                const sanitizedPayDate = sanitizeDate(rawPayDate);
-                                if (sanitizedPayDate) {
-                                    transactionDate = sanitizedPayDate;
-                                }
-                            }
-
-                            if (cleanDate && amount > 0) {
-                                let cats = autoCategorize(description);
-                                extracted.push({
-                                    id: (Date.now() + Math.random()).toString(),
-                                    date: targetPaymentDate ? targetPaymentDate : transactionDate,
-                                    originalDate: cleanDate,
-                                    usageDate: cleanDate,
-                                    mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
-                                    subCategory: cats.subCategory,
-                                    description: description,
-                                    amount: amount,
-                                    source: "CSV Import"
-                                });
-                            }
-                        }
-                    } else {
-                        for (let i = 0; i < rows.length; i++) {
-                            let rowArr = rows[i];
-                            let rowStr = rowArr.join('');
-
-                            if (rowStr.includes('お支払金額総合計') || rowStr.includes('お支払い合計額') || rowStr.includes('様') || rowArr.length < 3) {
-                                continue;
-                            }
-
-                            let rawDate = String(rowArr[0] || '').trim();
-                            let rawDesc = String(rowArr[1] || '').trim();
-                            let rawAmount = String(rowArr[5] || rowArr[2] || '').trim();
-
-                            if (!rawDate.match(/^\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2}$/)) {
-                                continue;
-                            }
-                            
-                            let cleanDate = sanitizeDate(rawDate);
-                            let transactionDate = cleanDate;
-
-                            if (rowArr['お支払い日'] || rowArr['Payment Date']) {
-                                const rawPayDate = rowArr['お支払い日'] || rowArr['Payment Date'];
-                                const sanitizedPayDate = sanitizeDate(rawPayDate);
-                                if (sanitizedPayDate) {
-                                    transactionDate = sanitizedPayDate;
-                                }
-                            }
-
-                            let description = normalizeJapaneseText(rawDesc);
-                            let amount = parseNum(rawAmount);
-
-                            if (cleanDate && amount > 0 && description) {
-                                let cats = autoCategorize(description);
-                                extracted.push({
-                                    id: (Date.now() + Math.random()).toString(),
-                                    date: targetPaymentDate ? targetPaymentDate : transactionDate,
-                                    originalDate: cleanDate,
-                                    usageDate: cleanDate,
-                                    mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
-                                    subCategory: cats.subCategory,
-                                    description: description,
-                                    amount: amount,
-                                    source: "CSV Import"
-                                });
-                            }
-                        }
-                    }
-                    resolve(extracted);
-                }
-            });
-        });
-    }
-
-    async function processExpensePDF(file) {
-        let extracted = [];
-        try {
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-            let extractedLines = [];
-            let targetPaymentDate = null;
-
-            for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const textContent = await page.getTextContent();
-                let lineMap = {};
-
-                textContent.items.forEach(item => {
-                    let y = Math.round(item.transform[5]); 
-                    if (!lineMap[y]) lineMap[y] = [];
-                    lineMap[y].push(item.str);
-                });
-
-                Object.keys(lineMap).sort((a, b) => b - a).forEach(y => {
-                    let lineText = lineMap[y].join(' ').trim();
-                    if (lineText) extractedLines.push(lineText);
-                });
-            }
-
-            extractedLines.forEach(line => {
-                if (!targetPaymentDate && (line.includes('お支払い日') || line.includes('お支払日'))) {
-                    let matchDate = line.match(/(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/);
-                    if (matchDate) {
-                        targetPaymentDate = `${matchDate[3].padStart(2, '0')}/${matchDate[2].padStart(2, '0')}/${matchDate[1]}`;
-                    }
-                }
-            });
-
-            let fullText = extractedLines.join('\n');
-            const smbcGlobalRegex = /(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})\s+([^\r\n]+?(?:\r?\n[^\r\n]+?)*?)\s+(\d{1,3}(?:,\d{3})*)\s+[1-9]\s+[1-9]/g;
-
-            let match;
-            while ((match = smbcGlobalRegex.exec(fullText)) !== null) {
-                let rawDate = match[1];
-                let rawDesc = match[2];
-                let amountStr = match[3];
-
-                let description = normalizeJapaneseText(rawDesc.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim());
-                let amount = parseNum(amountStr);
-
-                if (description.includes("お支払い合計額") || description.includes("お支払金額総合計") || description.includes("最低支払額")) {
-                    continue;
-                }
-
-                let cleanDate = sanitizeDate(rawDate);
-
-                if (cleanDate && amount > 0 && description) {
-                    let cats = autoCategorize(description);
-                    extracted.push({
-                        id: (Date.now() + Math.random()).toString(),
-                        date: targetPaymentDate ? targetPaymentDate : cleanDate,
-                        originalDate: cleanDate,
-                        usageDate: cleanDate,
-                        mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
-                        subCategory: cats.subCategory,
-                        description: description,
-                        amount: amount,
-                        source: "PDF Import"
-                    });
-                }
-            }
-        } catch (err) {
-            console.error("PDF Parsing Error:", err);
-        }
-        return extracted;
-    }
-
-    function saveAndRender() {
-        syncAllDataMainCategories();
-        localStorage.setItem('household_custom_rules', JSON.stringify(customRules));
-        localStorage.setItem('processed_file_hashes', JSON.stringify(processedFilesHashes));
-        renderDashboard();
-        syncToSheets();
-    }
-
-    function clearExpenseData() {
-        if (confirm("Clear all records and hash history?")) {
-            expenseData = [];
-            processedFilesHashes = [];
-            localStorage.removeItem('processed_file_hashes');
-            localStorage.removeItem('household_expense_data');
-            renderDashboard();
-            syncToSheets();
-        }
-    }
-
-    function cleanHeader(hdr) {
-        return hdr ? String(hdr).replace(/^\uFEFF/, '').replace(/["']/g, '').trim() : '';
-    }
-
-    function populateMonthFilter(transactions) {
-        const monthSelect = document.getElementById('month-filter');
-        if (!monthSelect) return;
-        const curMonth = monthSelect.value;
-
-        const monthMap = {};
-        let combined = transactions || getCombinedData();
-
-        combined.forEach(tx => {
-            if (tx.date) {
-                const parts = tx.date.split('/');
-                if (parts.length === 3) {
-                    const mm = parts[1].padStart(2, '0');
-                    const yyyy = parts[2];
-                    const key = `${mm}/${yyyy}`;
-                    monthMap[key] = `${yyyy}年 ${parseInt(mm, 10)}月`;
-                }
-            }
-        });
-
-        monthSelect.innerHTML = '<option value="ALL">All Months</option>';
-
-        const sortedKeys = Object.keys(monthMap).sort((a, b) => {
-            const [mA, yA] = a.split('/');
-            const [mB, yB] = b.split('/');
-            return `${yB}${mB}`.localeCompare(`${yA}${mA}`);
-        });
-
-        sortedKeys.forEach(key => {
-            const opt = document.createElement('option');
-            opt.value = key;
-            opt.textContent = monthMap[key];
-            monthSelect.appendChild(opt);
-        });
-
-        if (curMonth && sortedKeys.includes(curMonth)) {
-            monthSelect.value = curMonth;
-        } else {
-            monthSelect.value = 'ALL';
-        }
-    }
-
-    function setExpenseViewMode(mode) {
-        currentExpenseViewMode = mode;
-        document.getElementById('btnViewMainCat').classList.toggle('active', mode === 'main_category');
-        document.getElementById('btnViewSubCat').classList.toggle('active', mode === 'sub_category');
-        renderDashboard();
-    }
-
-    function getCombinedData() {
-        let combined = [...expenseData];
-        const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
-        
-        let monthsToProcess = new Set();
-        
-        if (selectedMonth !== 'ALL') {
-            monthsToProcess.add(selectedMonth);
-        } else {
-            expenseData.forEach(d => {
-                if (d.date) {
-                    const parts = d.date.split('/');
-                    if (parts.length === 3) monthsToProcess.add(`${parts[1].padStart(2, '0')}/${parts[2]}`);
-                }
-            });
-            if (monthsToProcess.size === 0) {
-                const today = new Date();
-                monthsToProcess.add(`${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`);
-            }
-        }
-
-        monthsToProcess.forEach(m => {
-            const [mm, yyyy] = m.split('/');
-            const fixedDateStr = `01/${mm.padStart(2, '0')}/${yyyy}`;
-            
-            const dynamicFixed = FIXED_EXPENSES.map((fe, index) => ({
-                id: `fixed_${yyyy}${mm}_${index}`,
-                date: fixedDateStr,
-                description: fe.description,
-                amount: Number(fe.amount),
-                mainCategory: fe.mainCategory,
-                subCategory: fe.subCategory,
-                source: 'Fixed Expense',
-                isFixed: true
-            }));
-            
-            combined.push(...dynamicFixed);
-        });
-
-        return combined;
-    }
-
-    function renderChart(data) {
-        if (expenseChartInstance) expenseChartInstance.destroy();
-        const ctx = document.getElementById('expenseChart').getContext('2d');
-        const total = data.reduce((sum, item) => sum + item.amount, 0);
-
-        if (currentExpenseViewMode === 'main_category') {
-            const catAgg = {};
-            data.forEach(d => {
-                const main = getMainCategory(d.subCategory, d.mainCategory);
-                catAgg[main] = (catAgg[main] || 0) + d.amount;
-            });
-
-            expenseChartInstance = new Chart(ctx, {
-                type: 'pie',
-                data: {
-                    labels: Object.keys(catAgg),
-                    datasets: [{
-                        data: Object.values(catAgg),
-                        backgroundColor: ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#64748b', '#0284c7', '#d97706']
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const val = context.raw || 0;
-                                    const percentage = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
-                                    return ` ${context.label}: ¥${val.toLocaleString()} (${percentage}%)`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-
-        } else if (currentExpenseViewMode === 'sub_category') {
-            const subAgg = {};
-            data.forEach(d => {
-                const main = getMainCategory(d.subCategory, d.mainCategory);
-                const label = `${main} > ${d.subCategory}`;
-                subAgg[label] = (subAgg[label] || 0) + d.amount;
-            });
-
-            expenseChartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: Object.keys(subAgg),
-                    datasets: [{ label: 'Subcategory Spending (¥)', data: Object.values(subAgg), backgroundColor: '#8b5cf6' }]
-                },
-                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
-            });
-        }
-    }
-
-    function renderTableDataOnly(dataset) {
-        const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
-        
-        let baseData = dataset || getCombinedData().filter(d => {
-            if (selectedMonth === 'ALL') return true;
-            if (!d.date) return false;
-            const parts = d.date.split('/');
-            return parts.length === 3 && `${parts[1].padStart(2, '0')}/${parts[2]}` === selectedMonth;
-        });
-
-        const dateFilterVal = (document.getElementById('col-filter-date')?.value || '').toLowerCase().trim();
-        const mainCatFilterVal = document.getElementById('col-filter-main-cat')?.value || 'ALL';
-        const subCatFilterVal = document.getElementById('col-filter-sub-cat')?.value || 'ALL';
-        const descFilterVal = (document.getElementById('col-filter-desc')?.value || '').toLowerCase().trim();
-
-        let filtered = baseData.filter(item => {
-            const mainCat = getMainCategory(item.subCategory, item.mainCategory);
-            const formattedDate = sanitizeDate(item.date) || item.date || '';
-            if (dateFilterVal && !formattedDate.toLowerCase().includes(dateFilterVal)) return false;
-            if (mainCatFilterVal !== 'ALL' && mainCat !== mainCatFilterVal) return false;
-            if (subCatFilterVal !== 'ALL' && item.subCategory !== subCatFilterVal) return false;
-            if (descFilterVal && !item.description.toLowerCase().includes(descFilterVal)) return false;
-            return true;
-        });
-
-        const tbody = document.getElementById('expense-table-body');
-        if (!tbody) return;
-        tbody.innerHTML = '';
-
-        const sortedData = [...filtered].sort((a,b) => {
-            let dateA = sanitizeDate(a.date) || '';
-            let dateB = sanitizeDate(b.date) || '';
-            let partsA = dateA.split('/');
-            let partsB = dateB.split('/');
-            
-            if (partsA.length === 3 && partsB.length === 3) {
-                let isoA = `${partsA[2]}-${partsA[1].padStart(2, '0')}-${partsA[0].padStart(2, '0')}`;
-                let isoB = `${partsB[2]}-${partsB[1].padStart(2, '0')}-${partsB[0].padStart(2, '0')}`;
-                return isoB.localeCompare(isoA);
-            }
-            return (dateB).localeCompare(dateA);
-        });
-
-        sortedData.forEach(item => {
-            const mainCat = getMainCategory(item.subCategory, item.mainCategory);
-            const displayDate = sanitizeDate(item.date) || 'N/A';
-            const isFixed = String(item.id).startsWith('fixed_');
-
-            const checkboxHTML = isFixed ? 
-                `<input type="checkbox" disabled title="Automated record">` : 
-                `<input type="checkbox" class="item-checkbox" data-id="${item.id}" onchange="updateSelectedCount()">`;
-
-            const actionHTML = isFixed ? 
-                `<span style="color:var(--text-muted); font-size:0.8rem; font-weight: 500; padding: 4px;">Automated</span>` : 
-                `<button onclick="deleteExpense('${item.id}')" style="background: transparent; border: none; color: #ef4444; cursor: pointer; padding: 4px;">🗑️ Delete</button>`;
-
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${checkboxHTML}</td>
-                <td style="font-weight: 500; white-space: nowrap;">${displayDate}</td>
-                <td><span class="cat-tag">${mainCat}</span></td>
-                <td><span class="subcat-tag">${item.subCategory}</span></td>
-                <td>${item.description}</td>
-                <td style="font-weight: 700; white-space: nowrap;">¥${item.amount.toLocaleString()}</td>
-                <td>${actionHTML}</td>
-            `;
-            tbody.appendChild(row);
-        });
-
-        const selectAll = document.getElementById('select-all-checkbox');
-        if (selectAll) selectAll.checked = false;
-        updateSelectedCount();
-    }
-
-    function renderDashboard() {
-        populateMonthFilter();
-        const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
-        
-        let allData = getCombinedData();
-
-        let filtered = allData.filter(d => {
-            if (selectedMonth === 'ALL') return true;
-            if (!d.date) return false;
-            const parts = d.date.split('/');
-            if (parts.length === 3) {
-                const itemMonthYear = `${parts[1].padStart(2, '0')}/${parts[2]}`;
-                return itemMonthYear === selectedMonth;
-            }
-            return false;
-        });
-
-        let totalSpend = filtered.reduce((sum, item) => sum + item.amount, 0);
-        document.getElementById('m-total-spending').textContent = `¥${totalSpend.toLocaleString()}`;
-        document.getElementById('m-transaction-count').textContent = filtered.length.toLocaleString();
-
-        const validDates = filtered.map(d => sanitizeDate(d.date)).filter(Boolean);
-        
-        let divisor = 1;
-        if (selectedMonth !== 'ALL') {
-            const [mm, yyyy] = selectedMonth.split('/');
-            divisor = new Date(parseInt(yyyy, 10), parseInt(mm, 10), 0).getDate(); 
-        } else {
-            const uniqueDays = new Set(validDates).size;
-            divisor = uniqueDays > 0 ? uniqueDays : 1;
-        }
-
-        document.getElementById('m-daily-avg').textContent = `¥${Math.round(totalSpend / divisor).toLocaleString()}`;
-
-        renderChart(filtered);
-        renderTableDataOnly(filtered);
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-        syncAllDataMainCategories();
-        initCategoryDropdowns();
-        renderRules();
-        fetchDataFromSheets();
-    });
 </script>
 </body>
 </html>
