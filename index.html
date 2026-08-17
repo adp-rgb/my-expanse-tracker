@@ -724,7 +724,105 @@
 
         return combined;
     }
+// --- CORE LOGIC: UNIFIED PARSERS & YYYYMM PAYMENT DATE FORMATTING ---
 
+    // Helper: Convert any date string into YYYYMM format
+    function formatToYYYYMM(dateString) {
+        if (!dateString) return "";
+        let d = new Date(dateString);
+        if (isNaN(d)) {
+            const jpMatch = dateString.match(/(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/);
+            if (jpMatch) {
+                d = new Date(`${jpMatch[1]}-${jpMatch[2].padStart(2, '0')}-${jpMatch[3].padStart(2, '0')}`);
+            }
+        }
+        if (isNaN(d)) return "";
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        return `${year}${month}`;
+    }
+
+    // Custom Parser for AEON CSV Files (Extracts payment date and maps rows)
+    function parseAeonCSVText(text) {
+        const lines = text.split('\n');
+        let paymentDateStr = "2026-03-02"; // Fallback
+        
+        for (let i = 0; i < Math.min(5, lines.length); i++) {
+            if (lines[i].includes("お支払い日")) {
+                const match = lines[i].match(/(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/);
+                if (match) {
+                    const y = match[1];
+                    const m = match[2].padStart(2, '0');
+                    const d = match[3].padStart(2, '0');
+                    paymentDateStr = `${y}-${m}-${d}`;
+                }
+            }
+        }
+
+        const paymentYYYYMM = formatToYYYYMM(paymentDateStr);
+        let parsed = [];
+        let isHeaderPassed = false;
+        
+        lines.forEach(line => {
+            const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+            if (cols[0] === "ご利用日") {
+                isHeaderPassed = true;
+                return;
+            }
+            if (isHeaderPassed && cols.length >= 7 && cols[0].match(/^\d{6}$/)) {
+                const rawDate = cols[0]; 
+                const usageDate = `20${rawDate.slice(0,2)}-${rawDate.slice(2,4)}-${rawDate.slice(4,6)}`;
+                const description = cols[2];
+                const amount = parseFloat(cols[6]) || 0;
+
+                parsed.push({
+                    date: paymentYYYYMM,          
+                    fullPaymentDate: paymentDateStr,
+                    usageDate: usageDate,
+                    mainCategory: "AEON Card",
+                    subCategory: "Credit Card",
+                    description: description,
+                    amount: amount,
+                    source: "AEON"
+                });
+            }
+        });
+        return parsed;
+    }
+
+    // Custom Parser for SMBC / ANA Master Gold CSV Files
+    function parseStandardCardCSVText(text, sourceName) {
+        const lines = text.split('\n');
+        let parsed = [];
+
+        lines.forEach(line => {
+            const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+            if (cols.length >= 3 && cols[0].match(/^\d{4}\/\d{2}\/\d{2}$/)) {
+                const usageDate = cols[0].replace(/\//g, '-');
+                const description = cols[1];
+                const amount = parseFloat(cols[2]) || 0;
+
+                const d = new Date(usageDate);
+                d.setMonth(d.getMonth() + 1);
+                d.setDate(10);
+                
+                const paymentDateStr = d.toISOString().split('T')[0];
+                const paymentYYYYMM = formatToYYYYMM(paymentDateStr);
+
+                parsed.push({
+                    date: paymentYYYYMM,          
+                    fullPaymentDate: paymentDateStr,
+                    usageDate: usageDate,
+                    mainCategory: sourceName,
+                    subCategory: "Credit Card",
+                    description: description,
+                    amount: amount,
+                    source: sourceName
+                });
+            }
+        });
+        return parsed;
+    }
     
 
     async function fetchDataFromSheets() {
@@ -1177,7 +1275,7 @@
         });
     }
 
-    async function handleFileUpload(event) {
+async function handleFileUpload(event) {
         const files = Array.from(event.target.files);
         const status = document.getElementById('expense-upload-status');
         if (files.length === 0) return;
@@ -1191,7 +1289,14 @@
             let newItems = [];
 
             if (fname.endsWith('.csv')) {
-                newItems = await processExpenseCSV(file);
+                const textContent = await readFileAsTextWithEncoding(file);
+                if (fname.includes('aeon') || textContent.includes('AEON')) {
+                    newItems = parseAeonCSVText(textContent);
+                } else if (fname.includes('smbc') || fname.includes('ana')) {
+                    newItems = parseStandardCardCSVText(textContent, 'SMBC Card');
+                } else {
+                    newItems = await processExpenseCSV(file);
+                }
             } else if (fname.endsWith('.pdf')) {
                 newItems = await processExpensePDF(file);
             }
