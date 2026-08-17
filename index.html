@@ -390,7 +390,7 @@
 </div>
 
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbxyEW6_AbPQZBrTJYLIpfFD-vqu8MSC2R0Zl-Fi2rxBAvBpf-wVEXfR7Uq9DRGQFXbN/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbwK9DR-2CqwHngBFAaFf2UPMnTpaVFGcY3tnK6RySi7rUXvLifHMyww5W840MKsl6nL/exec";
         
     // Fixed Monthly Expenses Array
     const FIXED_EXPENSES = [
@@ -825,37 +825,69 @@
     }
     
 
-    async function fetchDataFromSheets() {
-        if (!API_URL || API_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) {
-            setSyncState('local', 'Local Mode');
-            renderDashboard();
-            return;
-        }
-        setSyncState('syncing', 'Syncing...');
-        try {
-            const response = await fetch(API_URL + "?action=read", {
-                method: "GET",
-                redirect: "follow"
-            });
-            
-            if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-            
-            const data = await response.json();
-            if (Array.isArray(data) && data.length > 0) {
-                expenseData = data;
-                expenseData.forEach(item => {
-                    let rawDate = item.date !== undefined ? item.date : (item.Date !== undefined ? item.Date : item.DATE);
-                    item.date = sanitizeDate(rawDate);
-                });
+async function handleFileUpload(event) {
+        const files = Array.from(event.target.files);
+        const status = document.getElementById('expense-upload-status');
+        if (files.length === 0) return;
+
+        let totalExtracted = 0;
+        let updatedCount = 0;
+
+        for (let file of files) {
+            status.textContent = `Processing ${file.name}...`;
+            const fname = file.name.toLowerCase();
+            let newItems = [];
+
+            if (fname.endsWith('.csv')) {
+                const textContent = await readFileAsTextWithEncoding(file);
+                if (fname.includes('aeon') || textContent.includes('AEON')) {
+                    newItems = parseAeonCSVText(textContent);
+                } else if (fname.includes('smbc') || fname.includes('ana')) {
+                    newItems = parseStandardCardCSVText(textContent, 'SMBC Card');
+                } else {
+                    newItems = await processExpenseCSV(file);
+                }
+            } else if (fname.endsWith('.pdf')) {
+                newItems = await processExpensePDF(file);
             }
-            syncAllDataMainCategories();
-            renderDashboard();
-            setSyncState('synced', 'Synced');
-        } catch (e) {
-            console.warn("Fetch from Google Sheets failed, falling back to local data storage:", e);
-            setSyncState('local', 'Local Mode');
-            renderDashboard();
+
+            newItems.forEach(item => {
+                const hash = getTransactionHash(item);
+                const existingIndex = expenseData.findIndex(e => getTransactionHash(e) === hash);
+                const freshCat = autoCategorize(item.description);
+
+                if (existingIndex !== -1) {
+                    expenseData[existingIndex].subCategory = freshCat.subCategory;
+                    expenseData[existingIndex].mainCategory = getMainCategory(freshCat.subCategory, freshCat.mainCategory);
+                    updatedCount++;
+                } else {
+                    processedFilesHashes.push(hash);
+                    item.subCategory = freshCat.subCategory;
+                    item.mainCategory = getMainCategory(freshCat.subCategory, freshCat.mainCategory);
+                    expenseData.push(item);
+                    totalExtracted++;
+                }
+            });
         }
+
+        saveAndRender();
+        status.textContent = `Import complete! Added ${totalExtracted} new items (${updatedCount} updated).`;
+        event.target.value = '';
+    }
+
+    // When saving/syncing to Google Sheets, use this payload structure:
+    function preparePayloadForSheet(item) {
+        return {
+            id: item.id || getTransactionHash(item),
+            date: item.date,                 // YYYYMM format (e.g., "202603")
+            fullPaymentDate: item.fullPaymentDate || "", 
+            usageDate: item.usageDate || "",     
+            mainCategory: item.mainCategory,
+            subCategory: item.subCategory,
+            description: item.description,
+            amount: item.amount,
+            source: item.source || "Manual"
+        };
     }
 
     async function syncToSheets() {
