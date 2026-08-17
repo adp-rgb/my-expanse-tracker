@@ -597,134 +597,7 @@
         el.textContent = text;
     }
     
-        // --- CORE LOGIC: UNIFIED PARSERS & YYYYMM PAYMENT DATE FORMATTING ---
-
-    // Helper: Convert any date string into YYYYMM format
-    function formatToYYYYMM(dateString) {
-        if (!dateString) return "";
-        let d = new Date(dateString);
-        if (isNaN(d)) {
-            // Handle Japanese format like "2026年 3月 2日"
-            const jpMatch = dateString.match(/(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/);
-            if (jpMatch) {
-                d = new Date(`${jpMatch[1]}-${jpMatch[2].padStart(2, '0')}-${jpMatch[3].padStart(2, '0')}`);
-            }
-        }
-        if (isNaN(d)) return "";
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        return `${year}${month}`;
-    }
-
-    // Custom Parser for AEON CSV Files (Extracts お支払い日 and maps rows)
-    function parseAeonCSVText(text) {
-        const lines = text.split('\n');
-        let paymentDateStr = "2026-03-02"; // Fallback
-        
-        for (let i = 0; i < Math.min(5, lines.length); i++) {
-            if (lines[i].includes("お支払い日")) {
-                const match = lines[i].match(/(\d{4})年\s*(\d{1,2})月\s*(\d{1,2}) দিন|(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/);
-                if (match) {
-                    const y = match[1];
-                    const m = match[2].padStart(2, '0');
-                    const d = match[3].padStart(2, '0');
-                    paymentDateStr = `${y}-${m}-${d}`;
-                }
-            }
-        }
-
-        const paymentYYYYMM = formatToYYYYMM(paymentDateStr);
-        let parsed = [];
-        let isHeaderPassed = false;
-        
-        lines.forEach(line => {
-            const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-            if (cols[0] === "ご利用日") {
-                isHeaderPassed = true;
-                return;
-            }
-            if (isHeaderPassed && cols.length >= 7 && cols[0].match(/^\d{6}$/)) {
-                const rawDate = cols[0]; // e.g., 260111
-                const usageDate = `20${rawDate.slice(0,2)}-${rawDate.slice(2,4)}-${rawDate.slice(4,6)}`;
-                const description = cols[2];
-                const amount = parseFloat(cols[6]) || 0;
-
-                parsed.push({
-                    date: paymentYYYYMM,          // Stored/displayed as YYYYMM (e.g., 202603)
-                    fullPaymentDate: paymentDateStr,
-                    usageDate: usageDate,
-                    main_category: "AEON Card",
-                    sub_category: "Credit Card",
-                    description: description,
-                    amount: amount,
-                    source: "AEON"
-                });
-            }
-        });
-        return parsed;
-    }
-
-    // Custom Parser for SMBC / ANA Master Gold CSV Files (Payment on 10th of next month)
-    function parseStandardCardCSVText(text, sourceName) {
-        const lines = text.split('\n');
-        let parsed = [];
-
-        lines.forEach(line => {
-            const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-            if (cols.length >= 3 && cols[0].match(/^\d{4}\/\d{2}\/\d{2}$/)) {
-                const usageDate = cols[0].replace(/\//g, '-');
-                const description = cols[1];
-                const amount = parseFloat(cols[2]) || 0;
-
-                // Calculate payment date: 10th of the following month
-                const d = new Date(usageDate);
-                d.setMonth(d.getMonth() + 1);
-                d.setDate(10);
-                
-                const paymentDateStr = d.toISOString().split('T')[0];
-                const paymentYYYYMM = formatToYYYYMM(paymentDateStr);
-
-                parsed.push({
-                    date: paymentYYYYMM,          // Stored/displayed as YYYYMM (e.g., 202603)
-                    fullPaymentDate: paymentDateStr,
-                    usageDate: usageDate,
-                    main_category: sourceName,
-                    sub_category: "Credit Card",
-                    description: description,
-                    amount: amount,
-                    source: sourceName
-                });
-            }
-        });
-        return parsed;
-    }
-
-    // Hook into existing global expense processing to append fixed expenses and processed card formats
-    function appendPaymentMonthData(importedTransactions) {
-        let combined = [...importedTransactions];
-
-        // Example Fixed Expenses mapped to YYYYMM format
-        const fixedExpenses = [
-            { title: "家賃 (Rent)", amount: 85000, paymentDate: "2026-03-27", category: "Housing", subcategory: "Rent" },
-            { title: "インターネット (Internet)", amount: 5000, paymentDate: "2026-03-27", category: "Utilities", subcategory: "Internet" }
-        ];
-
-        fixedExpenses.forEach(fe => {
-            const yyyymm = formatToYYYYMM(fe.paymentDate);
-            combined.push({
-                date: yyyymm,
-                fullPaymentDate: fe.paymentDate,
-                main_category: fe.category,
-                sub_category: fe.subcategory,
-                description: fe.title,
-                amount: fe.amount,
-                source: "Fixed Expense"
-            });
-        });
-
-        return combined;
-    }
-// --- CORE LOGIC: UNIFIED PARSERS & YYYYMM PAYMENT DATE FORMATTING ---
+    // --- CORE LOGIC: UNIFIED PARSERS & YYYYMM PAYMENT DATE FORMATTING ---
 
     // Helper: Convert any date string into YYYYMM format
     function formatToYYYYMM(dateString) {
@@ -823,9 +696,8 @@
         });
         return parsed;
     }
-    
 
-async function handleFileUpload(event) {
+    async function handleFileUpload(event) {
         const files = Array.from(event.target.files);
         const status = document.getElementById('expense-upload-status');
         if (files.length === 0) return;
@@ -875,13 +747,13 @@ async function handleFileUpload(event) {
         event.target.value = '';
     }
 
-    // When saving/syncing to Google Sheets, use this payload structure:
+    // Updated preparePayloadForSheet function with proper fallbacks for Usage Date and Source
     function preparePayloadForSheet(item) {
         return {
             id: item.id || getTransactionHash(item),
             date: item.date,                 // YYYYMM format (e.g., "202603")
             fullPaymentDate: item.fullPaymentDate || "", 
-            usageDate: item.usageDate || "",     
+            usageDate: item.usageDate || item.date || "",     
             mainCategory: item.mainCategory,
             subCategory: item.subCategory,
             description: item.description,
@@ -1266,7 +1138,9 @@ async function handleFileUpload(event) {
             mainCategory: mainCategory, 
             subCategory: subCategory, 
             description: description, 
-            amount: amount 
+            amount: amount,
+            usageDate: formattedDate,
+            source: "Manual"
         };
         const hash = getTransactionHash(newItem);
 
@@ -1305,56 +1179,6 @@ async function handleFileUpload(event) {
             };
             reader.readAsText(file, 'UTF-8');
         });
-    }
-
-async function handleFileUpload(event) {
-        const files = Array.from(event.target.files);
-        const status = document.getElementById('expense-upload-status');
-        if (files.length === 0) return;
-
-        let totalExtracted = 0;
-        let updatedCount = 0;
-
-        for (let file of files) {
-            status.textContent = `Processing ${file.name}...`;
-            const fname = file.name.toLowerCase();
-            let newItems = [];
-
-            if (fname.endsWith('.csv')) {
-                const textContent = await readFileAsTextWithEncoding(file);
-                if (fname.includes('aeon') || textContent.includes('AEON')) {
-                    newItems = parseAeonCSVText(textContent);
-                } else if (fname.includes('smbc') || fname.includes('ana')) {
-                    newItems = parseStandardCardCSVText(textContent, 'SMBC Card');
-                } else {
-                    newItems = await processExpenseCSV(file);
-                }
-            } else if (fname.endsWith('.pdf')) {
-                newItems = await processExpensePDF(file);
-            }
-
-            newItems.forEach(item => {
-                const hash = getTransactionHash(item);
-                const existingIndex = expenseData.findIndex(e => getTransactionHash(e) === hash);
-                const freshCat = autoCategorize(item.description);
-
-                if (existingIndex !== -1) {
-                    expenseData[existingIndex].subCategory = freshCat.subCategory;
-                    expenseData[existingIndex].mainCategory = getMainCategory(freshCat.subCategory, freshCat.mainCategory);
-                    updatedCount++;
-                } else {
-                    processedFilesHashes.push(hash);
-                    item.subCategory = freshCat.subCategory;
-                    item.mainCategory = getMainCategory(freshCat.subCategory, freshCat.mainCategory);
-                    expenseData.push(item);
-                    totalExtracted++;
-                }
-            });
-        }
-
-        saveAndRender();
-        status.textContent = `Import complete! Added ${totalExtracted} new items (${updatedCount} updated).`;
-        event.target.value = '';
     }
 
     async function processExpenseCSV(file) {
@@ -1426,10 +1250,12 @@ async function handleFileUpload(event) {
                                     id: (Date.now() + Math.random()).toString(),
                                     date: targetPaymentDate ? targetPaymentDate : transactionDate,
                                     originalDate: cleanDate,
+                                    usageDate: cleanDate,
                                     mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
                                     subCategory: cats.subCategory,
                                     description: description,
-                                    amount: amount
+                                    amount: amount,
+                                    source: "CSV Import"
                                 });
                             }
                         }
@@ -1454,7 +1280,7 @@ async function handleFileUpload(event) {
                             let transactionDate = cleanDate;
 
                             if (rowArr['お支払い日'] || rowArr['Payment Date']) {
-                                const rawPayDate = rowArr['お支払い日'] || rowArr['Payment Date'];
+                                const rawPayDate = rowArr['お支払い日'] || row['Payment Date'];
                                 const sanitizedPayDate = sanitizeDate(rawPayDate);
                                 if (sanitizedPayDate) {
                                     transactionDate = sanitizedPayDate;
@@ -1470,10 +1296,12 @@ async function handleFileUpload(event) {
                                     id: (Date.now() + Math.random()).toString(),
                                     date: targetPaymentDate ? targetPaymentDate : transactionDate,
                                     originalDate: cleanDate,
+                                    usageDate: cleanDate,
                                     mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
                                     subCategory: cats.subCategory,
                                     description: description,
-                                    amount: amount
+                                    amount: amount,
+                                    source: "CSV Import"
                                 });
                             }
                         }
@@ -1542,10 +1370,12 @@ async function handleFileUpload(event) {
                         id: (Date.now() + Math.random()).toString(),
                         date: targetPaymentDate ? targetPaymentDate : cleanDate,
                         originalDate: cleanDate,
+                        usageDate: cleanDate,
                         mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
                         subCategory: cats.subCategory,
                         description: description,
-                        amount: amount
+                        amount: amount,
+                        source: "PDF Import"
                     });
                 }
             }
