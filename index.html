@@ -601,17 +601,29 @@
     
     // --- CORE LOGIC: UNIFIED PARSERS & YYYYMM PAYMENT DATE FORMATTING ---
 
-  function formatToYYYYMM(dateString) {
+ function formatToYYYYMM(dateString) {
     if (!dateString) return "";
     
-    // Handle DD/MM/YYYY format (e.g. 17/01/2026)
-    let parts = String(dateString).split(/[\/\.-]/);
+    let str = String(dateString).trim();
+    if (!str) return "";
+
+    // Handle YYYYMM format directly (e.g., "202603")
+    if (/^\d{6}$/.test(str)) {
+        return str;
+    }
+
+    // Handle Japanese date format (e.g. "2026年 3月 2日")
+    const jpMatch = str.match(/(\d{4})年\s*(\d{1,2})月/);
+    if (jpMatch) {
+        return `${jpMatch[1]}${jpMatch[2].padStart(2, '0')}`;
+    }
+
+    // Handle slash, hyphen, or dot separated formats (e.g. 2026/03/02)
+    let parts = str.split(/[\/\.-]/);
     if (parts.length === 3) {
         if (parts[0].length === 4) {
-            // YYYY-MM-DD format
             return `${parts[0]}${parts[1].padStart(2, '0')}`;
         } else if (parts[2].length >= 2) {
-            // DD/MM/YYYY format
             let year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
             let month = parts[1].padStart(2, '0');
             return `${year}${month}`;
@@ -619,17 +631,14 @@
     }
 
     // Fallback standard parsing
-    let d = new Date(dateString);
-    if (isNaN(d)) {
-        const jpMatch = dateString.match(/(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/);
-        if (jpMatch) {
-            d = new Date(`${jpMatch[1]}-${jpMatch[2].padStart(2, '0')}-${jpMatch[3].padStart(2, '0')}`);
-        }
+    let d = new Date(str);
+    if (!isNaN(d.getTime())) {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        return `${year}${month}`;
     }
-    if (isNaN(d)) return "";
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    return `${year}${month}`;
+
+    return "";
 }
     // Custom Parser for AEON CSV Files
     function parseAeonCSVText(text) {
