@@ -783,6 +783,30 @@
         }
     }
 
+    async function fetchDataFromSheets() {
+        if (!API_URL || API_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) {
+            setSyncState('local', 'Local Mode');
+            renderDashboard();
+            return;
+        }
+        setSyncState('syncing', 'Loading...');
+        try {
+            const response = await fetch(API_URL);
+            const result = await response.json();
+            if (result && Array.isArray(result.data)) {
+                expenseData = result.data;
+                localStorage.setItem('household_expense_data', JSON.stringify(expenseData));
+                setSyncState('synced', 'Synced');
+            } else {
+                setSyncState('local', 'Local Mode (Empty remote)');
+            }
+        } catch (e) {
+            console.error("Fetch failed:", e);
+            setSyncState('local', 'Local Mode (Offline)');
+        }
+        renderDashboard();
+    }
+
     function getTransactionHash(item) {
         return `${item.date}_${item.description}_${item.amount}`;
     }
@@ -1280,7 +1304,7 @@
                             let transactionDate = cleanDate;
 
                             if (rowArr['お支払い日'] || rowArr['Payment Date']) {
-                                const rawPayDate = rowArr['お支払い日'] || row['Payment Date'];
+                                const rawPayDate = rowArr['お支払い日'] || rowArr['Payment Date'];
                                 const sanitizedPayDate = sanitizeDate(rawPayDate);
                                 if (sanitizedPayDate) {
                                     transactionDate = sanitizedPayDate;
