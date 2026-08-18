@@ -764,9 +764,15 @@
         event.target.value = '';
     }
 
-function preparePayloadForSheet(item) {
+    function preparePayloadForSheet(item) {
         let usageDateYYYYMM = "";
-        if (item.usageDate && /^\d{6}$/.test(item.usageDate) && item.usageDate !== '202601') {
+        const isPayPay = (item.source && item.source.toLowerCase().includes('paypay')) ||
+                         (item.filename && item.filename.toLowerCase().includes('paypay')) ||
+                         (item.id && String(item.id).toLowerCase().includes('paypay'));
+
+        if (isPayPay && item.date) {
+            usageDateYYYYMM = formatToYYYYMM(item.date);
+        } else if (item.usageDate && /^\d{6}$/.test(item.usageDate) && item.usageDate !== '202601') {
             usageDateYYYYMM = item.usageDate;
         } else if (item.fullPaymentDate) {
             usageDateYYYYMM = formatToYYYYMM(item.fullPaymentDate);
@@ -1243,6 +1249,8 @@ function preparePayloadForSheet(item) {
     async function processExpenseCSV(file) {
     const fileContent = await readFileAsTextWithEncoding(file);
     const fileName = file ? file.name : "";
+    const filenameLower = fileName.toLowerCase();
+    const isPayPayFile = filenameLower.includes('paypay') || fileContent.includes('Amount Outgoing (Yen)') || fileContent.includes('Transaction ID');
     const filenameFallbackYYYYMM = extractYYYYMMFromFilename(fileName);
 
     return new Promise((resolve) => {
@@ -1311,13 +1319,16 @@ function preparePayloadForSheet(item) {
                         let amount = parseNum(rawAmountOut);
                         let cleanDate = sanitizeDate(rawDate); // <--- Transaction date remains untouched
 
-// Priority for PayPay/Transactions: 
-                        // 1. Explicit Statement Payment Date (if provided)
-                        // 2. Actual Transaction Date from the row (cleanDate / Date & Time column)
-                        // 3. Filename Fallback or Current Date
-                        let rowPayVal = payDateColIdx !== -1 ? rowArr[payDateColIdx] : null;
-                        let rawPaymentDate = rowPayVal || targetPaymentDate || '';
-                        let usageDate = formatToYYYYMM(rawPaymentDate);
+                        // Priority for PayPay vs Standard Statements:
+                        // If it's PayPay, usageDate must be populated from the transaction's own date.
+                        let usageDate = "";
+                        if (isPayPayFile) {
+                            usageDate = formatToYYYYMM(rawDate);
+                        } else {
+                            let rowPayVal = payDateColIdx !== -1 ? rowArr[payDateColIdx] : null;
+                            let rawPaymentDate = rowPayVal || targetPaymentDate || '';
+                            usageDate = formatToYYYYMM(rawPaymentDate);
+                        }
 
                         // If no valid billing statement month is found, or if it points to an old default, use current year and month
                         if (!usageDate || usageDate === '202601') {
@@ -1331,12 +1342,12 @@ function preparePayloadForSheet(item) {
                                 id: (Date.now() + Math.random()).toString(),
                                 date: cleanDate,          // <--- Untouched transaction date
                                 originalDate: cleanDate,
-                                usageDate: usageDate,     // <--- Populated as YYYYMM following priority logic
+                                usageDate: usageDate,     // <--- Populated as YYYYMM correctly for PayPay and others
                                 mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
                                 subCategory: cats.subCategory,
                                 description: description,
                                 amount: amount,
-                                source: ""
+                                source: isPayPayFile ? "PayPay" : ""
                             });
                         }
                     }
@@ -1390,9 +1401,14 @@ function preparePayloadForSheet(item) {
                         let description = normalizeJapaneseText(rawDesc || 'Unknown Payment');
                         let amount = parseNum(rawAmount);
 
-// Fallback usage date resolution priority: Statement Date -> Filename Fallback
-                        let rawPaymentDate = targetPaymentDate || filenameFallbackYYYYMM || '';
-                        let usageDate = formatToYYYYMM(rawPaymentDate);
+                        // Fallback usage date resolution priority: PayPay Date -> Statement Date -> Filename Fallback
+                        let usageDate = "";
+                        if (isPayPayFile) {
+                            usageDate = formatToYYYYMM(rawDate);
+                        } else {
+                            let rawPaymentDate = targetPaymentDate || filenameFallbackYYYYMM || '';
+                            usageDate = formatToYYYYMM(rawPaymentDate);
+                        }
 
                         if (!usageDate || usageDate === '202601') {
                             const now = new Date();
@@ -1405,12 +1421,12 @@ function preparePayloadForSheet(item) {
                                 id: (Date.now() + Math.random()).toString(),
                                 date: cleanDate,          // <--- Untouched transaction date
                                 originalDate: cleanDate,
-                                usageDate: usageDate,     // <--- Populated as YYYYMM following priority logic
+                                usageDate: usageDate,     // <--- Populated as YYYYMM correctly
                                 mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
                                 subCategory: cats.subCategory,
                                 description: description,
                                 amount: amount,
-                                source: ""
+                                source: isPayPayFile ? "PayPay" : ""
                             });
                         }
                     }
@@ -1434,10 +1450,11 @@ function preparePayloadForSheet(item) {
         // Check if it's a PayPay transaction (via source, filename, or ID/properties)
         const isPayPay = (tx.source && tx.source.toLowerCase().includes('paypay')) ||
                          (tx.filename && tx.filename.toLowerCase().includes('paypay')) ||
-                         (tx.id && String(tx.id).toLowerCase().includes('paypay'));
+                         (tx.id && String(tx.id).toLowerCase().includes('paypay')) ||
+                         (tx.description && tx.source === "PayPay");
 
         if (isPayPay && tx.date) {
-            // For PayPay, extract YYYYMM directly from the actual transaction date (supports "DD/MM/YYYY", "YYYY/MM/DD", ISO formats, etc.)
+            // For PayPay, extract YYYYMM directly from the actual transaction date
             yyyymm = formatToYYYYMM(tx.date);
         } else {
             // Standard logic for other CSVs/sources
@@ -1557,7 +1574,7 @@ function preparePayloadForSheet(item) {
         return hdr ? String(hdr).replace(/^\uFEFF/, '').replace(/["']/g, '').trim() : '';
     }
 
-function populateMonthFilter(transactions) {
+    function populateMonthFilter(transactions) {
         const monthSelect = document.getElementById('month-filter');
         if (!monthSelect) return;
         const curMonth = monthSelect.value;
@@ -1601,7 +1618,7 @@ function populateMonthFilter(transactions) {
         renderDashboard();
     }
 
-function getCombinedData() {
+    function getCombinedData() {
         let combined = [...expenseData];
         const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
         
@@ -1703,7 +1720,7 @@ function getCombinedData() {
         }
     }
 
-function renderTableDataOnly(dataset) {
+    function renderTableDataOnly(dataset) {
         const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
         
         let baseData = dataset || getCombinedData().filter(d => {
