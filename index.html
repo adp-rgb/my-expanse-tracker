@@ -1405,11 +1405,29 @@
 }
 
 // Helper to extract YYYYMM from filenames like '202603.csv' or 'meisai202603.csv'
-function extractYYYYMMFromFilename(filename) {
-    if (!filename) return "";
-    const match = filename.match(/(\d{4})(\d{2})/);
-    return match ? `${match[1]}${match[2]}` : "";
-}
+    function extractYYYYMMFromFilename(filename) {
+        if (!filename) return "";
+        const match = filename.match(/(\d{4})(\d{2})/);
+        return match ? `${match[1]}${match[2]}` : "";
+    }
+    // Resolves the effective month key (MM/YYYY) following: Usage Date / Statement Payment Date -> Filename Fallback -> Transaction Date
+    function getTransactionMonthKey(tx) {
+        let yyyymm = "";
+        if (tx.usageDate && /^\d{6}$/.test(tx.usageDate)) {
+            yyyymm = tx.usageDate;
+        } else if (tx.fullPaymentDate) {
+            yyyymm = formatToYYYYMM(tx.fullPaymentDate);
+        } else if (tx.date) {
+            yyyymm = formatToYYYYMM(tx.date);
+        }
+
+        if (yyyymm.length === 6) {
+            const yyyy = yyyymm.slice(0, 4);
+            const mm = yyyymm.slice(4, 6);
+            return { key: `${mm}/${yyyy}`, label: `${yyyy}年 ${parseInt(mm, 10)}月`, yyyymm: yyyymm };
+        }
+        return null;
+    }
     async function processExpensePDF(file) {
         let extracted = [];
         try {
@@ -1506,7 +1524,7 @@ function extractYYYYMMFromFilename(filename) {
         return hdr ? String(hdr).replace(/^\uFEFF/, '').replace(/["']/g, '').trim() : '';
     }
 
-    function populateMonthFilter(transactions) {
+function populateMonthFilter(transactions) {
         const monthSelect = document.getElementById('month-filter');
         if (!monthSelect) return;
         const curMonth = monthSelect.value;
@@ -1515,14 +1533,9 @@ function extractYYYYMMFromFilename(filename) {
         let combined = transactions || getCombinedData();
 
         combined.forEach(tx => {
-            if (tx.date) {
-                const parts = tx.date.split('/');
-                if (parts.length === 3) {
-                    const mm = parts[1].padStart(2, '0');
-                    const yyyy = parts[2];
-                    const key = `${mm}/${yyyy}`;
-                    monthMap[key] = `${yyyy}年 ${parseInt(mm, 10)}月`;
-                }
+            const mInfo = getTransactionMonthKey(tx);
+            if (mInfo) {
+                monthMap[mInfo.key] = mInfo.label;
             }
         });
 
@@ -1555,7 +1568,7 @@ function extractYYYYMMFromFilename(filename) {
         renderDashboard();
     }
 
-    function getCombinedData() {
+function getCombinedData() {
         let combined = [...expenseData];
         const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
         
@@ -1565,9 +1578,9 @@ function extractYYYYMMFromFilename(filename) {
             monthsToProcess.add(selectedMonth);
         } else {
             expenseData.forEach(d => {
-                if (d.date) {
-                    const parts = d.date.split('/');
-                    if (parts.length === 3) monthsToProcess.add(`${parts[1].padStart(2, '0')}/${parts[2]}`);
+                const mInfo = getTransactionMonthKey(d);
+                if (mInfo) {
+                    monthsToProcess.add(mInfo.key);
                 }
             });
             if (monthsToProcess.size === 0) {
@@ -1579,16 +1592,18 @@ function extractYYYYMMFromFilename(filename) {
         monthsToProcess.forEach(m => {
             const [mm, yyyy] = m.split('/');
             const fixedDateStr = `01/${mm.padStart(2, '0')}/${yyyy}`;
+            const yyyymm = `${yyyy}${mm}`;
             
             const dynamicFixed = FIXED_EXPENSES.map((fe, index) => ({
                 id: `fixed_${yyyy}${mm}_${index}`,
                 date: fixedDateStr,
+                usageDate: yyyymm,
+                fullPaymentDate: `${yyyy}-${mm}-01`,
                 description: fe.description,
                 amount: Number(fe.amount),
                 mainCategory: fe.mainCategory,
                 subCategory: fe.subCategory,
                 source: '',
-                usageDate: '',
                 isFixed: true
             }));
             
@@ -1655,14 +1670,58 @@ function extractYYYYMMFromFilename(filename) {
         }
     }
 
+function getCombinedData() {
+        let combined = [...expenseData];
+        const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
+        
+        let monthsToProcess = new Set();
+        
+        if (selectedMonth !== 'ALL') {
+            monthsToProcess.add(selectedMonth);
+        } else {
+            expenseData.forEach(d => {
+                const mInfo = getTransactionMonthKey(d);
+                if (mInfo) {
+                    monthsToProcess.add(mInfo.key);
+                }
+            });
+            if (monthsToProcess.size === 0) {
+                const today = new Date();
+                monthsToProcess.add(`${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`);
+            }
+        }
+
+        monthsToProcess.forEach(m => {
+            const [mm, yyyy] = m.split('/');
+            const fixedDateStr = `01/${mm.padStart(2, '0')}/${yyyy}`;
+            const yyyymm = `${yyyy}${mm}`;
+            
+            const dynamicFixed = FIXED_EXPENSES.map((fe, index) => ({
+                id: `fixed_${yyyy}${mm}_${index}`,
+                date: fixedDateStr,
+                usageDate: yyyymm,
+                fullPaymentDate: `${yyyy}-${mm}-01`,
+                description: fe.description,
+                amount: Number(fe.amount),
+                mainCategory: fe.mainCategory,
+                subCategory: fe.subCategory,
+                source: '',
+                isFixed: true
+            }));
+            
+            combined.push(...dynamicFixed);
+        });
+
+        return combined;
+    }
+
     function renderTableDataOnly(dataset) {
         const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
         
         let baseData = dataset || getCombinedData().filter(d => {
             if (selectedMonth === 'ALL') return true;
-            if (!d.date) return false;
-            const parts = d.date.split('/');
-            return parts.length === 3 && `${parts[1].padStart(2, '0')}/${parts[2]}` === selectedMonth;
+            const mInfo = getTransactionMonthKey(d);
+            return mInfo && mInfo.key === selectedMonth;
         });
 
         const dateFilterVal = (document.getElementById('col-filter-date')?.value || '').toLowerCase().trim();
@@ -1684,7 +1743,7 @@ function extractYYYYMMFromFilename(filename) {
         if (!tbody) return;
         tbody.innerHTML = '';
 
-        const sortedData = [...filtered].sort((a,b) => {
+const sortedData = [...filtered].sort((a,b) => {
             let dateA = sanitizeDate(a.date) || '';
             let dateB = sanitizeDate(b.date) || '';
             let partsA = dateA.split('/');
@@ -1710,8 +1769,8 @@ function extractYYYYMMFromFilename(filename) {
             const actionHTML = isFixed ? 
                 `<span style="color:var(--text-muted); font-size:0.8rem; font-weight: 500; padding: 4px;">Automated</span>` : 
                 `<button onclick="deleteExpense('${item.id}')" style="background: transparent; border: none; color: #ef4444; cursor: pointer; padding: 4px;">🗑️ Delete</button>`;
-
-            const row = document.createElement('tr');
+            
+           const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${checkboxHTML}</td>
                 <td style="font-weight: 500; white-space: nowrap;">${displayDate}</td>
@@ -1729,7 +1788,7 @@ function extractYYYYMMFromFilename(filename) {
         updateSelectedCount();
     }
 
-    function renderDashboard() {
+function renderDashboard() {
         populateMonthFilter();
         const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
         
@@ -1737,13 +1796,8 @@ function extractYYYYMMFromFilename(filename) {
 
         let filtered = allData.filter(d => {
             if (selectedMonth === 'ALL') return true;
-            if (!d.date) return false;
-            const parts = d.date.split('/');
-            if (parts.length === 3) {
-                const itemMonthYear = `${parts[1].padStart(2, '0')}/${parts[2]}`;
-                return itemMonthYear === selectedMonth;
-            }
-            return false;
+            const mInfo = getTransactionMonthKey(d);
+            return mInfo && mInfo.key === selectedMonth;
         });
 
         let totalSpend = filtered.reduce((sum, item) => sum + item.amount, 0);
