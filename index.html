@@ -1413,12 +1413,24 @@
    // Resolves the effective billing/usage month key (MM/YYYY) following: Usage Date / Statement Payment Date -> Filename Fallback -> Transaction Date
     function getTransactionMonthKey(tx) {
         let yyyymm = "";
-        if (tx.usageDate && /^\d{6}$/.test(tx.usageDate)) {
-            yyyymm = tx.usageDate;
-        } else if (tx.fullPaymentDate) {
-            yyyymm = formatToYYYYMM(tx.fullPaymentDate);
-        } else if (tx.date) {
+        
+        // Check if it's a PayPay transaction (via source, filename, or ID/properties)
+        const isPayPay = (tx.source && tx.source.toLowerCase().includes('paypay')) ||
+                         (tx.filename && tx.filename.toLowerCase().includes('paypay')) ||
+                         (tx.id && String(tx.id).toLowerCase().includes('paypay'));
+
+        if (isPayPay && tx.date) {
+            // For PayPay, extract YYYYMM directly from the actual transaction date (supports "DD/MM/YYYY", "YYYY/MM/DD", ISO formats, etc.)
             yyyymm = formatToYYYYMM(tx.date);
+        } else {
+            // Standard logic for other CSVs/sources
+            if (tx.usageDate && /^\d{6}$/.test(tx.usageDate)) {
+                yyyymm = tx.usageDate;
+            } else if (tx.fullPaymentDate) {
+                yyyymm = formatToYYYYMM(tx.fullPaymentDate);
+            } else if (tx.date) {
+                yyyymm = formatToYYYYMM(tx.date);
+            }
         }
 
         if (yyyymm && yyyymm.length === 6) {
