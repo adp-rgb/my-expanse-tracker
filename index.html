@@ -1410,7 +1410,7 @@
         const match = filename.match(/(\d{4})(\d{2})/);
         return match ? `${match[1]}${match[2]}` : "";
     }
-    // Resolves the effective month key (MM/YYYY) following: Usage Date / Statement Payment Date -> Filename Fallback -> Transaction Date
+   // Resolves the effective billing/usage month key (MM/YYYY) following: Usage Date / Statement Payment Date -> Filename Fallback -> Transaction Date
     function getTransactionMonthKey(tx) {
         let yyyymm = "";
         if (tx.usageDate && /^\d{6}$/.test(tx.usageDate)) {
@@ -1421,10 +1421,14 @@
             yyyymm = formatToYYYYMM(tx.date);
         }
 
-        if (yyyymm.length === 6) {
+        if (yyyymm && yyyymm.length === 6) {
             const yyyy = yyyymm.slice(0, 4);
             const mm = yyyymm.slice(4, 6);
-            return { key: `${mm}/${yyyy}`, label: `${yyyy}年 ${parseInt(mm, 10)}月`, yyyymm: yyyymm };
+            return {
+                key: `${mm}/${yyyy}`,
+                yyyymm: yyyymm,
+                label: `${yyyy}年 ${parseInt(mm, 10)}月`
+            };
         }
         return null;
     }
@@ -1612,7 +1616,7 @@ function getCombinedData() {
 
         return combined;
     }
-
+    
     function renderChart(data) {
         if (expenseChartInstance) expenseChartInstance.destroy();
         const ctx = document.getElementById('expenseChart').getContext('2d');
@@ -1715,7 +1719,7 @@ function getCombinedData() {
         return combined;
     }
 
-    function renderTableDataOnly(dataset) {
+function renderTableDataOnly(dataset) {
         const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
         
         let baseData = dataset || getCombinedData().filter(d => {
@@ -1743,7 +1747,7 @@ function getCombinedData() {
         if (!tbody) return;
         tbody.innerHTML = '';
 
-const sortedData = [...filtered].sort((a,b) => {
+        const sortedData = [...filtered].sort((a,b) => {
             let dateA = sanitizeDate(a.date) || '';
             let dateB = sanitizeDate(b.date) || '';
             let partsA = dateA.split('/');
@@ -1769,8 +1773,8 @@ const sortedData = [...filtered].sort((a,b) => {
             const actionHTML = isFixed ? 
                 `<span style="color:var(--text-muted); font-size:0.8rem; font-weight: 500; padding: 4px;">Automated</span>` : 
                 `<button onclick="deleteExpense('${item.id}')" style="background: transparent; border: none; color: #ef4444; cursor: pointer; padding: 4px;">🗑️ Delete</button>`;
-            
-           const row = document.createElement('tr');
+
+            const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${checkboxHTML}</td>
                 <td style="font-weight: 500; white-space: nowrap;">${displayDate}</td>
@@ -1788,7 +1792,7 @@ const sortedData = [...filtered].sort((a,b) => {
         updateSelectedCount();
     }
 
-function renderDashboard() {
+    function renderDashboard() {
         populateMonthFilter();
         const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
         
