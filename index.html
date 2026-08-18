@@ -764,14 +764,17 @@
         event.target.value = '';
     }
 
-    function preparePayloadForSheet(item) {
+function preparePayloadForSheet(item) {
         let usageDateYYYYMM = "";
-        if (item.fullPaymentDate) {
-            usageDateYYYYMM = formatToYYYYMM(item.fullPaymentDate);
-        } else if (item.usageDate && /^\d{6}$/.test(item.usageDate)) {
+        if (item.usageDate && /^\d{6}$/.test(item.usageDate) && item.usageDate !== '202601') {
             usageDateYYYYMM = item.usageDate;
+        } else if (item.fullPaymentDate) {
+            usageDateYYYYMM = formatToYYYYMM(item.fullPaymentDate);
         } else if (item.date) {
             usageDateYYYYMM = formatToYYYYMM(item.date);
+        } else {
+            const now = new Date();
+            usageDateYYYYMM = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
         }
 
         let sourceVal = item.source || "";
@@ -1308,10 +1311,19 @@
                         let amount = parseNum(rawAmountOut);
                         let cleanDate = sanitizeDate(rawDate); // <--- Transaction date remains untouched
 
-                        // Priority: Row/Header value -> Statement Payment Date -> Filename Fallback
+// Priority for PayPay/Transactions: 
+                        // 1. Explicit Statement Payment Date (if provided)
+                        // 2. Actual Transaction Date from the row (cleanDate / Date & Time column)
+                        // 3. Filename Fallback or Current Date
                         let rowPayVal = payDateColIdx !== -1 ? rowArr[payDateColIdx] : null;
-                        let rawPaymentDate = rowPayVal || targetPaymentDate || filenameFallbackYYYYMM || '';
+                        let rawPaymentDate = rowPayVal || targetPaymentDate || '';
                         let usageDate = formatToYYYYMM(rawPaymentDate);
+
+                        // If no valid billing statement month is found, or if it points to an old default, use current year and month
+                        if (!usageDate || usageDate === '202601') {
+                            const now = new Date();
+                            usageDate = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+                        }
 
                         if (cleanDate && amount > 0) {
                             let cats = autoCategorize(description);
@@ -1378,9 +1390,14 @@
                         let description = normalizeJapaneseText(rawDesc || 'Unknown Payment');
                         let amount = parseNum(rawAmount);
 
-                        // Fallback usage date resolution priority: Statement Date -> Filename Fallback
+// Fallback usage date resolution priority: Statement Date -> Filename Fallback
                         let rawPaymentDate = targetPaymentDate || filenameFallbackYYYYMM || '';
                         let usageDate = formatToYYYYMM(rawPaymentDate);
+
+                        if (!usageDate || usageDate === '202601') {
+                            const now = new Date();
+                            usageDate = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+                        }
 
                         if (cleanDate && amount > 0 && description) {
                             let cats = autoCategorize(description);
@@ -1684,51 +1701,6 @@ function getCombinedData() {
                 options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
             });
         }
-    }
-
-function getCombinedData() {
-        let combined = [...expenseData];
-        const selectedMonth = document.getElementById('month-filter')?.value || 'ALL';
-        
-        let monthsToProcess = new Set();
-        
-        if (selectedMonth !== 'ALL') {
-            monthsToProcess.add(selectedMonth);
-        } else {
-            expenseData.forEach(d => {
-                const mInfo = getTransactionMonthKey(d);
-                if (mInfo) {
-                    monthsToProcess.add(mInfo.key);
-                }
-            });
-            if (monthsToProcess.size === 0) {
-                const today = new Date();
-                monthsToProcess.add(`${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`);
-            }
-        }
-
-        monthsToProcess.forEach(m => {
-            const [mm, yyyy] = m.split('/');
-            const fixedDateStr = `01/${mm.padStart(2, '0')}/${yyyy}`;
-            const yyyymm = `${yyyy}${mm}`;
-            
-            const dynamicFixed = FIXED_EXPENSES.map((fe, index) => ({
-                id: `fixed_${yyyy}${mm}_${index}`,
-                date: fixedDateStr,
-                usageDate: yyyymm,
-                fullPaymentDate: `${yyyy}-${mm}-01`,
-                description: fe.description,
-                amount: Number(fe.amount),
-                mainCategory: fe.mainCategory,
-                subCategory: fe.subCategory,
-                source: '',
-                isFixed: true
-            }));
-            
-            combined.push(...dynamicFixed);
-        });
-
-        return combined;
     }
 
 function renderTableDataOnly(dataset) {
