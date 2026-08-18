@@ -540,7 +540,9 @@
             mainCategory: getMainCategory(identifiedSub),
             subCategory: identifiedSub,
             description: description,
-            amount: extractedAmount
+            amount: extractedAmount,
+            fullPaymentDate: "",
+            source: ""
         };
     }
 
@@ -599,7 +601,6 @@
     
     // --- CORE LOGIC: UNIFIED PARSERS & YYYYMM PAYMENT DATE FORMATTING ---
 
-    // Helper: Convert any date string into YYYYMM format
     function formatToYYYYMM(dateString) {
         if (!dateString) return "";
         let d = new Date(dateString);
@@ -615,7 +616,7 @@
         return `${year}${month}`;
     }
 
-    // Custom Parser for AEON CSV Files (Extracts payment date and maps rows)
+    // Custom Parser for AEON CSV Files
     function parseAeonCSVText(text) {
         const lines = text.split('\n');
         let paymentDateStr = "2026-03-02"; // Fallback
@@ -649,14 +650,14 @@
                 const amount = parseFloat(cols[6]) || 0;
 
                 parsed.push({
-                    date: paymentYYYYMM,          
+                    date: usageDate,          
                     fullPaymentDate: paymentDateStr,
-                    usageDate: usageDate,
+                    usageDate: paymentYYYYMM,     // Usage Date populated as YYYYMM of お支払日
                     mainCategory: "AEON Card",
                     subCategory: "Credit Card",
                     description: description,
                     amount: amount,
-                    source: "AEON"
+                    source: "AEON"                // Source populated as AEON
                 });
             }
         });
@@ -683,14 +684,14 @@
                 const paymentYYYYMM = formatToYYYYMM(paymentDateStr);
 
                 parsed.push({
-                    date: paymentYYYYMM,          
+                    date: usageDate,          
                     fullPaymentDate: paymentDateStr,
-                    usageDate: usageDate,
+                    usageDate: paymentYYYYMM,     // Usage Date populated as YYYYMM of お支払日
                     mainCategory: sourceName,
                     subCategory: "Credit Card",
                     description: description,
                     amount: amount,
-                    source: sourceName
+                    source: sourceName            // Source populated as SMBC or card name
                 });
             }
         });
@@ -715,7 +716,7 @@
                 if (fname.includes('aeon') || textContent.includes('AEON')) {
                     newItems = parseAeonCSVText(textContent);
                 } else if (fname.includes('smbc') || fname.includes('ana')) {
-                    newItems = parseStandardCardCSVText(textContent, 'SMBC Card');
+                    newItems = parseStandardCardCSVText(textContent, 'SMBC');
                 } else {
                     newItems = await processExpenseCSV(file);
                 }
@@ -747,18 +748,32 @@
         event.target.value = '';
     }
 
-    // Updated preparePayloadForSheet function with proper fallbacks for Usage Date and Source
+    // Prepares payload ensuring correct YYYYMM usageDate and proper Source values (blank for manual)
     function preparePayloadForSheet(item) {
+        let usageDateYYYYMM = "";
+        if (item.fullPaymentDate) {
+            usageDateYYYYMM = formatToYYYYMM(item.fullPaymentDate);
+        } else if (item.usageDate && /^\d{6}$/.test(item.usageDate)) {
+            usageDateYYYYMM = item.usageDate;
+        } else if (item.date) {
+            usageDateYYYYMM = formatToYYYYMM(item.date);
+        }
+
+        let sourceVal = item.source || "";
+        if (sourceVal === "Manual" || sourceVal === "CSV Import" || sourceVal === "PDF Import") {
+            sourceVal = ""; // Blank for manual/general imports as requested
+        }
+
         return {
             id: item.id || getTransactionHash(item),
-            date: item.date,                 // YYYYMM format (e.g., "202603")
+            date: item.date,                 
             fullPaymentDate: item.fullPaymentDate || "", 
-            usageDate: item.usageDate || item.date || "",     
+            usageDate: usageDateYYYYMM,     
             mainCategory: item.mainCategory,
             subCategory: item.subCategory,
             description: item.description,
             amount: item.amount,
-            source: item.source || "Manual"
+            source: sourceVal
         };
     }
 
@@ -770,11 +785,13 @@
         }
         setSyncState('syncing', 'Saving...');
         try {
+            // Map expense data through preparePayloadForSheet to populate Usage Date & Source correctly
+            const payloadData = expenseData.map(item => preparePayloadForSheet(item));
             await fetch(API_URL, {
                 method: "POST",
                 mode: "no-cors",
                 headers: { "Content-Type": "text/plain;charset=utf-8" },
-                body: JSON.stringify({ action: "saveAll", data: expenseData })
+                body: JSON.stringify({ action: "saveAll", data: payloadData })
             });
             setSyncState('synced', 'Synced');
         } catch (e) {
@@ -1163,8 +1180,8 @@
             subCategory: subCategory, 
             description: description, 
             amount: amount,
-            usageDate: formattedDate,
-            source: "Manual"
+            usageDate: "",
+            source: ""
         };
         const hash = getTransactionHash(newItem);
 
@@ -1274,12 +1291,12 @@
                                     id: (Date.now() + Math.random()).toString(),
                                     date: targetPaymentDate ? targetPaymentDate : transactionDate,
                                     originalDate: cleanDate,
-                                    usageDate: cleanDate,
+                                    usageDate: targetPaymentDate ? formatToYYYYMM(targetPaymentDate) : formatToYYYYMM(transactionDate),
                                     mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
                                     subCategory: cats.subCategory,
                                     description: description,
                                     amount: amount,
-                                    source: "CSV Import"
+                                    source: ""
                                 });
                             }
                         }
@@ -1320,12 +1337,12 @@
                                     id: (Date.now() + Math.random()).toString(),
                                     date: targetPaymentDate ? targetPaymentDate : transactionDate,
                                     originalDate: cleanDate,
-                                    usageDate: cleanDate,
+                                    usageDate: targetPaymentDate ? formatToYYYYMM(targetPaymentDate) : formatToYYYYMM(transactionDate),
                                     mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
                                     subCategory: cats.subCategory,
                                     description: description,
                                     amount: amount,
-                                    source: "CSV Import"
+                                    source: ""
                                 });
                             }
                         }
@@ -1394,12 +1411,12 @@
                         id: (Date.now() + Math.random()).toString(),
                         date: targetPaymentDate ? targetPaymentDate : cleanDate,
                         originalDate: cleanDate,
-                        usageDate: cleanDate,
+                        usageDate: targetPaymentDate ? formatToYYYYMM(targetPaymentDate) : formatToYYYYMM(cleanDate),
                         mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
                         subCategory: cats.subCategory,
                         description: description,
                         amount: amount,
-                        source: "PDF Import"
+                        source: ""
                     });
                 }
             }
@@ -1513,7 +1530,8 @@
                 amount: Number(fe.amount),
                 mainCategory: fe.mainCategory,
                 subCategory: fe.subCategory,
-                source: 'Fixed Expense',
+                source: '',
+                usageDate: '',
                 isFixed: true
             }));
             
