@@ -764,7 +764,7 @@
         event.target.value = '';
     }
 
-    function preparePayloadForSheet(item) {
+   function preparePayloadForSheet(item) {
         let usageDateYYYYMM = "";
         const isPayPay = (item.source && item.source.toLowerCase().includes('paypay')) ||
                          (item.id && String(item.id).toLowerCase().includes('paypay'));
@@ -1093,7 +1093,7 @@
         return isNaN(num) ? 0 : Math.abs(num);
     }
 
-    function sanitizeDate(rawDateStr) {
+function sanitizeDate(rawDateStr) {
         if (!rawDateStr && rawDateStr !== 0) {
             let today = new Date();
             return `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
@@ -1105,6 +1105,11 @@
         }
 
         let str = normalizeJapaneseText(String(rawDateStr)).trim();
+
+        // Strip time component if present (e.g., "2026/01/15 12:34:56" -> "2026/01/15")
+        if (str.includes(' ')) {
+            str = str.split(' ')[0];
+        }
 
         if (/^\d{1,2}$/.test(str)) {
             let dayNum = parseInt(str, 10);
@@ -1268,10 +1273,10 @@
                     let targetPaymentDate = null;
                     let headerIndex = -1;
 
-                    // Expanded recognizable header keyword sets for Japanese statement formats
+               // Expanded recognizable header keyword sets for Japanese statement formats
                     const dateHeaders = ['Date & Time', 'Date', '日付', '取引日時', '利用日', '利用年月日', 'ご利用日', '取引日', '処理日', '约定日'];
-                    const descHeaders = ['Business Name', '加盟店名/支払い先', '内容', '利用店名・商品名', 'ご利用先', '加盟店名', '摘要', '摘要内容', '適用', 'Description', '支払先', 'お店名'];
-                    const amountHeaders = ['ご利用金額', '利用金額', 'お買上金額', 'Amount Outgoing (Yen)', '金額（出金）', 'Amount', '金額', '利用金額(円)', 'お支払い金額', '支払金額', '出金金額'];
+                    const descHeaders = ['Business Name', '加盟店名/支払い先', '内容', '利用店名・商品名', 'ご利用先', '加盟店名', '相手先', '摘要', '摘要内容', '適用', 'Description', '支払先', 'お店名'];
+                    const amountHeaders = ['ご利用金額', '利用金額', 'お買上金額', 'Amount Outgoing (Yen)', '金額（出金）', 'Amount', '金額', '利用金額(円)', '金額（円）', '金額(円)', 'お支払い金額', '支払金額', '出金金額'];
 
                     // Scan for statement-level payment date in file text
                     for (let i = 0; i < rows.length; i++) {
@@ -1322,7 +1327,7 @@
                             let amount = parseNum(rawAmountOut);
                             let cleanDate = sanitizeDate(rawDate);
 
-                            let usageDate = "";
+let usageDate = "";
                             if (isPayPayFile) {
                                 usageDate = cleanDate ? formatToYYYYMM(cleanDate) : "";
                                 if (!usageDate) {
@@ -1452,7 +1457,7 @@
     }
 
     // Resolves the effective billing/usage month key (MM/YYYY) following priority logic
-    function getTransactionMonthKey(tx) {
+function getTransactionMonthKey(tx) {
         let yyyymm = "";
         
         const isPayPay = (tx.source && tx.source.toLowerCase().includes('paypay')) ||
