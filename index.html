@@ -666,6 +666,11 @@
                 const description = cols[2];
                 const amount = parseFloat(cols[6]) || 0;
 
+                // Skip Unknown Payment or 弁済金 records
+                if (/unknown payment|弁済金/i.test(description)) {
+                    return;
+                }
+
                 parsed.push({
                     date: usageDate,          
                     fullPaymentDate: paymentDateStr,
@@ -691,6 +696,11 @@
                 const usageDate = cols[0].replace(/\//g, '-');
                 const description = cols[1];
                 const amount = parseFloat(cols[2]) || 0;
+
+                // Skip Unknown Payment or 弁済金 records
+                if (/unknown payment|弁済金/i.test(description)) {
+                    return;
+                }
 
                 const d = new Date(usageDate);
                 d.setMonth(d.getMonth() + 1);
@@ -1311,6 +1321,11 @@
                             let amount = parseNum(rawAmountOut);
                             let cleanDate = sanitizeDate(rawDate);
 
+                            // Skip Unknown Payment or 弁済金 records
+                            if (/unknown payment|弁済金/i.test(description)) {
+                                continue;
+                            }
+
                             let rowPayVal = payDateColIdx !== -1 ? rowArr[payDateColIdx] : null;
                             let usageDate = getCorrectUsageDate(fileName, { date: cleanDate, paymentDate: rowPayVal || targetPaymentDate });
 
@@ -1378,6 +1393,11 @@
                             let description = normalizeJapaneseText(rawDesc || 'Unknown Payment');
                             let amount = parseNum(rawAmount);
 
+                            // Skip Unknown Payment or 弁済金 records
+                            if (/unknown payment|弁済金/i.test(description)) {
+                                continue;
+                            }
+
                             let usageDate = getCorrectUsageDate(fileName, { date: cleanDate, paymentDate: targetPaymentDate });
 
                             if (cleanDate && amount > 0 && description) {
@@ -1421,25 +1441,20 @@
         return null;
     }
 
-    // --- INTEGRATED getCorrectUsageDate FUNCTION[cite: 8] ---
     function getCorrectUsageDate(filename, transaction) {
         const fname = (filename || "").toLowerCase();
 
-     // 1. PayPay Transactions: Correctly map to YYYYMM format[cite: 8]
         if (fname.includes('paypay')) {
             if (transaction && transaction.date) {
                 const parts = transaction.date.split(/[\/\-\.]/);
                 if (parts.length === 3) {
-                    // If date is in DD/MM/YYYY format (parts[2] is year)
                     if (parts[2].length === 4) {
                         return parts[2] + parts[1].padStart(2, '0');
                     }
-                    // If date is in YYYY/MM/DD format (parts[0] is year)
                     if (parts[0].length === 4) {
                         return parts[0] + parts[1].padStart(2, '0');
                     }
                 }
-                // Fallback for compact YYYYMMDD string
                 const cleanDate = transaction.date.replace(/[\/\-\.]/g, '');
                 if (cleanDate.length === 8) {
                     return cleanDate.slice(0, 4) + cleanDate.slice(4, 6);
@@ -1447,7 +1462,6 @@
             }
         }
 
-        // 2. Ion Card Statements (meisai*.csv): Parse お支払い日 (Payment Date) from header[cite: 8]
         if (fname.includes('meisai')) {
             if (transaction && transaction.paymentDate) {
                 const match = transaction.paymentDate.match(/(\d{4})年\s*(\d{1,2})月/);
@@ -1457,13 +1471,11 @@
             }
         }
 
-        // 3. Other Credit Card Statements (202607.csv, 20250702.csv): Extract YYYYMM from filename[cite: 8]
         const fileMatch = filename.match(/(\d{4})(\d{2})/);
         if (fileMatch) {
             return fileMatch[1] + fileMatch[2];
         }
 
-        // 4. Fallback to current date if nothing matches[cite: 8]
         const now = new Date();
         return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
     }
