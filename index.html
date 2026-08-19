@@ -764,46 +764,40 @@
         event.target.value = '';
     }
 
-   function preparePayloadForSheet(item) {
-        let usageDateYYYYMM = "";
-        const isPayPay = (item.source && item.source.toLowerCase().includes('paypay')) ||
-                         (item.id && String(item.id).toLowerCase().includes('paypay'));
-
-        if (isPayPay && item.date) {
-            usageDateYYYYMM = formatToYYYYMM(item.date);
-        } else if (item.usageDate && /^\d{6}$/.test(item.usageDate) && item.usageDate !== '202601') {
-            usageDateYYYYMM = item.usageDate;
-        } else if (item.fullPaymentDate) {
-            usageDateYYYYMM = formatToYYYYMM(item.fullPaymentDate);
-        } else if (item.date) {
-            usageDateYYYYMM = formatToYYYYMM(item.date);
-        } else {
-            const now = new Date();
-            usageDateYYYYMM = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-        }
-
-        if (!usageDateYYYYMM || usageDateYYYYMM.length !== 6) {
-            const now = new Date();
-            usageDateYYYYMM = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-        }
-
-        let sourceVal = item.source || "";
-        if (sourceVal === "Manual" || sourceVal === "CSV Import" || sourceVal === "PDF Import") {
-            sourceVal = "";
-        }
-
-        return {
-            id: item.id || getTransactionHash(item),
-            date: item.date,                 
-            fullPaymentDate: item.fullPaymentDate || "", 
-            usageDate: usageDateYYYYMM,     
-            mainCategory: item.mainCategory,
-            subCategory: item.subCategory,
-            description: item.description,
-            amount: item.amount,
-            source: sourceVal
-        };
+  function preparePayloadForSheet(item) {
+    let usageDateYYYYMM = "";
+    
+    // 1. If item has a valid transaction date, automatically derive YYYYMM from it
+    if (item.date) {
+        usageDateYYYYMM = formatToYYYYMM(item.date);
+    } 
+    // 2. Fallbacks if needed
+    else if (item.fullPaymentDate) {
+        usageDateYYYYMM = formatToYYYYMM(item.fullPaymentDate);
+    } else if (item.usageDate && /^\d{6}$/.test(item.usageDate) && item.usageDate !== '202601') {
+        usageDateYYYYMM = item.usageDate;
+    } else {
+        const now = new Date();
+        usageDateYYYYMM = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
     }
+
+    let sourceVal = item.source || "";
+    if (sourceVal === "Manual" || sourceVal === "CSV Import" || sourceVal === "PDF Import") {
+        sourceVal = "";
+    }
+
+    return {
+        id: item.id || getTransactionHash(item),
+        date: item.date,                 
+        fullPaymentDate: item.fullPaymentDate || "", 
+        usageDate: usageDateYYYYMM,     // <--- Automatically calculated YYYYMM
+        mainCategory: item.mainCategory,
+        subCategory: item.subCategory,
+        description: item.description,
+        amount: item.amount,
+        source: sourceVal
+    };
+}
 
     async function syncToSheets() {
         localStorage.setItem('household_expense_data', JSON.stringify(expenseData));
