@@ -1443,13 +1443,13 @@ let usageDate = "";
         });
     }
 
-    // Helper to extract YYYYMM from filenames like '202603.csv' or 'meisai202603.csv'
-    function extractYYYYMMFromFilename(filename) {
+function extractYYYYMMFromFilename(filename) {
         if (!filename) return "";
-        const match = filename.match(/(\d{4})(\d{2})/);
-        return match ? `${match[1]}${match[2]}` : "";
+        const match8 = filename.match(/^(\d{4})(\d{2})\d{2}/);
+        if (match8) return `${match8[1]}${match8[2]}`;
+        const match6 = filename.match(/(\d{4})(\d{2})/);
+        return match6 ? `${match6[1]}${match6[2]}` : "";
     }
-
     // Resolves the effective billing/usage month key (MM/YYYY) following priority logic
 function getTransactionMonthKey(tx) {
     let yyyymm = "";
