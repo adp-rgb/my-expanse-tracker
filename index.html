@@ -289,7 +289,7 @@
             <span style="font-size: 0.95rem; font-weight: 600; color: var(--text-main); display: block;">Click or Drag & Drop CSV / PDF statement files here</span>
             <input type="file" id="statement-files" accept=".csv, .pdf" multiple onchange="handleFileUpload(event)">
         </div>
-        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 10px; font-weight: 500;" id="expense-upload-status">Ready to import. (Supports 20250702_4.csv & 202607_4.csv)</div>
+        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 10px; font-weight: 500;" id="expense-upload-status">Ready to import.</div>
     </div>
 
     <!-- Receipt Photo / Camera Capture -->
@@ -729,12 +729,7 @@
 
             if (fname.endsWith('.csv')) {
                 const textContent = await readFileAsTextWithEncoding(file);
-                
-                // Specific logic handling for 20250702_4.csv, 202607_4.csv or similar statement exports
-                if (fname.includes('20250702') || fname.includes('202607')) {
-                    const fallbackYM = extractYYYYMMFromFilename(file.name);
-                    newItems = await processExpenseCSV(file, fallbackYM);
-                } else if (fname.includes('aeon') || textContent.includes('AEON')) {
+                if (fname.includes('aeon') || textContent.includes('AEON')) {
                     newItems = parseAeonCSVText(textContent);
                 } else if (fname.includes('smbc') || fname.includes('ana')) {
                     newItems = parseStandardCardCSVText(textContent, 'SMBC');
@@ -769,37 +764,40 @@
         event.target.value = '';
     }
 
-    function preparePayloadForSheet(item) {
-        let usageDateYYYYMM = "";
-        
-        if (item.date) {
-            usageDateYYYYMM = formatToYYYYMM(item.date);
-        } else if (item.fullPaymentDate) {
-            usageDateYYYYMM = formatToYYYYMM(item.fullPaymentDate);
-        } else if (item.usageDate && /^\d{6}$/.test(item.usageDate)) {
-            usageDateYYYYMM = item.usageDate;
-        } else {
-            const now = new Date();
-            usageDateYYYYMM = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-        }
-
-        let sourceVal = item.source || "";
-        if (sourceVal === "Manual" || sourceVal === "CSV Import" || sourceVal === "PDF Import") {
-            sourceVal = "";
-        }
-
-        return {
-            id: item.id || getTransactionHash(item),
-            date: item.date,                 
-            fullPaymentDate: item.fullPaymentDate || "", 
-            usageDate: usageDateYYYYMM,     
-            mainCategory: item.mainCategory,
-            subCategory: item.subCategory,
-            description: item.description,
-            amount: item.amount,
-            source: sourceVal
-        };
+  function preparePayloadForSheet(item) {
+    let usageDateYYYYMM = "";
+    
+    // 1. If item has a valid transaction date, automatically derive YYYYMM from it
+    if (item.date) {
+        usageDateYYYYMM = formatToYYYYMM(item.date);
+    } 
+    // 2. Fallbacks if needed
+    else if (item.fullPaymentDate) {
+        usageDateYYYYMM = formatToYYYYMM(item.fullPaymentDate);
+    } else if (item.usageDate && /^\d{6}$/.test(item.usageDate) && item.usageDate !== '202601') {
+        usageDateYYYYMM = item.usageDate;
+    } else {
+        const now = new Date();
+        usageDateYYYYMM = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
     }
+
+    let sourceVal = item.source || "";
+    if (sourceVal === "Manual" || sourceVal === "CSV Import" || sourceVal === "PDF Import") {
+        sourceVal = "";
+    }
+
+    return {
+        id: item.id || getTransactionHash(item),
+        date: item.date,                 
+        fullPaymentDate: item.fullPaymentDate || "", 
+        usageDate: usageDateYYYYMM,     // <--- Automatically calculated YYYYMM
+        mainCategory: item.mainCategory,
+        subCategory: item.subCategory,
+        description: item.description,
+        amount: item.amount,
+        source: sourceVal
+    };
+}
 
     async function syncToSheets() {
         localStorage.setItem('household_expense_data', JSON.stringify(expenseData));
@@ -1089,7 +1087,7 @@
         return isNaN(num) ? 0 : Math.abs(num);
     }
 
-    function sanitizeDate(rawDateStr) {
+function sanitizeDate(rawDateStr) {
         if (!rawDateStr && rawDateStr !== 0) {
             let today = new Date();
             return `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
@@ -1102,6 +1100,7 @@
 
         let str = normalizeJapaneseText(String(rawDateStr)).trim();
 
+        // Strip time component if present (e.g., "2026/01/15 12:34:56" -> "2026/01/15")
         if (str.includes(' ')) {
             str = str.split(' ')[0];
         }
@@ -1250,11 +1249,11 @@
     }
 
     // --- ENHANCED CSV ROW MAPPING LOGIC ---
-    async function processExpenseCSV(file, fallbackYYYYMM = "") {
+    async function processExpenseCSV(file) {
         const fileContent = await readFileAsTextWithEncoding(file);
         const fileName = file ? file.name : "";
         const isPayPayFile = fileName.toLowerCase().includes('paypay') || fileContent.includes('PayPay');
-        const filenameFallbackYYYYMM = fallbackYYYYMM || extractYYYYMMFromFilename(fileName);
+        const filenameFallbackYYYYMM = extractYYYYMMFromFilename(fileName);
 
         return new Promise((resolve) => {
             Papa.parse(fileContent, {
@@ -1268,10 +1267,12 @@
                     let targetPaymentDate = null;
                     let headerIndex = -1;
 
+               // Expanded recognizable header keyword sets for Japanese statement formats
                     const dateHeaders = ['Date & Time', 'Date', '日付', '取引日時', '利用日', '利用年月日', 'ご利用日', '取引日', '処理日', '约定日'];
                     const descHeaders = ['Business Name', '加盟店名/支払い先', '内容', '利用店名・商品名', 'ご利用先', '加盟店名', '相手先', '摘要', '摘要内容', '適用', 'Description', '支払先', 'お店名'];
                     const amountHeaders = ['ご利用金額', '利用金額', 'お買上金額', 'Amount Outgoing (Yen)', '金額（出金）', 'Amount', '金額', '利用金額(円)', '金額（円）', '金額(円)', 'お支払い金額', '支払金額', '出金金額'];
 
+                    // Scan for statement-level payment date in file text
                     for (let i = 0; i < rows.length; i++) {
                         let rowStr = rows[i].join('');
                         let matchDate = rowStr.match(/お支払[い日]*\D*(\d{4})年月?\s*(\d{1,2})月?\s*(\d{1,2})日?/);
@@ -1281,6 +1282,7 @@
                         }
                     }
 
+                    // Find header row index
                     for (let i = 0; i < rows.length; i++) {
                         let cleanedRow = rows[i].map(cleanHeader);
                         if (cleanedRow.some(col => dateHeaders.includes(col))) {
@@ -1319,7 +1321,7 @@
                             let amount = parseNum(rawAmountOut);
                             let cleanDate = sanitizeDate(rawDate);
 
-                            let usageDate = "";
+let usageDate = "";
                             if (isPayPayFile) {
                                 usageDate = cleanDate ? formatToYYYYMM(cleanDate) : "";
                                 if (!usageDate) {
@@ -1328,10 +1330,10 @@
                                 }
                             } else {
                                 let rowPayVal = payDateColIdx !== -1 ? rowArr[payDateColIdx] : null;
-                                let rawPaymentDate = rowPayVal || targetPaymentDate || filenameFallbackYYYYMM || '';
+                                let rawPaymentDate = rowPayVal || targetPaymentDate || '';
                                 usageDate = formatToYYYYMM(rawPaymentDate);
 
-                                if (!usageDate) {
+                                if (!usageDate || usageDate === '202601') {
                                     const now = new Date();
                                     usageDate = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
                                 }
@@ -1353,6 +1355,7 @@
                             }
                         }
                     } else {
+                        // Intelligent column detection fallback when no formal header row is matched
                         for (let i = 0; i < rows.length; i++) {
                             let rowArr = rows[i];
                             let rowStr = rowArr.join('');
@@ -1412,7 +1415,7 @@
                                 let rawPaymentDate = targetPaymentDate || filenameFallbackYYYYMM || '';
                                 usageDate = formatToYYYYMM(rawPaymentDate);
 
-                                if (!usageDate) {
+                                if (!usageDate || usageDate === '202601') {
                                     const now = new Date();
                                     usageDate = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
                                 }
@@ -1440,50 +1443,49 @@
         });
     }
 
-    // Enhanced Helper to extract YYYYMM from filenames like '20250702_4.csv' or '202607_4.csv'
+    // Helper to extract YYYYMM from filenames like '202603.csv' or 'meisai202603.csv'
     function extractYYYYMMFromFilename(filename) {
         if (!filename) return "";
-        const match8 = filename.match(/^(\d{4})(\d{2})\d{2}/);
-        if (match8) return `${match8[1]}${match8[2]}`;
-        const match6 = filename.match(/(\d{4})(\d{2})/);
-        return match6 ? `${match6[1]}${match6[2]}` : "";
+        const match = filename.match(/(\d{4})(\d{2})/);
+        return match ? `${match[1]}${match[2]}` : "";
     }
 
-    function getTransactionMonthKey(tx) {
-        let yyyymm = "";
-        
-        const isPayPay = (tx.source && tx.source.toLowerCase().includes('paypay')) ||
-                         (tx.filename && tx.filename.toLowerCase().includes('paypay')) ||
-                         (tx.id && String(tx.id).toLowerCase().includes('paypay'));
+    // Resolves the effective billing/usage month key (MM/YYYY) following priority logic
+function getTransactionMonthKey(tx) {
+    let yyyymm = "";
+    
+    const isPayPay = (tx.source && tx.source.toLowerCase().includes('paypay')) ||
+                     (tx.filename && tx.filename.toLowerCase().includes('paypay')) ||
+                     (tx.id && String(tx.id).toLowerCase().includes('paypay'));
 
-        if (isPayPay && tx.date) {
+    if (isPayPay && tx.date) {
+        yyyymm = formatToYYYYMM(tx.date);
+    } else {
+        if (tx.usageDate && /^\d{6}$/.test(tx.usageDate)) {
+            yyyymm = tx.usageDate;
+        } else if (tx.fullPaymentDate) {
+            yyyymm = formatToYYYYMM(tx.fullPaymentDate);
+        } else if (tx.date) {
             yyyymm = formatToYYYYMM(tx.date);
-        } else {
-            if (tx.usageDate && /^\d{6}$/.test(tx.usageDate)) {
-                yyyymm = tx.usageDate;
-            } else if (tx.fullPaymentDate) {
-                yyyymm = formatToYYYYMM(tx.fullPaymentDate);
-            } else if (tx.date) {
-                yyyymm = formatToYYYYMM(tx.date);
-            }
         }
-
-        if (!yyyymm) {
-            const now = new Date();
-            yyyymm = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-        }
-
-        if (yyyymm && yyyymm.length === 6) {
-            const yyyy = yyyymm.slice(0, 4);
-            const mm = yyyymm.slice(4, 6);
-            return {
-                key: `${mm}/${yyyy}`,
-                yyyymm: yyyymm,
-                label: `${yyyy}年 ${parseInt(mm, 10)}月`
-            };
-        }
-        return null;
     }
+
+    if (!yyyymm) {
+        const now = new Date();
+        yyyymm = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    if (yyyymm && yyyymm.length === 6) {
+        const yyyy = yyyymm.slice(0, 4);
+        const mm = yyyymm.slice(4, 6);
+        return {
+            key: `${mm}/${yyyy}`,
+            yyyymm: yyyymm,
+            label: `${yyyy}年 ${parseInt(mm, 10)}月`
+        };
+    }
+    return null;
+}
 
     async function processExpensePDF(file) {
         let extracted = [];
@@ -1642,7 +1644,7 @@
             });
             if (monthsToProcess.size === 0) {
                 const today = new Date();
-                monthsToProcess.add(`${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`);
+               monthsToProcess.add(`${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`);
             }
         }
 
