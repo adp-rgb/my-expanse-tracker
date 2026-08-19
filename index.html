@@ -764,42 +764,26 @@
         event.target.value = '';
     }
 
- function preparePayloadForSheet(item) {
-    let usageDateYYYYMM = "";
-    
-    const isInstantPayment = (item.source && item.source.toLowerCase().includes('paypay')) || 
-                             (!item.fullPaymentDate && item.date);
+    function preparePayloadForSheet(item) {
+        let usageDateYYYYMM = getCorrectUsageDate(item.source || item.filename || "", item);
 
-    if (isInstantPayment && item.date) {
-        usageDateYYYYMM = formatToYYYYMM(item.date);
-    } else if (item.fullPaymentDate) {
-        usageDateYYYYMM = formatToYYYYMM(item.fullPaymentDate);
-    } else if (item.usageDate && /^\d{6}$/.test(item.usageDate) && item.usageDate !== '202601') {
-        usageDateYYYYMM = item.usageDate;
-    } else if (item.date) {
-        usageDateYYYYMM = formatToYYYYMM(item.date);
-    } else {
-        const now = new Date();
-        usageDateYYYYMM = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+        let sourceVal = item.source || "";
+        if (sourceVal === "Manual" || sourceVal === "CSV Import" || sourceVal === "PDF Import") {
+            sourceVal = "";
+        }
+
+        return {
+            id: item.id || getTransactionHash(item),
+            date: item.date,                 
+            fullPaymentDate: item.fullPaymentDate || "", 
+            usageDate: usageDateYYYYMM,     
+            mainCategory: item.mainCategory,
+            subCategory: item.subCategory,
+            description: item.description,
+            amount: item.amount,
+            source: sourceVal
+        };
     }
-
-    let sourceVal = item.source || "";
-    if (sourceVal === "Manual" || sourceVal === "CSV Import" || sourceVal === "PDF Import") {
-        sourceVal = "";
-    }
-
-    return {
-        id: item.id || getTransactionHash(item),
-        date: item.date,                 
-        fullPaymentDate: item.fullPaymentDate || "", 
-        usageDate: usageDateYYYYMM,     // Automatically calculated YYYYMM
-        mainCategory: item.mainCategory,
-        subCategory: item.subCategory,
-        description: item.description,
-        amount: item.amount,
-        source: sourceVal
-    };
-}
 
     async function syncToSheets() {
         localStorage.setItem('household_expense_data', JSON.stringify(expenseData));
@@ -1089,7 +1073,7 @@
         return isNaN(num) ? 0 : Math.abs(num);
     }
 
-function sanitizeDate(rawDateStr) {
+    function sanitizeDate(rawDateStr) {
         if (!rawDateStr && rawDateStr !== 0) {
             let today = new Date();
             return `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
@@ -1102,7 +1086,6 @@ function sanitizeDate(rawDateStr) {
 
         let str = normalizeJapaneseText(String(rawDateStr)).trim();
 
-        // Strip time component if present (e.g., "2026/01/15 12:34:56" -> "2026/01/15")
         if (str.includes(' ')) {
             str = str.split(' ')[0];
         }
@@ -1124,7 +1107,7 @@ function sanitizeDate(rawDateStr) {
             return `${day}/${month}/${year}`;
         }
      
-     let jpMatch = str.match(/(?:20(\d{2})|(\d{2}))年\s*(\d{1,2})月\s*(\d{1,2})日/);
+        let jpMatch = str.match(/(?:20(\d{2})|(\d{2}))年\s*(\d{1,2})月\s*(\d{1,2})日/);
         if (jpMatch) {
             let year = jpMatch[1] ? `20${jpMatch[1]}` : `20${jpMatch[2]}`;
             let month = String(jpMatch[3]).padStart(2, '0');
@@ -1148,13 +1131,15 @@ function sanitizeDate(rawDateStr) {
             let day = aeonMatch[3];
             return `${day}/${month}/${year}`;
         }
-       let yyyymmddMatch = str.match(/^(20\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])$/);
+
+        let yyyymmddMatch = str.match(/^(20\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])$/);
         if (yyyymmddMatch) {
             let year = yyyymmddMatch[1];
             let month = yyyymmddMatch[2];
             let day = yyyymmddMatch[3];
             return `${day}/${month}/${year}`;
         }
+
         let delimMatch = str.match(/^(\d{1,4})[\/\.-](\d{1,2})[\/\.-](\d{2,4})$/);
         if (delimMatch) {
             let p1 = parseInt(delimMatch[1], 10);
@@ -1275,12 +1260,10 @@ function sanitizeDate(rawDateStr) {
                     let targetPaymentDate = null;
                     let headerIndex = -1;
 
-               // Expanded recognizable header keyword sets for Japanese statement formats
                     const dateHeaders = ['Date & Time', 'Date', '日付', '取引日時', '利用日', '利用年月日', 'ご利用日', '取引日', '処理日', '约定日'];
                     const descHeaders = ['Business Name', '加盟店名/支払い先', '内容', '利用店名・商品名', 'ご利用先', '加盟店名', '相手先', '摘要', '摘要内容', '適用', 'Description', '支払先', 'お店名'];
                     const amountHeaders = ['ご利用金額', '利用金額', 'お買上金額', 'Amount Outgoing (Yen)', '金額（出金）', 'Amount', '金額', '利用金額(円)', '金額（円）', '金額(円)', 'お支払い金額', '支払金額', '出金金額'];
 
-                    // Scan for statement-level payment date in file text
                     for (let i = 0; i < rows.length; i++) {
                         let rowStr = rows[i].join('');
                         let matchDate = rowStr.match(/お支払[い日]*\D*(\d{4})年月?\s*(\d{1,2})月?\s*(\d{1,2})日?/);
@@ -1290,7 +1273,6 @@ function sanitizeDate(rawDateStr) {
                         }
                     }
 
-                    // Find header row index
                     for (let i = 0; i < rows.length; i++) {
                         let cleanedRow = rows[i].map(cleanHeader);
                         if (cleanedRow.some(col => dateHeaders.includes(col))) {
@@ -1329,23 +1311,8 @@ function sanitizeDate(rawDateStr) {
                             let amount = parseNum(rawAmountOut);
                             let cleanDate = sanitizeDate(rawDate);
 
-let usageDate = "";
-                            if (isPayPayFile) {
-                                usageDate = cleanDate ? formatToYYYYMM(cleanDate) : "";
-                                if (!usageDate) {
-                                    const now = new Date();
-                                    usageDate = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-                                }
-                            } else {
-                                let rowPayVal = payDateColIdx !== -1 ? rowArr[payDateColIdx] : null;
-                                let rawPaymentDate = rowPayVal || targetPaymentDate || '';
-                                usageDate = formatToYYYYMM(rawPaymentDate);
-
-                                if (!usageDate || usageDate === '202601') {
-                                    const now = new Date();
-                                    usageDate = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-                                }
-                            }
+                            let rowPayVal = payDateColIdx !== -1 ? rowArr[payDateColIdx] : null;
+                            let usageDate = getCorrectUsageDate(fileName, { date: cleanDate, paymentDate: rowPayVal || targetPaymentDate });
 
                             if (cleanDate && amount > 0) {
                                 let cats = autoCategorize(description);
@@ -1358,12 +1325,11 @@ let usageDate = "";
                                     subCategory: cats.subCategory,
                                     description: description,
                                     amount: amount,
-                                    source: isPayPayFile ? "PayPay" : ""
+                                    source: fileName
                                 });
                             }
                         }
                     } else {
-                        // Intelligent column detection fallback when no formal header row is matched
                         for (let i = 0; i < rows.length; i++) {
                             let rowArr = rows[i];
                             let rowStr = rowArr.join('');
@@ -1382,8 +1348,7 @@ let usageDate = "";
                             rowArr.forEach((cell, cIdx) => {
                                 let cStr = String(cell).trim();
                                 if (dateIdx === -1 && (cStr.match(/^\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2}$/) || cStr.match(/^\d{6}$/) || cStr.match(/^\d{8}$/))) {
-                                dateIdx = cIdx;
-                                
+                                    dateIdx = cIdx;
                                 } else if (amountIdx === -1 && cStr.match(/^[\d,]+(\.\d+)?$/) && parseNum(cStr) > 0) {
                                     if (!cStr.match(/^20\d{2}$/)) {
                                         amountIdx = cIdx;
@@ -1413,22 +1378,7 @@ let usageDate = "";
                             let description = normalizeJapaneseText(rawDesc || 'Unknown Payment');
                             let amount = parseNum(rawAmount);
 
-                            let usageDate = "";
-                            if (isPayPayFile) {
-                                usageDate = cleanDate ? formatToYYYYMM(cleanDate) : "";
-                                if (!usageDate) {
-                                    const now = new Date();
-                                    usageDate = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-                                }
-                            } else {
-                                let rawPaymentDate = targetPaymentDate || filenameFallbackYYYYMM || '';
-                                usageDate = formatToYYYYMM(rawPaymentDate);
-
-                                if (!usageDate || usageDate === '202601') {
-                                    const now = new Date();
-                                    usageDate = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-                                }
-                            }
+                            let usageDate = getCorrectUsageDate(fileName, { date: cleanDate, paymentDate: targetPaymentDate });
 
                             if (cleanDate && amount > 0 && description) {
                                 let cats = autoCategorize(description);
@@ -1441,7 +1391,7 @@ let usageDate = "";
                                     subCategory: cats.subCategory,
                                     description: description,
                                     amount: amount,
-                                    source: isPayPayFile ? "PayPay" : ""
+                                    source: fileName
                                 });
                             }
                         }
@@ -1452,53 +1402,59 @@ let usageDate = "";
         });
     }
 
-    // Helper to extract YYYYMM from filenames like '202603.csv' or 'meisai202603.csv'
     function extractYYYYMMFromFilename(filename) {
-        if (!filename) return "";
-        const match = filename.match(/(\d{4})(\d{2})/);
-        return match ? `${match[1]}${match[2]}` : "";
+        return getCorrectUsageDate(filename, null);
     }
 
-    // Resolves the effective billing/usage month key (MM/YYYY) following priority logic
-function getTransactionMonthKey(tx) {
-    let yyyymm = "";
-    
-    // Identify if the transaction is an instant settlement (PayPay, cash, manual entry, or scanned receipt)
-    const isInstantPayment = (tx.source && (tx.source.toLowerCase().includes('paypay') || tx.source.toLowerCase().includes('manual'))) ||
-                             (tx.id && String(tx.id).toLowerCase().includes('paypay')) ||
-                             (!tx.fullPaymentDate && tx.date);
+    function getTransactionMonthKey(tx) {
+        let yyyymm = getCorrectUsageDate(tx.source || tx.filename || "", tx);
 
-    if (isInstantPayment && tx.date) {
-        // Instant payments map strictly to their transaction date
-        yyyymm = formatToYYYYMM(tx.date);
-    } else {
-        // Credit cards and deferred statements prioritize billing/withdrawal date
-        if (tx.usageDate && /^\d{6}$/.test(tx.usageDate) && tx.usageDate !== '202601') {
-            yyyymm = tx.usageDate;
-        } else if (tx.fullPaymentDate) {
-            yyyymm = formatToYYYYMM(tx.fullPaymentDate);
-        } else if (tx.date) {
-            yyyymm = formatToYYYYMM(tx.date);
+        if (yyyymm && yyyymm.length === 6) {
+            const yyyy = yyyymm.slice(0, 4);
+            const mm = yyyymm.slice(4, 6);
+            return {
+                key: `${mm}/${yyyy}`,
+                yyyymm: yyyymm,
+                label: `${yyyy}年 ${parseInt(mm, 10)}月`
+            };
         }
+        return null;
     }
 
-    // Dynamic current date fallback instead of hardcoded past defaults
-    if (!yyyymm || yyyymm === '202601') {
+    // --- INTEGRATED getCorrectUsageDate FUNCTION[cite: 8] ---
+    function getCorrectUsageDate(filename, transaction) {
+        const fname = (filename || "").toLowerCase();
+
+        // 1. PayPay Transactions: Map to transaction date formatted as YYYYMM[cite: 8]
+        if (fname.includes('paypay')) {
+            if (transaction && transaction.date) {
+                const cleanDate = transaction.date.replace(/[\/\-\.]/g, '');
+                if (cleanDate.length >= 6) {
+                    return cleanDate.slice(0, 6);
+                }
+            }
+        }
+
+        // 2. Ion Card Statements (meisai*.csv): Parse お支払い日 (Payment Date) from header[cite: 8]
+        if (fname.includes('meisai')) {
+            if (transaction && transaction.paymentDate) {
+                const match = transaction.paymentDate.match(/(\d{4})年\s*(\d{1,2})月/);
+                if (match) {
+                    return match[1] + match[2].padStart(2, '0');
+                }
+            }
+        }
+
+        // 3. Other Credit Card Statements (202607.csv, 20250702.csv): Extract YYYYMM from filename[cite: 8]
+        const fileMatch = filename.match(/(\d{4})(\d{2})/);
+        if (fileMatch) {
+            return fileMatch[1] + fileMatch[2];
+        }
+
+        // 4. Fallback to current date if nothing matches[cite: 8]
         const now = new Date();
-        yyyymm = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+        return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
     }
-
-    if (yyyymm && yyyymm.length === 6) {
-        const yyyy = yyyymm.slice(0, 4);
-        const mm = yyyymm.slice(4, 6);
-        return {
-            key: `${mm}/${yyyy}`,
-            yyyymm: yyyymm,
-            label: `${yyyy}年 ${parseInt(mm, 10)}月`
-        };
-    }
-    return null;
-}
 
     async function processExpensePDF(file) {
         let extracted = [];
@@ -1551,6 +1507,7 @@ function getTransactionMonthKey(tx) {
                 }
 
                 let cleanDate = sanitizeDate(rawDate);
+                let usageDate = getCorrectUsageDate(file.name, { date: cleanDate, paymentDate: targetPaymentDate });
 
                 if (cleanDate && amount > 0 && description) {
                     let cats = autoCategorize(description);
@@ -1558,12 +1515,12 @@ function getTransactionMonthKey(tx) {
                         id: (Date.now() + Math.random()).toString(),
                         date: targetPaymentDate ? targetPaymentDate : cleanDate,
                         originalDate: cleanDate,
-                        usageDate: targetPaymentDate ? formatToYYYYMM(targetPaymentDate) : formatToYYYYMM(cleanDate),
+                        usageDate: usageDate,
                         mainCategory: getMainCategory(cats.subCategory, cats.mainCategory),
                         subCategory: cats.subCategory,
                         description: description,
                         amount: amount,
-                        source: ""
+                        source: file.name
                     });
                 }
             }
@@ -1657,7 +1614,7 @@ function getTransactionMonthKey(tx) {
             });
             if (monthsToProcess.size === 0) {
                 const today = new Date();
-               monthsToProcess.add(`${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`);
+                monthsToProcess.add(`${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`);
             }
         }
 
