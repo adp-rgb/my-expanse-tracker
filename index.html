@@ -764,18 +764,20 @@
         event.target.value = '';
     }
 
-  function preparePayloadForSheet(item) {
+ function preparePayloadForSheet(item) {
     let usageDateYYYYMM = "";
     
-    // 1. If item has a valid transaction date, automatically derive YYYYMM from it
-    if (item.date) {
+    const isInstantPayment = (item.source && item.source.toLowerCase().includes('paypay')) || 
+                             (!item.fullPaymentDate && item.date);
+
+    if (isInstantPayment && item.date) {
         usageDateYYYYMM = formatToYYYYMM(item.date);
-    } 
-    // 2. Fallbacks if needed
-    else if (item.fullPaymentDate) {
+    } else if (item.fullPaymentDate) {
         usageDateYYYYMM = formatToYYYYMM(item.fullPaymentDate);
     } else if (item.usageDate && /^\d{6}$/.test(item.usageDate) && item.usageDate !== '202601') {
         usageDateYYYYMM = item.usageDate;
+    } else if (item.date) {
+        usageDateYYYYMM = formatToYYYYMM(item.date);
     } else {
         const now = new Date();
         usageDateYYYYMM = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -790,7 +792,7 @@
         id: item.id || getTransactionHash(item),
         date: item.date,                 
         fullPaymentDate: item.fullPaymentDate || "", 
-        usageDate: usageDateYYYYMM,     // <--- Automatically calculated YYYYMM
+        usageDate: usageDateYYYYMM,     // Automatically calculated YYYYMM
         mainCategory: item.mainCategory,
         subCategory: item.subCategory,
         description: item.description,
@@ -1461,14 +1463,17 @@ let usageDate = "";
 function getTransactionMonthKey(tx) {
     let yyyymm = "";
     
-    const isPayPay = (tx.source && tx.source.toLowerCase().includes('paypay')) ||
-                     (tx.filename && tx.filename.toLowerCase().includes('paypay')) ||
-                     (tx.id && String(tx.id).toLowerCase().includes('paypay'));
+    // Identify if the transaction is an instant settlement (PayPay, cash, manual entry, or scanned receipt)
+    const isInstantPayment = (tx.source && (tx.source.toLowerCase().includes('paypay') || tx.source.toLowerCase().includes('manual'))) ||
+                             (tx.id && String(tx.id).toLowerCase().includes('paypay')) ||
+                             (!tx.fullPaymentDate && tx.date);
 
-    if (isPayPay && tx.date) {
+    if (isInstantPayment && tx.date) {
+        // Instant payments map strictly to their transaction date
         yyyymm = formatToYYYYMM(tx.date);
     } else {
-        if (tx.usageDate && /^\d{6}$/.test(tx.usageDate)) {
+        // Credit cards and deferred statements prioritize billing/withdrawal date
+        if (tx.usageDate && /^\d{6}$/.test(tx.usageDate) && tx.usageDate !== '202601') {
             yyyymm = tx.usageDate;
         } else if (tx.fullPaymentDate) {
             yyyymm = formatToYYYYMM(tx.fullPaymentDate);
@@ -1477,7 +1482,8 @@ function getTransactionMonthKey(tx) {
         }
     }
 
-    if (!yyyymm) {
+    // Dynamic current date fallback instead of hardcoded past defaults
+    if (!yyyymm || yyyymm === '202601') {
         const now = new Date();
         yyyymm = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
     }
