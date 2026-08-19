@@ -1425,12 +1425,24 @@
     function getCorrectUsageDate(filename, transaction) {
         const fname = (filename || "").toLowerCase();
 
-        // 1. PayPay Transactions: Map to transaction date formatted as YYYYMM[cite: 8]
+     // 1. PayPay Transactions: Correctly map to YYYYMM format[cite: 8]
         if (fname.includes('paypay')) {
             if (transaction && transaction.date) {
+                const parts = transaction.date.split(/[\/\-\.]/);
+                if (parts.length === 3) {
+                    // If date is in DD/MM/YYYY format (parts[2] is year)
+                    if (parts[2].length === 4) {
+                        return parts[2] + parts[1].padStart(2, '0');
+                    }
+                    // If date is in YYYY/MM/DD format (parts[0] is year)
+                    if (parts[0].length === 4) {
+                        return parts[0] + parts[1].padStart(2, '0');
+                    }
+                }
+                // Fallback for compact YYYYMMDD string
                 const cleanDate = transaction.date.replace(/[\/\-\.]/g, '');
-                if (cleanDate.length >= 6) {
-                    return cleanDate.slice(0, 6);
+                if (cleanDate.length === 8) {
+                    return cleanDate.slice(0, 4) + cleanDate.slice(4, 6);
                 }
             }
         }
