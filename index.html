@@ -1121,8 +1121,8 @@ function sanitizeDate(rawDateStr) {
             let day = String(waMatch[3]).padStart(2, '0');
             return `${day}/${month}/${year}`;
         }
-
-        let jpMatch = str.match(/(?:20(\d{2})|(\d{2}))年\s*(\d{1,2})月\s*(\d{1,2})日/);
+     
+     let jpMatch = str.match(/(?:20(\d{2})|(\d{2}))年\s*(\d{1,2})月\s*(\d{1,2})日/);
         if (jpMatch) {
             let year = jpMatch[1] ? `20${jpMatch[1]}` : `20${jpMatch[2]}`;
             let month = String(jpMatch[3]).padStart(2, '0');
@@ -1146,7 +1146,13 @@ function sanitizeDate(rawDateStr) {
             let day = aeonMatch[3];
             return `${day}/${month}/${year}`;
         }
-
+       let yyyymmddMatch = str.match(/^(20\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])$/);
+        if (yyyymmddMatch) {
+            let year = yyyymmddMatch[1];
+            let month = yyyymmddMatch[2];
+            let day = yyyymmddMatch[3];
+            return `${day}/${month}/${year}`;
+        }
         let delimMatch = str.match(/^(\d{1,4})[\/\.-](\d{1,2})[\/\.-](\d{2,4})$/);
         if (delimMatch) {
             let p1 = parseInt(delimMatch[1], 10);
@@ -1373,8 +1379,9 @@ let usageDate = "";
 
                             rowArr.forEach((cell, cIdx) => {
                                 let cStr = String(cell).trim();
-                                if (dateIdx === -1 && (cStr.match(/^\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2}$/) || cStr.match(/^\d{6}$/))) {
-                                    dateIdx = cIdx;
+                                if (dateIdx === -1 && (cStr.match(/^\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2}$/) || cStr.match(/^\d{6}$/) || cStr.match(/^\d{8}$/))) {
+                                dateIdx = cIdx;
+                                
                                 } else if (amountIdx === -1 && cStr.match(/^[\d,]+(\.\d+)?$/) && parseNum(cStr) > 0) {
                                     if (!cStr.match(/^20\d{2}$/)) {
                                         amountIdx = cIdx;
