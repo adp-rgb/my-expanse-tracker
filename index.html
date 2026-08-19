@@ -1462,20 +1462,17 @@ function getTransactionMonthKey(tx) {
             yyyymm = formatToYYYYMM(tx.date);
         } else {
             if (tx.usageDate && /^\d{6}$/.test(tx.usageDate)) {
-                yyyymm = tx.usageDate;
-            } else if (tx.fullPaymentDate) {
-                yyyymm = formatToYYYYMM(tx.fullPaymentDate);
-            } else if (tx.date) {
-                yyyymm = formatToYYYYMM(tx.date);
-            }
+            yyyymm = tx.usageDate;
+        } else if (tx.fullPaymentDate) {
+            yyyymm = formatToYYYYMM(tx.fullPaymentDate);
+        } else if (tx.date) {
+            yyyymm = formatToYYYYMM(tx.date);
         }
-
         if (!yyyymm) {
             const now = new Date();
             yyyymm = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
         }
-
-        if (yyyymm && yyyymm.length === 6) {
+         if (yyyymm && yyyymm.length === 6) {
             const yyyy = yyyymm.slice(0, 4);
             const mm = yyyymm.slice(4, 6);
             return {
@@ -1644,7 +1641,7 @@ function getTransactionMonthKey(tx) {
             });
             if (monthsToProcess.size === 0) {
                 const today = new Date();
-                monthsToProcess.add(`${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`);
+               monthsToProcess.add(`${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`);
             }
         }
 
