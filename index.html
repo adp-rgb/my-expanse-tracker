@@ -1452,37 +1452,40 @@ let usageDate = "";
 
     // Resolves the effective billing/usage month key (MM/YYYY) following priority logic
 function getTransactionMonthKey(tx) {
-        let yyyymm = "";
-        
-        const isPayPay = (tx.source && tx.source.toLowerCase().includes('paypay')) ||
-                         (tx.filename && tx.filename.toLowerCase().includes('paypay')) ||
-                         (tx.id && String(tx.id).toLowerCase().includes('paypay'));
+    let yyyymm = "";
+    
+    const isPayPay = (tx.source && tx.source.toLowerCase().includes('paypay')) ||
+                     (tx.filename && tx.filename.toLowerCase().includes('paypay')) ||
+                     (tx.id && String(tx.id).toLowerCase().includes('paypay'));
 
-        if (isPayPay && tx.date) {
-            yyyymm = formatToYYYYMM(tx.date);
-        } else {
-            if (tx.usageDate && /^\d{6}$/.test(tx.usageDate)) {
+    if (isPayPay && tx.date) {
+        yyyymm = formatToYYYYMM(tx.date);
+    } else {
+        if (tx.usageDate && /^\d{6}$/.test(tx.usageDate)) {
             yyyymm = tx.usageDate;
         } else if (tx.fullPaymentDate) {
             yyyymm = formatToYYYYMM(tx.fullPaymentDate);
         } else if (tx.date) {
             yyyymm = formatToYYYYMM(tx.date);
         }
-        if (!yyyymm) {
-            const now = new Date();
-            yyyymm = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-        }
-         if (yyyymm && yyyymm.length === 6) {
-            const yyyy = yyyymm.slice(0, 4);
-            const mm = yyyymm.slice(4, 6);
-            return {
-                key: `${mm}/${yyyy}`,
-                yyyymm: yyyymm,
-                label: `${yyyy}年 ${parseInt(mm, 10)}月`
-            };
-        }
-        return null;
     }
+
+    if (!yyyymm) {
+        const now = new Date();
+        yyyymm = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    if (yyyymm && yyyymm.length === 6) {
+        const yyyy = yyyymm.slice(0, 4);
+        const mm = yyyymm.slice(4, 6);
+        return {
+            key: `${mm}/${yyyy}`,
+            yyyymm: yyyymm,
+            label: `${yyyy}年 ${parseInt(mm, 10)}月`
+        };
+    }
+    return null;
+}
 
     async function processExpensePDF(file) {
         let extracted = [];
