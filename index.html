@@ -1303,13 +1303,22 @@
                             if (rowStr.includes('お支払金額総合計') || rowStr.includes('分割・ボーナス払い明細') || rowStr.includes('合計')) break;
                             if (rowArr.length < 2) continue;
 
-                            let rawDate = dateColIdx !== -1 ? rowArr[dateColIdx] : (rowArr[0] || '');
-                            let description = descColIdx !== -1 ? rowArr[descColIdx] : (rowArr[1] || 'Unknown Payment');
-                            let rawAmountOut = amountColIdx !== -1 ? rowArr[amountColIdx] : (rowArr[5] || rowArr[2] || '0');
-                            
-                            description = normalizeJapaneseText(String(description).trim());
-                            let amount = parseNum(rawAmountOut);
-                            let cleanDate = sanitizeDate(rawDate);
+                           // Inside your row processing loop:
+let rawDate = (dateColIdx !== -1 && rowArr[dateColIdx]) ? rowArr[dateColIdx] : (rowArr[0] || '');
+let rawDesc = (descColIdx !== -1 && rowArr[descColIdx]) ? rowArr[descColIdx] : (rowArr[1] || '');
+let description = normalizeJapaneseText(String(rawDesc).trim());
+
+// Fallback if description is completely empty
+if (!description) description = 'Unknown Payment';
+
+// Exclusion check for revolving payments, loan repayments, or unassigned rows
+if (description === 'Unknown Payment' || description.includes('マイ・ペイすリボ最低支払額') || description.includes('弁済金')) {
+    continue;
+}
+
+let rawAmountOut = (amountColIdx !== -1 && rowArr[amountColIdx]) ? rowArr[amountColIdx] : (rowArr[5] || rowArr[2] || '0');
+let amount = parseNum(rawAmountOut);
+let cleanDate = sanitizeDate(rawDate);
 
                             let rowPayVal = payDateColIdx !== -1 ? rowArr[payDateColIdx] : null;
                             let usageDate = getCorrectUsageDate(fileName, { date: cleanDate, paymentDate: rowPayVal || targetPaymentDate });
@@ -1516,9 +1525,15 @@
                 let description = normalizeJapaneseText(rawDesc.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim());
                 let amount = parseNum(amountStr);
 
-                if (description.includes("お支払い合計額") || description.includes("お支払金額総合計") || description.includes("最低支払額")) {
-                    continue;
-                }
+if (
+    description.includes("お支払い合計額") || 
+    description.includes("お支払金額総合計") || 
+    description.includes("最低支払額") || 
+    description.includes("マイ・ペイすリボ最低支払額") || 
+    description.includes("弁済金")
+) {
+    continue;
+}
 
                 let cleanDate = sanitizeDate(rawDate);
                 let usageDate = getCorrectUsageDate(file.name, { date: cleanDate, paymentDate: targetPaymentDate });
