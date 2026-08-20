@@ -1089,7 +1089,7 @@
         return isNaN(num) ? 0 : Math.abs(num);
     }
 
-    function sanitizeDate(rawDateStr) {
+function sanitizeDate(rawDateStr) {
         if (!rawDateStr && rawDateStr !== 0) {
             let today = new Date();
             return `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
@@ -1101,6 +1101,11 @@
         }
 
         let str = normalizeJapaneseText(String(rawDateStr)).trim();
+
+        // Strip ISO time separator (e.g., "2025-10-26T00:00:00.000Z" -> "2025-10-26")
+        if (str.includes('T')) {
+            str = str.split('T')[0];
+        }
 
         if (str.includes(' ')) {
             str = str.split(' ')[0];
