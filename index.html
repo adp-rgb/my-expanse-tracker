@@ -406,6 +406,22 @@
         { description: "Diving", amount: 14800, mainCategory: "Education & Sports", subCategory: "Swimming & Sports Club" }
     ];
 
+    // ==========================================
+    // Universal Exclusion Helper Function
+    // ==========================================
+    function shouldExcludeTransaction(description) {
+        const desc = (description || '').trim();
+        return (
+            desc === 'Unknown Payment' ||
+            desc === '' ||
+            desc.includes('マイ・ペイすリボ') ||
+            desc.includes('弁済金') ||
+            desc.includes('お支払い合計額') ||
+            desc.includes('お支払金額総合計') ||
+            desc.includes('最低支払額')
+        );
+    }
+
     async function handleReceiptPhotos(event) {
         const files = Array.from(event.target.files);
         const status = document.getElementById('receipt-scan-status');
@@ -664,6 +680,11 @@
                 const rawDate = cols[0]; 
                 const usageDate = `20${rawDate.slice(0,2)}-${rawDate.slice(2,4)}-${rawDate.slice(4,6)}`;
                 const description = cols[2];
+                
+                if (shouldExcludeTransaction(description)) {
+                    return;
+                }
+
                 const amount = parseFloat(cols[6]) || 0;
 
                 parsed.push({
@@ -690,6 +711,11 @@
             if (cols.length >= 3 && cols[0].match(/^\d{4}\/\d{2}\/\d{2}$/)) {
                 const usageDate = cols[0].replace(/\//g, '-');
                 const description = cols[1];
+                
+                if (shouldExcludeTransaction(description)) {
+                    return;
+                }
+
                 const amount = parseFloat(cols[2]) || 0;
 
                 const d = new Date(usageDate);
@@ -1303,22 +1329,19 @@
                             if (rowStr.includes('お支払金額総合計') || rowStr.includes('分割・ボーナス払い明細') || rowStr.includes('合計')) break;
                             if (rowArr.length < 2) continue;
 
-                           // Inside your row processing loop:
-let rawDate = (dateColIdx !== -1 && rowArr[dateColIdx]) ? rowArr[dateColIdx] : (rowArr[0] || '');
-let rawDesc = (descColIdx !== -1 && rowArr[descColIdx]) ? rowArr[descColIdx] : (rowArr[1] || '');
-let description = normalizeJapaneseText(String(rawDesc).trim());
+                            let rawDate = (dateColIdx !== -1 && rowArr[dateColIdx]) ? rowArr[dateColIdx] : (rowArr[0] || '');
+                            let rawDesc = (descColIdx !== -1 && rowArr[descColIdx]) ? rowArr[descColIdx] : (rowArr[1] || '');
+                            let description = normalizeJapaneseText(String(rawDesc).trim());
+                            if (!description) description = 'Unknown Payment';
 
-// Fallback if description is completely empty
-if (!description) description = 'Unknown Payment';
+                            // Universal exclusion helper invocation for header matched rows
+                            if (shouldExcludeTransaction(description)) {
+                                continue;
+                            }
 
-// Exclusion check for revolving payments, loan repayments, or unassigned rows
-if (description === 'Unknown Payment' || description.includes('マイ・ペイすリボ最低支払額') || description.includes('弁済金')) {
-    continue;
-}
-
-let rawAmountOut = (amountColIdx !== -1 && rowArr[amountColIdx]) ? rowArr[amountColIdx] : (rowArr[5] || rowArr[2] || '0');
-let amount = parseNum(rawAmountOut);
-let cleanDate = sanitizeDate(rawDate);
+                            let rawAmountOut = (amountColIdx !== -1 && rowArr[amountColIdx]) ? rowArr[amountColIdx] : (rowArr[5] || rowArr[2] || '0');
+                            let amount = parseNum(rawAmountOut);
+                            let cleanDate = sanitizeDate(rawDate);
 
                             let rowPayVal = payDateColIdx !== -1 ? rowArr[payDateColIdx] : null;
                             let usageDate = getCorrectUsageDate(fileName, { date: cleanDate, paymentDate: rowPayVal || targetPaymentDate });
@@ -1385,6 +1408,13 @@ let cleanDate = sanitizeDate(rawDate);
 
                             let cleanDate = sanitizeDate(rawDate);
                             let description = normalizeJapaneseText(rawDesc || 'Unknown Payment');
+                            if (!description) description = 'Unknown Payment';
+
+                            // Universal exclusion helper invocation for fallback loop rows
+                            if (shouldExcludeTransaction(description)) {
+                                continue;
+                            }
+
                             let amount = parseNum(rawAmount);
 
                             let usageDate = getCorrectUsageDate(fileName, { date: cleanDate, paymentDate: targetPaymentDate });
@@ -1430,16 +1460,14 @@ let cleanDate = sanitizeDate(rawDate);
         return null;
     }
 
-    // --- ENHANCED getCorrectUsageDate FUNCTION[cite: 8] ---
+    // --- ENHANCED getCorrectUsageDate FUNCTION ---
     function getCorrectUsageDate(filename, transaction) {
-        // Prioritize explicit usageDate if present on transaction (e.g. fixed expenses or pre-parsed items)
         if (transaction && transaction.usageDate && String(transaction.usageDate).length === 6) {
             return String(transaction.usageDate);
         }
 
         const fname = (filename || "").toLowerCase();
 
-        // 1. PayPay Transactions: Correctly map to YYYYMM format[cite: 8]
         if (fname.includes('paypay')) {
             if (transaction && transaction.date) {
                 const parts = transaction.date.split(/[\/\-\.]/);
@@ -1458,7 +1486,6 @@ let cleanDate = sanitizeDate(rawDate);
             }
         }
 
-        // 2. Ion Card Statements (meisai*.csv): Parse お支払い日 (Payment Date) from header[cite: 8]
         if (fname.includes('meisai')) {
             if (transaction && transaction.paymentDate) {
                 const match = transaction.paymentDate.match(/(\d{4})年\s*(\d{1,2})月/);
@@ -1468,13 +1495,11 @@ let cleanDate = sanitizeDate(rawDate);
             }
         }
 
-        // 3. Other Credit Card Statements (202607.csv, 20250702.csv): Extract YYYYMM from filename[cite: 8]
         const fileMatch = filename.match(/(\d{4})(\d{2})/);
         if (fileMatch) {
             return fileMatch[1] + fileMatch[2];
         }
 
-        // 4. Fallback to current date if nothing matches[cite: 8]
         const now = new Date();
         return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
     }
@@ -1523,18 +1548,14 @@ let cleanDate = sanitizeDate(rawDate);
                 let amountStr = match[3];
 
                 let description = normalizeJapaneseText(rawDesc.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim());
+                if (!description) description = 'Unknown Payment';
+
+                // Universal exclusion helper invocation for PDF parser rows
+                if (shouldExcludeTransaction(description)) {
+                    continue;
+                }
+
                 let amount = parseNum(amountStr);
-
-if (
-    description.includes("お支払い合計額") || 
-    description.includes("お支払金額総合計") || 
-    description.includes("最低支払額") || 
-    description.includes("マイ・ペイすリボ最低支払額") || 
-    description.includes("弁済金")
-) {
-    continue;
-}
-
                 let cleanDate = sanitizeDate(rawDate);
                 let usageDate = getCorrectUsageDate(file.name, { date: cleanDate, paymentDate: targetPaymentDate });
 
@@ -1597,7 +1618,6 @@ if (
             }
         });
 
-        // Ensure current month is always available in filter dropdown
         const now = new Date();
         const curY = now.getFullYear();
         const curM = String(now.getMonth() + 1).padStart(2, '0');
