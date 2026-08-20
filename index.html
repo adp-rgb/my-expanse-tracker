@@ -405,6 +405,22 @@
         { description: "School Expenses", amount: 120000, mainCategory: "Education & Sports", subCategory: "Tuition & School" },
         { description: "Diving", amount: 14800, mainCategory: "Education & Sports", subCategory: "Swimming & Sports Club" }
     ];
+        // ==========================================
+    // Universal Exclusion Helper Function
+    // ==========================================
+    function shouldExcludeTransaction(description) {
+        const desc = (description || '').trim();
+        return (
+            desc === 'Unknown Payment' ||
+            desc === '' ||
+            desc.includes('マイ・ペイすリボ') ||
+            desc.includes('弁済金') ||
+            desc.includes('お支払い合計額') ||
+            desc.includes('お支払金額総合計') ||
+            desc.includes('最低支払額')
+        );
+    }
+    
 
     async function handleReceiptPhotos(event) {
         const files = Array.from(event.target.files);
@@ -1305,9 +1321,16 @@
 
                             let rawDate = dateColIdx !== -1 ? rowArr[dateColIdx] : (rowArr[0] || '');
                             let description = descColIdx !== -1 ? rowArr[descColIdx] : (rowArr[1] || 'Unknown Payment');
-                            let rawAmountOut = amountColIdx !== -1 ? rowArr[amountColIdx] : (rowArr[5] || rowArr[2] || '0');
+                           
                             
                             description = normalizeJapaneseText(String(description).trim());
+                            if (!description) description = 'Unknown Payment';
+
+                            // Universal exclusion helper invocation for header matched rows
+                            if (shouldExcludeTransaction(description)) {
+                                continue;
+                            }
+                             let rawAmountOut = amountColIdx !== -1 ? rowArr[amountColIdx] : (rowArr[5] || rowArr[2] || '0');
                             let amount = parseNum(rawAmountOut);
                             let cleanDate = sanitizeDate(rawDate);
 
@@ -1376,6 +1399,13 @@
 
                             let cleanDate = sanitizeDate(rawDate);
                             let description = normalizeJapaneseText(rawDesc || 'Unknown Payment');
+                            if (!description) description = 'Unknown Payment';
+
+                            // Universal exclusion helper invocation for fallback loop rows
+                            if (shouldExcludeTransaction(description)) {
+                                continue;
+                            }
+
                             let amount = parseNum(rawAmount);
 
                             let usageDate = getCorrectUsageDate(fileName, { date: cleanDate, paymentDate: targetPaymentDate });
